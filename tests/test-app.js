@@ -95,6 +95,16 @@ click(win, d.querySelector('#ptable .cell[data-z="60"]'));
 ok(/Periodo 6/.test(d.getElementById("detail").textContent) && /Lantanoidi/.test(d.getElementById("detail").textContent),
   "f-block: periodo mostrato", d.querySelector("#detail .kv").textContent.replace(/\s+/g, " "));
 
+/* badge "biorilevante" nel pannello dettagli: presente solo per gli elementi dell'elenco */
+const bioBadge = () => d.querySelector("#detail .bio-badge");
+click(win, d.querySelector('#ptable .cell[data-z="26"]'));
+ok(!!bioBadge() && /biorilevante/.test(bioBadge().textContent),
+  "badge biorilevante per Ferro", bioBadge() ? bioBadge().textContent : "assente");
+click(win, d.querySelector('#ptable .cell[data-z="2"]'));
+ok(!bioBadge(), "nessun badge per Elio (non biorilevante)", bioBadge() ? bioBadge().textContent : "ok");
+click(win, d.querySelector('#ptable .cell[data-z="60"]'));
+ok(!bioBadge(), "nessun badge per un lantanotide", bioBadge() ? bioBadge().textContent : "ok");
+
 const search = q => { type(win, d.getElementById("searchEl"), q); d.getElementById("searchEl").dispatchEvent(new win.Event("input", { bubbles: true })); };
 const matchedSyms = () => [...d.querySelectorAll("#ptable .cell.match")].map(c => c.querySelector(".s").textContent);
 search("fe");
@@ -128,6 +138,62 @@ ok([...d.querySelectorAll("#ptable .cell.match")].map(c => c.querySelector(".s")
   "dopo il placeholder la sottolineatura della ricerca è preservata",
   [...d.querySelectorAll("#ptable .cell.match")].map(c => c.querySelector(".s").textContent).join(","));
 click(win, d.getElementById("clearFilter"));
+
+/* ================= EVIDENZIAZIONE BIORILEVANTI ================= */
+section("Evidenziazione biorilevanti");
+const bioBtn = d.getElementById("bioToggle");
+ok(!!bioBtn, "chip biorilevanti presente nella toolbar");
+ok(bioBtn.tagName === "BUTTON" && bioBtn.type === "button", "chip come <button>: raggiungibile da tastiera",
+  bioBtn.tagName + "/" + bioBtn.type);
+ok(bioBtn.getAttribute("aria-pressed") === "false", "aria-pressed iniziale false", bioBtn.getAttribute("aria-pressed"));
+ok(/\(26\)/.test(bioBtn.textContent), "conteggio degli elementi nel testo del chip", bioBtn.textContent);
+ok(!bioBtn.classList.contains("on"), "chip inizialmente spento", bioBtn.className);
+
+click(win, bioBtn);
+ok(ev(win, "bioOn") === true, "clic: evidenziazione attiva");
+ok(bioBtn.getAttribute("aria-pressed") === "true" && bioBtn.classList.contains("on"),
+  "stato del chip aggiornato (aria-pressed + classe on)",
+  bioBtn.className + " / " + bioBtn.getAttribute("aria-pressed"));
+const bioMatch = [...d.querySelectorAll("#ptable .cell.match")].map(c => +c.dataset.z);
+const bioDim = [...d.querySelectorAll("#ptable .cell.dim")].map(c => +c.dataset.z);
+ok(bioMatch.length === 26, "26 celle evidenziate", "match=" + bioMatch.length);
+ok(bioDim.length === 92, "92 celle oscurate", "dim=" + bioDim.length);
+ok(bioMatch.includes(6) && bioMatch.includes(26) && bioMatch.includes(53) && bioMatch.includes(30),
+  "C, Fe, I e Zn tra i biorilevanti", bioMatch.join(","));
+ok(!bioMatch.includes(2) && bioDim.includes(2), "He non biorilevante oscurato",
+  "match=" + bioMatch.includes(2) + " dim=" + bioDim.includes(2));
+ok(ev(win, "BIO_Z.size") === 26, "BIO_Z con 26 elementi", String(ev(win, "BIO_Z.size")));
+
+/* i filtri di categoria restano sopra: spenti gli alcalini, Na NON deve
+   restare evidenziato come biorilevante, deve restare oscurato */
+const chipAlkali = [...d.querySelectorAll("#legend .chip")].find(c => c.dataset.cat === "alcalini");
+click(win, chipAlkali);
+const naCell = d.querySelector('#ptable .cell[data-z="11"]');
+ok(!naCell.classList.contains("match") && naCell.classList.contains("dim"),
+  "Na (categoria spenta): oscurato, non evidenziato", naCell.className);
+ok(d.querySelector('#ptable .cell[data-z="6"]').classList.contains("match"),
+  "C (categoria attiva): resta evidenziato");
+click(win, chipAlkali);   // riaccende i metalli alcalini
+
+/* la ricerca continua a funzionare con il chip acceso */
+search("fer");
+ok(matchedSyms().join(",") === "Fe",
+  "ricerca + chip: solo Ferro (Fm non è biorilevante)", matchedSyms().join(","));
+
+click(win, bioBtn);
+ok(ev(win, "bioOn") === false, "secondo clic spegne l'evidenziazione");
+ok(matchedSyms().join(",") === "Fe,Fm", "chip spento: torna la sola ricerca", matchedSyms().join(","));
+
+click(win, bioBtn);   // riaccende il chip per provare "Mostra tutti"
+ok(ev(win, "bioOn") === true, "il chip si riaccende");
+click(win, d.getElementById("clearFilter"));
+ok(ev(win, "bioOn") === false, "'Mostra tutti' spegne il chip biorilevanti");
+ok(bioBtn.getAttribute("aria-pressed") === "false" && !bioBtn.classList.contains("on"),
+  "'Mostra tutti': stato del chip resettato", bioBtn.className + " / " + bioBtn.getAttribute("aria-pressed"));
+ok(d.querySelectorAll("#ptable .cell.match").length === 0 && d.querySelectorAll("#ptable .cell.dim").length === 0,
+  "'Mostra tutti': tavola completamente ripristinata",
+  "match=" + d.querySelectorAll("#ptable .cell.match").length +
+  " dim=" + d.querySelectorAll("#ptable .cell.dim").length);
 
 /* ================= FLASHCARD ================= */
 section("Flashcard");

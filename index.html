@@ -62,6 +62,8 @@ select:focus,input:focus{border-color:var(--accent)}
 .btn:hover{filter:brightness(1.1); transform:translateY(-1px)}
 .btn.ghost{background:var(--panel2); color:var(--txt); border:1px solid var(--line)}
 .btn.ghost:hover{border-color:var(--accent); color:var(--accent)}
+/* chip "Biorilevanti" acceso: stesso accento della ricerca, ben distinto dallo stato spento */
+.btn.ghost.on{background:rgba(90,200,250,.16); border-color:var(--accent); color:var(--accent)}
 .btn.good{background:var(--good); color:#04231a}
 .btn.bad{background:var(--bad); color:#2a0710}
 .btn.warn{background:var(--warn); color:#2b1d00}
@@ -136,6 +138,9 @@ button.chip{-webkit-appearance:none; appearance:none}
 .detail-sym span{font-size:13px; font-weight:700; opacity:.75}
 .detail-name{font-size:23px; font-weight:800; margin:0}
 .detail-cat{font-size:13px; color:var(--txt-dim)}
+.bio-badge{display:inline-block; background:rgba(61,220,151,.16); border:1px solid var(--good);
+  color:var(--good); border-radius:999px; padding:1px 9px; font-size:11.5px; font-weight:700;
+  margin-left:6px; letter-spacing:.2px}
 .kv{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:13.5px; margin-top:10px}
 .kv dt{color:var(--txt-dim)} .kv dd{margin:0; text-align:right; font-weight:600}
 .cfg{font-family:"Consolas",ui-monospace,monospace; font-size:13.5px; background:var(--panel2);
@@ -265,6 +270,7 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
       </div>
       <div class="row">
         <input type="search" id="searchEl" aria-label="Cerca un elemento per nome, simbolo o numero atomico" placeholder="Cerca nome, simbolo o numero…" style="min-width:230px">
+        <button class="btn ghost sm" id="bioToggle" type="button" aria-pressed="false">🧬 Biorilevanti</button>
         <button class="btn ghost sm" id="clearFilter">Mostra tutti</button>
       </div>
     </div>
@@ -584,6 +590,11 @@ const ELEMENTS = SYMBOLS.map((sym,i)=>{
     cfg, shells:shellsOf(cfg)};
 });
 const BY_Z = Object.fromEntries(ELEMENTS.map(e=>[e.z,e]));
+
+// elementi biorilevanti: bioelementi strutturali (H C N O P S), macroelementi
+// (Na Mg Cl K Ca Fe) e micro/oligoelementi (Zn Cu Mn Se I Co Mo F V Cr Ni B Si Sn)
+const BIO_SYMS = "H C N O P S Na Mg Cl K Ca Fe Zn Cu Mn Se I Co Mo F V Cr Ni B Si Sn".split(" ");
+const BIO_Z = new Set(BIO_SYMS.map(s=>SYMBOLS.indexOf(s)+1).filter(z=>z>0));
 // END DATA
 
 /* ========================= STATO ========================= */
@@ -677,6 +688,8 @@ function updateHead(){
 
 /* ========================= TAVOLA ========================= */
 const activeCats=new Set(CAT_DEF.map(c=>c.id));
+// evidenziazione "biorilevanti": come i filtri di categoria, non persistita
+let bioOn=false;
 function cellHTML(e){
   return `<span class="n">${e.z}</span><span class="s">${e.sym}</span><span class="nm">${e.name}</span>`+
          `<span class="mbar" style="width:${mastery(e.z)}%"></span>`;
@@ -752,10 +765,19 @@ function applyFilter(){
                    e.sym.toLowerCase()===q || e.sym.toLowerCase().startsWith(q) ||
                    (!symExact && e.name.toLowerCase().includes(q));
     const matchC = activeCats.has(e.cat);
-    const ok = matchQ && matchC;
+    // con il chip acceso i biorilevanti restano accesi, tutti gli altri si oscurano
+    const matchB = !bioOn || BIO_Z.has(e.z);
+    const ok = matchQ && matchC && matchB;
     c.classList.toggle("dim",!ok);
-    c.classList.toggle("match", !!q && ok);
+    c.classList.toggle("match", ok && (!!q || (bioOn && BIO_Z.has(e.z))));
   });
+}
+function setBio(on){
+  bioOn=!!on;
+  const b=document.getElementById("bioToggle");
+  b.classList.toggle("on",bioOn);
+  b.setAttribute("aria-pressed",String(bioOn));
+  applyFilter();
 }
 function renderLegend(){
   const host=document.getElementById("legend"); host.innerHTML="";
@@ -779,7 +801,8 @@ function renderDetail(z){
   host.innerHTML=`
     <div class="detail-hero">
       <div class="detail-sym cat-${e.cat}"><b>${e.sym}</b><span>${e.z}</span></div>
-      <div><p class="detail-name">${e.name}</p><div class="detail-cat">${CAT_LABEL[e.cat]}</div></div>
+      <div><p class="detail-name">${e.name}</p><div class="detail-cat">${CAT_LABEL[e.cat]}${
+        BIO_Z.has(e.z) ? `<span class="bio-badge">🧬 biorilevante</span>` : ""}</div></div>
     </div>
     <dl class="kv">
       <dt>Numero atomico</dt><dd>${e.z}</dd>
@@ -1346,11 +1369,14 @@ document.getElementById("resetAll").onclick=()=>{
 
 /* ========================= INIT ========================= */
 document.getElementById("searchEl").addEventListener("input",applyFilter);
+// il conteggio viene dai dati: non può divergere da BIO_SYMS
+document.getElementById("bioToggle").textContent=`🧬 Biorilevanti (${BIO_SYMS.length})`;
+document.getElementById("bioToggle").onclick=()=>setBio(!bioOn);
 document.getElementById("clearFilter").onclick=()=>{
   document.getElementById("searchEl").value="";
   activeCats.clear(); CAT_DEF.forEach(c=>activeCats.add(c.id));
   document.querySelectorAll("#legend .chip").forEach(c=>{c.classList.add("on");c.classList.remove("off");});
-  applyFilter();
+  setBio(false);   // "Mostra tutti" ripristina la tavola anche dal chip biorilevanti
 };
 document.getElementById("ptable").addEventListener("click",e=>{
   const c=e.target.closest(".cell"); if(!c) return;

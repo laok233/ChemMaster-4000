@@ -11,7 +11,7 @@ const data = code.slice(0, code.indexOf("// END DATA"));
 const sandbox = { console };
 vm.createContext(sandbox);
 vm.runInContext(
-  data + "\n;globalThis.__out={SYMBOLS,NAMES,MASSES,CAT_DEF,posOf,CFG_EXC,AUFBAU,baseConfig,shellsOf,catOf,ELEMENTS};",
+  data + "\n;globalThis.__out={SYMBOLS,NAMES,MASSES,CAT_DEF,posOf,CFG_EXC,AUFBAU,baseConfig,shellsOf,catOf,ELEMENTS,BIO_SYMS,BIO_Z};",
   sandbox
 );
 const o = sandbox.__out;
@@ -34,6 +34,24 @@ o.CAT_DEF.forEach(c => c.syms.split(" ").forEach(sym => {
 }));
 ok(Object.keys(seen).length === 118, "categorie: 118 elementi distinti (ottenuti " + Object.keys(seen).length + ")");
 o.ELEMENTS.forEach(e => ok(!!e.cat, "categoria mancante: " + e.sym));
+
+/* --- elementi biorilevanti: simboli reali, senza duplicati, insieme coerente --- */
+ok(Array.isArray(o.BIO_SYMS) && o.BIO_SYMS.length > 0, "BIO_SYMS definito");
+const bioUnknown = o.BIO_SYMS.filter(s => !o.SYMBOLS.includes(s));
+ok(bioUnknown.length === 0, "BIO_SYMS solo simboli reali" + (bioUnknown.length ? ": " + bioUnknown.join(",") : ""));
+ok(new Set(o.BIO_SYMS).size === o.BIO_SYMS.length, "BIO_SYMS senza duplicati");
+ok(o.BIO_SYMS.length === 26, "26 elementi biorilevanti (ottenuti " + o.BIO_SYMS.length + ")");
+// niente instanceof: il sandbox vm ha un altro realm, Set non è lo stesso costruttore
+ok(o.BIO_Z && typeof o.BIO_Z.size === "number" && o.BIO_Z.size === o.BIO_SYMS.length,
+  "BIO_Z con lo stesso numero di Z di BIO_SYMS (ottenuti " + (o.BIO_Z && o.BIO_Z.size) + ")");
+o.BIO_SYMS.forEach(s => ok(o.BIO_Z.has(o.SYMBOLS.indexOf(s) + 1), "BIO_Z privo di " + s));
+// i 6 bioelementi strutturali non possono mancare dall'elenco esteso
+["H", "C", "N", "O", "P", "S"].forEach(s => ok(o.BIO_Z.has(o.SYMBOLS.indexOf(s) + 1), "bioelemento strutturale mancante: " + s));
+// una cella biorilevante deve poter essere colorata: la categoria esiste e la regola CSS pure
+o.BIO_SYMS.forEach(s => {
+  ok(!!o.catOf[s], "categoria mancante per il biorilevante " + s);
+  ok(new RegExp("\\.cat-" + o.catOf[s] + "\\{").test(html), "regola CSS mancante per il biorilevante " + s);
+});
 
 /* --- le classi CSS delle categorie devono esistere davvero ---
    (cat-lantanoidi vs cat-lanthanoidi lasciava le celle dei lantanoidi senza colore) */
