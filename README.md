@@ -1,5 +1,8 @@
 # ⚗ Tavola Periodica — impara a memoria
 
+> [!Warning] 
+> This application is VIBE CODED, i have no idea how it works lol 
+
 Web app in un **unico file HTML**, senza installazione né build: fai doppio clic su `index.html` e funziona.
 
 ## Cosa contiene
