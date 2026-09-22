@@ -1,0 +1,63 @@
+# ⚗ Tavola Periodica — impara a memoria
+
+Web app in un **unico file HTML**, senza installazione né build: fai doppio clic su `index.html` e funziona.
+
+## Cosa contiene
+
+| Sezione | Cosa fai |
+|---|---|
+| **Tavola** | 118 elementi cliccabili: numero atomico, massa, gruppo/periodo, configurazione elettronica, gusci, categoria (il pannello dettagli si aggiorna anche quando il padroneggio cambia da altri esercizi). Ricerca testuale (se la query è un simbolo si evidenziano i simboli, altrimenti i nomi) e filtri per categoria, raggiungibili anche da tastiera. La barretta sotto ogni cella mostra quanto la padroneggi. |
+| **Flashcard** | Ripetizione spaziata (mazzetti di Leitner, scadenze 0/1/3/7/21 giorni). 6 direzioni di domanda (nome↔simbolo↔numero atomico), 13 ambiti, giudizio *Non sapevo / Sapevo / Facile*; la percentuale del riepilogo è calcolata sulle carte effettivamente svolte. Scorciatoie: `Spazio`/`Invio` girano la carta, `1` `2` `3` giudicano. |
+| **Quiz** | Risposta multipla con 4 opzioni, 6 tipi di domanda, punteggio e serie. Ogni errore viene salvato **subito** in “Ripassa gli errori” e una risposta giusta lo toglie; la percentuale del riepilogo è calcolata sulle risposte effettivamente date. Scorciatoie: `1`–`4` rispondono, `Invio` va avanti. |
+| **Scrivi la tavola** | **Tavola vuota**: clicchi una casella e scrivi il **simbolo** (il tooltip non svela la risposta; il nome completo riceve un richiamo senza penalità), con suggerimento e correzione immediata. **Sequenza**: scrivi i 118 simboli in ordine di numero atomico, con feedback e miglior posizione — anche qui il nome completo è ammesso come richiamo, senza penalità. |
+| **Progressi** | Padroneggio medio, % per categoria, mazzetti (etichette derivate da `BOX_DAYS`, quindi sempre allineate alle scadenze), storico quiz, azzeramento. |
+
+Tutti i progressi sono salvati in `localStorage` e ripristinati al riavvio.
+
+## Struttura del progetto
+
+```
+index.html
+├── <style>   tema scuro, layout a griglia CSS della tavola (18 colonne + colonna periodi)
+├── <body>    5 sezioni (una vista per modalità)
+└── <script>
+    ├── DATI          simboli, nomi italiani, masse, categorie, posizioni,
+    │                 configurazioni elettronica (con le eccezioni note: Cr, Cu, Mo, Au…)
+    ├── STATO         persistenza in localStorage (con sanitizzazione dello stato
+    │                 corrotto, anche ai membri annidati, scarto dei booleani,
+    │                 e clamp del padroneggio a 0..100) + "padroneggio" per elemento
+    ├── TAVOLA        griglia, ricerca, filtri, pannello dettagli
+    ├── FLASHCARD     coda, mazzetti di Leitner, scadenze
+    ├── QUIZ          generazione domande + distrattori
+    ├── SCRIVI        validazione casella e sequenza
+    └── PROGRESSI     statistiche
+tests/
+├── check-data.js   verifiche sui dati (nessuna dipendenza)
+└── test-app.js     test funzionali su interazioni reali (jsdom)
+```
+
+## Test
+
+```bash
+npm install          # (o: bun install) serve solo per i test, l'app non ha dipendenze
+npm test             # (o: bun run test)
+```
+
+- **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, posizioni senza collisioni,
+  ogni elemento categorizzato (con la regola CSS `.cat-<id>` corrispondente nel foglio di stile),
+  somma degli elettroni di configurazione = numero atomico per tutti gli 118,
+  gusci coerenti, eccezioni di configurazione reali, controlli incrociati noti (Ar>K, Co>Ni, Te>I…).
+- **`tests/test-app.js`** — 153 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera,
+  ricerca/filtri, legenda accessibile da tastiera, quiz e ripasso errori, scrittura della tavola, sequenza, salvataggio/ripristino,
+  stato corrotto in `localStorage` — inclusi padroneggio fuori scala clamped a 0..100 e valori booleani scartati —, membri `null` anche
+  annidati, chiavi fantasma nei mazzetti, azzeramento con quiz aperto (e messaggio + input ripuliti),
+  `wrongZ` con duplicati/non numerici/booleani, percentuale flashcard calcolata sulle carte svolte,
+  pannello dettagli che segue i cambi di padroneggio,
+  `Enter`/`Spazio` con il focus su un bottone non intercettati dai gestori globali).
+
+## Personalizzazione rapida
+
+- Colori delle categorie: variabili `--alkali`, `--transition`, … in `:root` (in `CAT_DEF` il campo `v` le collega alle categorie).
+- Durate dei mazzetti: `BOX_DAYS = [0, 1, 3, 7, 21]` (le etichette in *Progressi* si aggiornano da sole).
+- Punti per il padroneggio: `addMastery(z, ±n)` nei vari motori (quiz +8/−6, flashcard +12/+20/−15, tavola vuota +12/−3, sequenza +10/−3).
+- Soglia “padroneggiato”: `mastery(e.z) >= 70`.
