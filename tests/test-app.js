@@ -194,7 +194,7 @@ click(win, view(win, "quiz"));
 d.getElementById("quizLen").value = "10";
 click(win, d.getElementById("startQuiz"));
 ok(!d.getElementById("quizStage").classList.contains("hidden"), "quiz avviato");
-ok(d.querySelectorAll("#qOptions .opt").length === 4, "4 opzioni");
+ok(d.querySelectorAll("#qOptions .opt").length === 5, "4 opzioni + 'Non so'");
 
 const zQ1 = ev(win, "quiz.list[0].e.z");
 const rightVal = ev(win, "quiz.list[0].answer");
@@ -246,6 +246,35 @@ const histLen = ev(win, "state.quiz.history.length");
 ok(/^Nessuna risposta data/.test(d.getElementById("quizSummary").textContent), "quiz terminato subito: nessuna % falsa",
   d.getElementById("quizSummary").textContent);
 ok(histLen === 2, "quiz senza risposte non finisce nello storico", "voci=" + histLen);
+
+/* quinta opzione "Non so": conta come errore ed è salvata subito nel ripasso */
+click(win, d.getElementById("quizAgain"));
+click(win, d.getElementById("startQuiz"));
+const skipBtn = [...d.querySelectorAll("#qOptions .opt")].find(b => b.classList.contains("skip"));
+ok(!!skipBtn && skipBtn.textContent === "Non so", "bottone 'Non so' presente tra le opzioni",
+  skipBtn && skipBtn.textContent);
+const zQ3 = ev(win, "quiz.list[0].e.z");
+ev(win, "state.wrongZ=state.wrongZ.filter(z=>z!==" + zQ3 + ")");   // parte da zero per questo elemento
+ev(win, "state.mastery[" + zQ3 + "]=50");
+const wrongBefore3 = ev(win, "state.quiz.wrong");
+key(win, { key: "5" });
+ok(ev(win, "quiz.answered") === true, "tasto 5 risponde con 'Non so'");
+ok(ev(win, "quiz.score") === 0 && ev(win, "quiz.streak") === 0, "'Non so': nessun punto e serie azzerata",
+  "score=" + ev(win, "quiz.score") + " streak=" + ev(win, "quiz.streak"));
+ok(ev(win, "quiz.wrong.length") === 1, "'Non so' registrato come errore in sessione");
+ok(ev(win, "state.wrongZ").includes(zQ3), "'Non so' salvato subito nel ripasso errori",
+  JSON.stringify(ev(win, "state.wrongZ")));
+ok(ev(win, "state.quiz.wrong") === wrongBefore3 + 1, "contatore errori salvato incrementato",
+  wrongBefore3 + "->" + ev(win, "state.quiz.wrong"));
+ok(ev(win, "mastery(" + zQ3 + ")") === 44, "'Non so' applica -6 di padroneggio",
+  ev(win, "mastery(" + zQ3 + ")"));
+ok(/^Non sapevi: la risposta era/.test(d.getElementById("qFeedback").textContent), "feedback 'Non sapevi'",
+  d.getElementById("qFeedback").textContent);
+ok([...d.querySelectorAll("#qOptions .opt.correct")].length === 1, "svelata la risposta giusta");
+ok(d.querySelector("#qOptions .opt.skip").classList.contains("chosen"), "'Non so' marcato come scelto");
+ok([...d.querySelectorAll("#qOptions .opt")].every(b => b.disabled), "opzioni disabilitate dopo la risposta");
+click(win, d.getElementById("qEnd"));
+click(win, d.getElementById("quizAgain"));
 
 /* ================= SCRIVI: griglia ================= */
 section("Scrivi la tavola (griglia)");

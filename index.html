@@ -178,6 +178,11 @@ button.chip{-webkit-appearance:none; appearance:none}
 .opt.correct{background:rgba(61,220,151,.18); border-color:var(--good); color:var(--good)}
 .opt.wrong{background:rgba(255,107,129,.16); border-color:var(--bad); color:var(--bad); animation:shake .3s}
 .opt:disabled{cursor:default}
+/* "Non so": quinta opzione, a tutta larghezza e volutamente dimessa */
+.opt.skip{grid-column:1/-1; background:transparent; border-style:dashed; color:var(--txt-dim);
+  font-size:16px; font-weight:600; padding:12px}
+.opt.skip:hover:not(:disabled){border-color:var(--line); transform:none}
+.opt.skip.chosen{border-style:solid; border-color:var(--bad); background:rgba(255,107,129,.1); color:var(--bad)}
 .qbar{display:flex; gap:14px; align-items:center; justify-content:space-between; font-size:13.5px; color:var(--txt-dim); margin-bottom:14px}
 .score-line{display:flex; gap:16px; justify-content:center; margin-top:16px; font-size:14px; color:var(--txt-dim); flex-wrap:wrap}
 .score-line b{color:var(--txt)}
@@ -335,7 +340,7 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
   <section class="view" id="view-quiz">
     <div class="stage">
       <h2>Quiz a risposta multipla</h2>
-      <p class="sub">Quattro opzioni, una sola giusta. Le domande sbagliate tornano nella modalità “ripassa gli errori”.</p>
+      <p class="sub">Quattro opzioni, una sola giusta, più “Non so” (<kbd>5</kbd>) che conta come errore. Le domande sbagliate tornano nella modalità “ripassa gli errori”.</p>
 
       <div class="panel" id="quizSetup">
         <div class="checks" id="quizTypes" style="margin-bottom:14px"></div>
@@ -954,6 +959,8 @@ function refreshQuizScopes(){
 }
 
 let quiz={list:[],i:0,score:0,streak:0,best:0,wrong:[],answered:false};
+// valore sentinella della quinta opzione: non può collidere con simboli, nomi o numeri
+const NON_SO="__nons__";
 function makeQuestion(e,type,pool){
   const answer=fieldValue(e,type.to);
   const opts=new Set([answer]);
@@ -994,6 +1001,10 @@ function renderQuestion(){
     b.className="opt"; b.type="button"; b.textContent=v; b.dataset.v=v;
     host.appendChild(b);
   });
+  // quinta opzione: rinunciare in partenza è meglio che indovinare a caso
+  const skip=document.createElement("button");
+  skip.className="opt skip"; skip.type="button"; skip.textContent="Non so"; skip.dataset.v=NON_SO;
+  host.appendChild(skip);
   document.getElementById("qFeedback").textContent="";
   document.getElementById("qFeedback").className="feedback";
   document.getElementById("qNext").classList.add("hidden");
@@ -1003,10 +1014,12 @@ function answerQuiz(v){
   if(quiz.answered) return;
   quiz.answered=true;
   const q=quiz.list[quiz.i];
-  const ok = v===q.answer;
+  const skipped = v===NON_SO;              // "Non so": nessun tentativo di indovinare
+  const ok = !skipped && v===q.answer;
   document.querySelectorAll("#qOptions .opt").forEach(b=>{
     b.disabled=true;
     if(b.dataset.v===q.answer) b.classList.add("correct");
+    else if(skipped){ if(b.dataset.v===NON_SO) b.classList.add("chosen"); }
     else if(b.dataset.v===v) b.classList.add("wrong");
   });
   const fb=document.getElementById("qFeedback");
@@ -1021,7 +1034,8 @@ function answerQuiz(v){
     addMastery(q.e.z,-6);
     state.quiz.wrong++;
     if(!state.wrongZ.includes(q.e.z)) state.wrongZ.push(q.e.z);   // salvato subito, non a fine quiz
-    fb.textContent=`No: la risposta era ${q.answer}. ${q.e.name} (${q.e.sym})`; fb.className="feedback no";
+    fb.textContent=`${skipped?"Non sapevi":"No"}: la risposta era ${q.answer}. ${q.e.name} (${q.e.sym})`;
+    fb.className="feedback no";
   }
   save(); updateHead(); refreshCellMastery(q.e.z);
   document.getElementById("qScore").textContent=`Punti: ${quiz.score}`;
@@ -1073,7 +1087,7 @@ document.getElementById("quizAgain").onclick=()=>{
 document.addEventListener("keydown",e=>{
   if(!document.getElementById("view-quiz").classList.contains("active")) return;
   if(document.getElementById("quizStage").classList.contains("hidden")) return;
-  if(!quiz.answered && ["1","2","3","4"].includes(e.key)){
+  if(!quiz.answered && ["1","2","3","4","5"].includes(e.key)){
     const b=document.querySelectorAll("#qOptions .opt")[+e.key-1];
     if(b && !b.disabled) answerQuiz(b.dataset.v);
   }
