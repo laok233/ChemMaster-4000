@@ -119,6 +119,8 @@ button.chip{-webkit-appearance:none; appearance:none}
   cursor:pointer;
 }
 .ph:hover{border-color:var(--accent); color:var(--accent)}
+.ph.static{cursor:default}
+.ph.static:hover{border-color:var(--line); color:var(--txt-dim)}
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
 .cat-alcalini{--c:var(--alkali)} .cat-alcalino{--c:var(--alkaline)} .cat-transizione{--c:var(--transition)}
 .cat-post{--c:var(--post)} .cat-semimetallo{--c:var(--metalloid)} .cat-nonmetallo{--c:var(--nonmetal)}
@@ -611,17 +613,21 @@ function load(){
     // membri corrotti (null o di tipo sbagliato): ricreati con i valori di default
     ["mastery","leitner","due"].forEach(k=>{ if(!isObj(out[k])) out[k]={}; });
     if(!Array.isArray(out.wrongZ)) out.wrongZ=[];
-    // solo valori numerici, senza duplicati (stato corrotto o chiavi residue)
-    out.wrongZ=[...new Set(out.wrongZ.filter(isNum).map(v=>+v))];
+    // solo elementi reali, senza duplicati (stato corrotto o chiavi residue):
+    // un Z fantasma gonfierebbe il contatore "Ripassa gli errori (n)" e poi
+    // l'avvio del ripasso direbbe "Nessun elemento in questo ambito"
+    out.wrongZ=[...new Set(out.wrongZ.filter(isNum).map(v=>+v).filter(v=>BY_Z[v]))];
     // ...stessa sanitizzazione un livello più giù (membri annidati esplicitamente null o non numerici)
     if(!isObj(out.write.solved)) out.write.solved={};
     // caselle scritte: solo elementi reali e valori numerici ("boh"/true o chiavi
     // fantasma svelerebbero la risposta e gonfierebbero il contatore x/118)
     out.write.solved=Object.fromEntries(Object.entries(out.write.solved)
       .filter(([k,v])=>BY_Z[+k] && isNum(v)).map(([k])=>[k,1]));
-    if(!isNum(out.write.seqBest)) out.write.seqBest=0;
-    if(!isNum(out.quiz.correct)) out.quiz.correct=0;
-    if(!isNum(out.quiz.wrong)) out.quiz.wrong=0;
+    // isNum accetta le stringhe numeriche, ma qui vanno proprio convertite:
+    // correct+wrong nelle statistiche diventerebbe "5"+"3" = "53" domande
+    out.write.seqBest = isNum(out.write.seqBest) ? +out.write.seqBest : 0;
+    out.quiz.correct  = isNum(out.quiz.correct)  ? +out.quiz.correct  : 0;
+    out.quiz.wrong    = isNum(out.quiz.wrong)    ? +out.quiz.wrong    : 0;
     if(!Array.isArray(out.quiz.history)) out.quiz.history=[];
     out.quiz.history=out.quiz.history.filter(isObj).map(h=>Object.assign({
         d:0, score:0, total:0, wrong:[]
@@ -721,6 +727,16 @@ function buildGrid(host, opts){
         // così la sottolineatura di una query in corso non viene persa
         setTimeout(applyFilter,1600);
       };
+      host.appendChild(d);
+    });
+  }else{
+    // segnaposto anche nella tavola vuota: altrimenti restano due celle vuote
+    // nel gruppo 3 (periodi 6 e 7). Non interattivi: qui applyFilter gira solo
+    // su #ptable, l'evidenziazione resterebbe appiccicata
+    [[6,"57–71"],[7,"89–103"]].forEach(([y,label])=>{
+      const d=document.createElement("div");
+      d.className="ph static"; d.textContent=label;
+      d.style.gridColumn=4; d.style.gridRow=y+1;
       host.appendChild(d);
     });
   }
@@ -932,6 +948,9 @@ document.getElementById("cardGrade").addEventListener("click",e=>{
   const b=e.target.closest("button[data-g]"); if(b) gradeCard(+b.dataset.g);
 });
 document.addEventListener("keydown",e=>{
+  // scorciatoie solo senza tasti modificatori: Ctrl/Cmd+Spazio (o Ctrl/Cmd+1..3
+  // dove il browser non li riserva) non deve girare la carta o giudicarla
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
   if(!document.getElementById("view-cards").classList.contains("active")) return;
   if(document.getElementById("cardsStage").classList.contains("hidden")) return;
   // con il focus su un bottone o un campo (es. "Termina sessione", i giudizi)
@@ -1091,6 +1110,8 @@ document.getElementById("quizAgain").onclick=()=>{
   document.getElementById("quizSetup").classList.remove("hidden");
 };
 document.addEventListener("keydown",e=>{
+  // come nelle flashcard: Ctrl/Cmd+1..5 non deve rispondere al posto nostro
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
   if(!document.getElementById("view-quiz").classList.contains("active")) return;
   if(document.getElementById("quizStage").classList.contains("hidden")) return;
   if(!quiz.answered && ["1","2","3","4","5"].includes(e.key)){

@@ -161,6 +161,15 @@ ok(!/undefined|NaN/.test(d.getElementById("cardBox").textContent),
   "mazzo corrotto: etichetta carta senza undefined", d.getElementById("cardBox").textContent);
 ev(win, "state.leitner[cards.queue[0].z]=0; showCard()");
 
+/* scorciatoie con tasti modificatori ignorate: Ctrl/Cmd/Alt+Spazio o +1..3
+   (Ctrl+Spazio è il caso tipico) non devono girare né giudicare la carta */
+key(win, { code: "Space", key: " ", ctrlKey: true });
+ok(ev(win, "cards.flipped") === false, "Ctrl+Spazio non gira la carta", "flipped=" + ev(win, "cards.flipped"));
+key(win, { code: "Space", key: " ", metaKey: true });
+ok(ev(win, "cards.flipped") === false, "Cmd+Spazio non gira la carta", "flipped=" + ev(win, "cards.flipped"));
+key(win, { key: "1", code: "Digit1", ctrlKey: true });
+ok(ev(win, "cards.done") === 1, "Ctrl+1 non giudica la carta", "done=" + ev(win, "cards.done"));
+
 key(win, { code: "Space", key: " " });
 ok(!d.getElementById("cardBack").classList.contains("hidden"), "Spazio gira la carta");
 const z2 = ev(win, "cards.queue[0].z");
@@ -195,6 +204,12 @@ d.getElementById("quizLen").value = "10";
 click(win, d.getElementById("startQuiz"));
 ok(!d.getElementById("quizStage").classList.contains("hidden"), "quiz avviato");
 ok(d.querySelectorAll("#qOptions .opt").length === 5, "4 opzioni + 'Non so'");
+
+/* scorciatoie con modificatore: Ctrl/Cmd+1..5 non devono rispondere */
+key(win, { key: "1", code: "Digit1", ctrlKey: true });
+ok(ev(win, "quiz.answered") === false, "Ctrl+1 non risponde alla domanda", "answered=" + ev(win, "quiz.answered"));
+key(win, { key: "5", code: "Digit5", metaKey: true });
+ok(ev(win, "quiz.answered") === false, "Cmd+5 non risponde con 'Non so'", "answered=" + ev(win, "quiz.answered"));
 
 const zQ1 = ev(win, "quiz.list[0].e.z");
 const rightVal = ev(win, "quiz.list[0].answer");
@@ -279,6 +294,18 @@ click(win, d.getElementById("quizAgain"));
 /* ================= SCRIVI: griglia ================= */
 section("Scrivi la tavola (griglia)");
 click(win, view(win, "write"));
+
+/* i segnaposto 57-71 / 89-103 servono anche qui: senza resterebbero due buchi
+   nel gruppo 3 (periodi 6 e 7), ma non sono interattivi (applyFilter gira su #ptable) */
+const wph = [...d.querySelectorAll("#wtable .ph")];
+ok(wph.length === 2, "tavola vuota: 2 segnaposto, niente buchi nella griglia", String(wph.length));
+ok(wph.every(p => p.tagName === "DIV"), "segnaposto tavola vuota non sono pulsanti", wph.map(p => p.tagName).join(","));
+ok(wph.map(p => p.style.gridColumn + "/" + p.style.gridRow).join(",") === "4/7,4/8",
+  "segnaposto in gruppo 3, periodi 6 e 7", wph.map(p => p.style.gridColumn + "/" + p.style.gridRow).join(","));
+click(win, wph[0]);
+ok(d.querySelectorAll("#wtable .cell.match").length === 0, "segnaposto tavola vuota: il clic non lascia evidenziazioni");
+ok(d.querySelectorAll("#wtable .cell.sel").length === 0, "segnaposto tavola vuota: il clic non seleziona caselle");
+
 const cell1 = d.querySelector('#wtable .cell[data-z="1"]');
 // i valori di padroneggio qui sopra (flashcard/quiz) dipendono da elementi sorteggiati:
 // le asserzioni che seguono confrontano quindi DELTA, non valori assoluti.
@@ -493,6 +520,25 @@ click(win10, view(win10, "table"));
 const width10 = win10.document.querySelector('#ptable .cell[data-z="1"] .mbar').style.width;
 ok(width10 === "100%", "barretta padroneggio mai oltre 100%", "width=" + width10);
 
+/* contatori salvati come stringhe numeriche: isNum le considera valide, ma vanno
+   convertite — altrimenti correct+wrong nelle statistiche fa "5"+"3" = "53" domande */
+const winNum = makeApp(JSON.stringify({
+  quiz: { correct: "5", wrong: "3", history: [] },
+  write: { seqBest: "42", solved: {} }
+}));
+ok(ev(winNum, "JSON.stringify([typeof state.quiz.correct, typeof state.quiz.wrong, typeof state.write.seqBest])")
+    === '["number","number","number"]',
+  "contatori quiz/sequenza stringa numerica convertiti in numero",
+  ev(winNum, "JSON.stringify([typeof state.quiz.correct, typeof state.quiz.wrong, typeof state.write.seqBest])"));
+click(winNum, view(winNum, "stats"));
+const statTexts = [...winNum.document.querySelectorAll("#statCards .stat")]
+  .map(s => s.textContent.replace(/\s+/g, " "));
+const quizStat = statTexts.find(t => /Quiz risposti/.test(t)) || "";
+ok(/^63%Quiz risposti bene \(8 domande\)/.test(quizStat),
+  "statistiche quiz: 5+3 = 8 domande, nessuna concatenazione di stringhe", quizStat);
+ok(statTexts.some(t => /^42Posizione massima nella sequenza/.test(t)),
+  "miglior posizione sequenza renderizzata come numero", statTexts.join(" | "));
+
 /* storico con una voce priva del campo "wrong" */
 const win7 = makeApp(JSON.stringify({ quiz:{correct:1, wrong:0, history:[{d:Date.now(), score:10, total:10}]} }));
 click(win7, view(win7, "stats"));
@@ -504,9 +550,14 @@ const win3 = makeApp("{non-json");
 ok(win3.__errors.length === 0, "nessun crash con JSON malformato", win3.__errors.join("|"));
 ok(ev(win3, "state.quiz.correct") === 0, "stato di default ripristinato");
 
-/* wrongZ con Z inesistente */
+/* wrongZ con Z inesistente: scartato al caricamento, così il contatore
+   "Ripassa gli errori (n)" non promette errori che poi non ci sono */
 const win4 = makeApp(JSON.stringify({ wrongZ: [1234] }));
 click(win4, view(win4, "quiz"));
+ok(ev(win4, "JSON.stringify(state.wrongZ)") === "[]", "wrongZ fantasma scartato al caricamento",
+  ev(win4, "JSON.stringify(state.wrongZ)"));
+ok(win4.document.getElementById("wrongCount").textContent === "0",
+  "contatore errori ignora gli Z inesistenti", win4.document.getElementById("wrongCount").textContent);
 click(win4, win4.document.getElementById("quizWrongBtn"));
 ok(/Nessun elemento/.test(win4.__lastAlert || "") || win4.document.getElementById("quizStage").classList.contains("hidden"),
   "wrongZ con Z inesistente gestito senza crash", win4.__lastAlert);

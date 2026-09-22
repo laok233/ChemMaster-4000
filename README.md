@@ -28,8 +28,9 @@ index.html
     │                 configurazioni elettronica (con le eccezioni note: Cr, Cu, Mo, Au…)
     ├── STATO         persistenza in localStorage (con sanitizzazione dello stato
     │                 corrotto, anche ai membri annidati, scarto dei booleani,
-    │                 caselle `solved` a soli valori/elementi validi, e clamp del
-    │                 padroneggio a 0..100) + "padroneggio" per elemento
+    │                 caselle `solved` a soli valori/elementi validi, `wrongZ` a soli
+    │                 Z reali, contatori quiz/sequenza convertiti in numero, e clamp
+    │                 del padroneggio a 0..100) + "padroneggio" per elemento
     ├── TAVOLA        griglia, ricerca, filtri, pannello dettagli
     ├── FLASHCARD     coda, mazzetti di Leitner, scadenze
     ├── QUIZ          generazione domande + distrattori
@@ -52,9 +53,13 @@ npm test             # (o: bun run test)
   somma degli elettroni di configurazione = numero atomico per tutti gli 118,
   configurazioni tutte scritte **nello stesso ordine di Aufbau** (base ed eccezioni),
   gusci coerenti, eccezioni di configurazione reali, controlli incrociati noti (Ar>K, Co>Ni, Te>I…).
-- **`tests/test-app.js`** — 168 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera,
-  ricerca/filtri, legenda accessibile da tastiera, quiz con l’opzione “Non so” e ripasso errori, scrittura della tavola, sequenza, salvataggio/ripristino,
-  stato corrotto in `localStorage` — inclusi padroneggio fuori scala clamped a 0..100 e valori booleani scartati —, membri `null` anche
+- **`tests/test-app.js`** — 183 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+  — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
+  ricerca/filtri, legenda accessibile da tastiera, quiz con l’opzione “Non so” e ripasso errori, scrittura della tavola (segnaposto
+  57–71/89–103 presenti anche nella tavola vuota), sequenza, salvataggio/ripristino,
+  stato corrotto in `localStorage` — inclusi padroneggio fuori scala clamped a 0..100, valori booleani scartati,
+  contatori quiz salvati come stringhe numeriche convertiti in numero e `wrongZ` con Z fantasma scartato —,
+  membri `null` anche
   annidati, chiavi fantasma nei mazzetti, azzeramento con quiz aperto (e messaggio + input ripuliti),
   `wrongZ` con duplicati/non numerici/booleani, percentuale flashcard calcolata sulle carte svolte,
   pannello dettagli che segue i cambi di padroneggio,
