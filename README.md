@@ -28,7 +28,8 @@ index.html
     │                 configurazioni elettronica (con le eccezioni note: Cr, Cu, Mo, Au…)
     ├── STATO         persistenza in localStorage (con sanitizzazione dello stato
     │                 corrotto, anche ai membri annidati, scarto dei booleani,
-    │                 e clamp del padroneggio a 0..100) + "padroneggio" per elemento
+    │                 caselle `solved` a soli valori/elementi validi, e clamp del
+    │                 padroneggio a 0..100) + "padroneggio" per elemento
     ├── TAVOLA        griglia, ricerca, filtri, pannello dettagli
     ├── FLASHCARD     coda, mazzetti di Leitner, scadenze
     ├── QUIZ          generazione domande + distrattori
@@ -49,8 +50,9 @@ npm test             # (o: bun run test)
 - **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, posizioni senza collisioni,
   ogni elemento categorizzato (con la regola CSS `.cat-<id>` corrispondente nel foglio di stile),
   somma degli elettroni di configurazione = numero atomico per tutti gli 118,
+  configurazioni tutte scritte **nello stesso ordine di Aufbau** (base ed eccezioni),
   gusci coerenti, eccezioni di configurazione reali, controlli incrociati noti (Ar>K, Co>Ni, Te>I…).
-- **`tests/test-app.js`** — 164 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera,
+- **`tests/test-app.js`** — 168 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera,
   ricerca/filtri, legenda accessibile da tastiera, quiz con l’opzione “Non so” e ripasso errori, scrittura della tavola, sequenza, salvataggio/ripristino,
   stato corrotto in `localStorage` — inclusi padroneggio fuori scala clamped a 0..100 e valori booleani scartati —, membri `null` anche
   annidati, chiavi fantasma nei mazzetti, azzeramento con quiz aperto (e messaggio + input ripuliti),

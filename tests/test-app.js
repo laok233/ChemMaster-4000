@@ -449,8 +449,23 @@ click(win5, view(win5, "stats"));
 ok(win5.document.querySelectorAll("#statCards .stat").length === 6,
   "statistiche renderizzate con stato precedentemente null");
 
-/* membri ANNIDATI null: la sanitizzazione deve scendere di un livello */
-const win6 = makeApp(JSON.stringify({
+/* write.solved corrotto: stringhe/booleani e chiavi fantasma scartati (la casella
+   non deve svelare la risposta né gonfiare il contatore x/118) */
+const winSolved = makeApp(JSON.stringify({ write:{seqBest:0, solved:{"2":"boh", "3":true, "4":1, "999":1}} }));
+ok(ev(winSolved, "JSON.stringify(state.write.solved)") === '{"4":1}',
+  "solved corrotto ripulito (solo valori numerici di elementi reali)",
+  ev(winSolved, "JSON.stringify(state.write.solved)"));
+click(winSolved, view(winSolved, "write"));
+ok(winSolved.document.querySelectorAll("#wtable .cell.solved").length === 1,
+  "solved corrotto: solo la casella valida risolta",
+  String(winSolved.document.querySelectorAll("#wtable .cell.solved").length));
+ok(winSolved.document.querySelector('#wtable .cell[data-z="2"]').classList.contains("blank"),
+  "solved corrotto: la casella He resta vuota (niente risposta svelata)");
+ok(winSolved.document.getElementById("wFilled").textContent === "1",
+  "solved corrotto: contatore basato solo sulle caselle valide",
+  winSolved.document.getElementById("wFilled").textContent);
+
+/* membri ANNIDATI null: la sanitizzazione deve scendere di un livello */const win6 = makeApp(JSON.stringify({
   write:{seqBest:3, solved:null},
   quiz:{correct:1, wrong:1, history:null},
   mastery:{1:"abc"}, leitner:{1:"abc"}

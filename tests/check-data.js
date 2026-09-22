@@ -11,7 +11,7 @@ const data = code.slice(0, code.indexOf("// END DATA"));
 const sandbox = { console };
 vm.createContext(sandbox);
 vm.runInContext(
-  data + "\n;globalThis.__out={SYMBOLS,NAMES,MASSES,CAT_DEF,posOf,CFG_EXC,baseConfig,shellsOf,catOf,ELEMENTS};",
+  data + "\n;globalThis.__out={SYMBOLS,NAMES,MASSES,CAT_DEF,posOf,CFG_EXC,AUFBAU,baseConfig,shellsOf,catOf,ELEMENTS};",
   sandbox
 );
 const o = sandbox.__out;
@@ -69,6 +69,17 @@ o.ELEMENTS.forEach(e => {
 /* --- le eccezioni devono differire dall'ordinamento di Aufbau --- */
 Object.keys(o.CFG_EXC).forEach(z => {
   ok(o.CFG_EXC[z] !== o.baseConfig(+z), "eccezione identica al base per Z=" + z);
+});
+
+/* --- tutte le configurazioni (base ed eccezioni) in un unico ordine di Aufbau:
+       altrimenti il pannello dettagli mostrerebbe "4s2 3d6" per Fe e "3d5 4s1" per Cr --- */
+const AUF_POS = Object.fromEntries(o.AUFBAU.map(([orb], i) => [orb, i]));
+o.ELEMENTS.forEach(e => {
+  const orbs = e.cfg.split(" ").map(t => t.match(/^(\d+[a-z]+)/)[1]);
+  orbs.forEach(sym => ok(sym in AUF_POS, "orbitale sconosciuto " + sym + " in " + e.sym));
+  const seq = orbs.map(s => AUF_POS[s]);
+  ok(seq.every((v, i) => i === 0 || v > seq[i - 1]),
+    "configurazione fuori ordine di Aufbau per " + e.sym + ": " + e.cfg);
 });
 
 /* --- masse: solo cifre o [numero] --- */
