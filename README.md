@@ -1,5 +1,7 @@
 # ⚗ Tavola Periodica — impara a memoria
 
+![Test](https://github.com/laok233/tavola-periodica/actions/workflows/test.yml/badge.svg)
+
 > [!Warning] 
 > This application is VIBE CODED, i have no idea how it works lol 
 
@@ -48,6 +50,8 @@ tests/
 npm install          # (o: bun install) serve solo per i test, l'app non ha dipendenze
 npm test             # (o: bun run test)
 ```
+
+In CI (GitHub Actions, `.github/workflows/test.yml`) i due script girano a ogni **push e pull request su `master`**, con matrix **Node 22 e 24** (`npm install` + `npm test`, visto che il repo non ha `package-lock.json`) e una job separata con **Bun** (`bun install --frozen-lockfile` + `bun run test`) per validare il `bun.lock` committed. La badge qui sopra riflette l'ultimo run.
 
 - **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, posizioni senza collisioni,
   ogni elemento categorizzato (con la regola CSS `.cat-<id>` corrispondente nel foglio di stile),

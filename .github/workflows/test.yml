@@ -1,0 +1,49 @@
+name: Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# un nuovo push sulla stessa branch annulla il run precedente ancora in corso
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # jsdom 30 dichiede ^22.22.2 || ^24.15.0 || >=26.0.0
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      # niente "npm install --ci": il repo non ha package-lock.json (usa bun.lock)
+      - name: Installa le dipendenze (servono solo per i test)
+        run: npm install
+      - name: Esegui i test
+        run: npm test
+
+  test-bun:
+    name: Bun
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Installa le dipendenze (bun.lock congelato)
+        run: bun install --frozen-lockfile
+      - name: Esegui i test
+        run: bun run test
