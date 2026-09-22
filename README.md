@@ -13,7 +13,7 @@ Web app in un **unico file HTML**, senza installazione né build: fai doppio cli
 | **Flashcard** | Ripetizione spaziata (mazzetti di Leitner, scadenze 0/1/3/7/21 giorni). 6 direzioni di domanda (nome↔simbolo↔numero atomico), 13 ambiti, giudizio *Non sapevo / Sapevo / Facile*; la percentuale del riepilogo è calcolata sulle carte effettivamente svolte. Scorciatoie: `Spazio`/`Invio` girano la carta, `1` `2` `3` giudicano. |
 | **Quiz** | Risposta multipla con 4 opzioni (più “Non so”), 6 tipi di domanda, punteggio e serie. “Non so” conta come errore: va **subito** in “Ripassa gli errori”, azzera la serie e toglie punti di padroneggio. Ogni errore viene salvato **subito** in “Ripassa gli errori” e una risposta giusta lo toglie; la percentuale del riepilogo è calcolata sulle risposte effettivamente date. Scorciatoie: `1`–`4` rispondono, `5` = “Non so”, `Invio` va avanti. |
 | **Scrivi la tavola** | **Tavola vuota**: clicchi una casella e scrivi il **simbolo** (il tooltip non svela la risposta; il nome completo riceve un richiamo senza penalità), con suggerimento e correzione immediata. **Sequenza**: scrivi i 118 simboli in ordine di numero atomico, con feedback e miglior posizione — anche qui il nome completo è ammesso come richiamo, senza penalità. |
-| **Progressi** | Padroneggio medio, % per categoria, mazzetti (etichette derivate da `BOX_DAYS`, quindi sempre allineate alle scadenze), storico quiz, azzeramento. |
+| **Progressi** | Padroneggio medio, % per categoria, mazzetti (etichette derivate da `BOX_DAYS`, quindi sempre allineate alle scadenze, e barre proporzionali alle carte assegnate), storico quiz, azzeramento. |
 
 Tutti i progressi sono salvati in `localStorage` e ripristinati al riavvio.
 
@@ -53,16 +53,19 @@ npm test             # (o: bun run test)
   somma degli elettroni di configurazione = numero atomico per tutti gli 118,
   configurazioni tutte scritte **nello stesso ordine di Aufbau** (base ed eccezioni),
   gusci coerenti, eccezioni di configurazione reali, controlli incrociati noti (Ar>K, Co>Ni, Te>I…).
-- **`tests/test-app.js`** — 183 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`tests/test-app.js`** — 195 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, legenda accessibile da tastiera, quiz con l’opzione “Non so” e ripasso errori, scrittura della tavola (segnaposto
-  57–71/89–103 presenti anche nella tavola vuota), sequenza, salvataggio/ripristino,
+  57–71/89–103 presenti anche nella tavola vuota), sequenza (input conservato durante il toggle
+  dell’indizio-nome, svuotato solo a risposta, e nessun nome del prossimo elemento nel feedback
+  d’errore), salvataggio/ripristino,
   stato corrotto in `localStorage` — inclusi padroneggio fuori scala clamped a 0..100, valori booleani scartati,
   contatori quiz salvati come stringhe numeriche convertiti in numero e `wrongZ` con Z fantasma scartato —,
   membri `null` anche
   annidati, chiavi fantasma nei mazzetti, azzeramento con quiz aperto (e messaggio + input ripuliti),
   `wrongZ` con duplicati/non numerici/booleani, percentuale flashcard calcolata sulle carte svolte,
-  pannello dettagli che segue i cambi di padroneggio,
+  pannello dettagli che segue i cambi di padroneggio, barre dei mazzi proporzionali alle carte
+  assegnate (non alle 118 caselle),
   `Enter`/`Spazio` con il focus su un bottone non intercettati dai gestori globali).
 
 ## Personalizzazione rapida

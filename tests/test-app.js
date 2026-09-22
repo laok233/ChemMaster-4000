@@ -396,6 +396,44 @@ ok(/serve il simbolo/.test(d.getElementById("seqHint").textContent), "sequenza: 
 ok(ev(win, "mastery(1)") === seqMasteryBefore, "sequenza: nessuna penalità per il nome",
   seqMasteryBefore + "->" + ev(win, "mastery(1)"));
 
+/* indizio-nome: la chip segue la casella e il toggle non cancella quanto digitato */
+type(win, d.getElementById("seqInput"), "H");
+const chipHint = d.getElementById("seqHintToggle");
+d.getElementById("seqShowName").checked = false;
+d.getElementById("seqShowName").dispatchEvent(new win.Event("change", { bubbles: true }));
+ok(d.getElementById("seqInput").value === "H", "indizio-nome spento: risposta digitata conservata",
+  JSON.stringify(d.getElementById("seqInput").value));
+ok(!chipHint.classList.contains("on"), "indizio-nome spento: la chip non resta accesa", chipHint.className);
+d.getElementById("seqShowName").checked = true;
+d.getElementById("seqShowName").dispatchEvent(new win.Event("change", { bubbles: true }));
+ok(chipHint.classList.contains("on"), "indizio-nome acceso: la chip è accesa", chipHint.className);
+ok(d.getElementById("seqInput").value === "H", "indizio-nome acceso: risposta ancora conservata",
+  JSON.stringify(d.getElementById("seqInput").value));
+
+/* una risposta effettiva (e solo quella) svuota l'input */
+keyOn(win, d.getElementById("seqInput"), { key: "Enter" });
+ok(ev(win, "seq.i") === 1 && ev(win, "seq.ok") === 1, "risposta giusta registrata",
+  "i=" + ev(win, "seq.i") + " ok=" + ev(win, "seq.ok"));
+ok(d.getElementById("seqInput").value === "", "dopo la risposta l'input è svuotato",
+  JSON.stringify(d.getElementById("seqInput").value));
+
+/* l'errore indica il simbolo mancato ma non svela il nome del prossimo elemento */
+d.getElementById("seqShowName").checked = false;
+d.getElementById("seqShowName").dispatchEvent(new win.Event("change", { bubbles: true }));
+type(win, d.getElementById("seqInput"), "Z");
+keyOn(win, d.getElementById("seqInput"), { key: "Enter" });
+ok(ev(win, "seq.i") === 2 && ev(win, "seq.bad") === 1, "errore registrato e avanzamento",
+  "i=" + ev(win, "seq.i") + " bad=" + ev(win, "seq.bad"));
+ok(/Era He \(Elio\)/.test(d.getElementById("seqHint").textContent),
+  "errore: nel feedback c'è il nome dell'elemento mancato", d.getElementById("seqHint").textContent);
+ok(!/Litio/.test(d.getElementById("seqHint").textContent),
+  "errore: nessun nome del prossimo elemento (niente fuga di risposta)",
+  d.getElementById("seqHint").textContent);
+ok(d.getElementById("seqName").textContent === "—", "errore: indizio-nome spento resta spento",
+  d.getElementById("seqName").textContent);
+d.getElementById("seqShowName").checked = true;
+d.getElementById("seqShowName").dispatchEvent(new win.Event("change", { bubbles: true }));
+
 /* ================= PROGRESSI ================= */
 section("Progressi");
 click(win, view(win, "stats"));
@@ -413,6 +451,13 @@ boxRows.forEach((label, i) => {
 });
 ok(labelBad.length === 0, "etichette mazzi coerenti con BOX_DAYS", labelBad.join(" | ") + " | " + boxRows.join(" / "));
 ok(!boxRows.some(t => /undefined|NaN/.test(t)), "nessuna etichetta undefined/NaN", boxRows.join(" / "));
+const boxWidths = [...d.querySelectorAll("#boxStats .track i")].map(i => i.style.width);
+ok(boxWidths.length === 5 && boxWidths.every(w => /^\d+%$/.test(w)),
+  "barre mazzi con larghezze valide (nessun NaN)", boxWidths.join(","));
+// due carte assegnate in tutto (una nel mazzo 0 e una nel 2): le barre misurano
+// le carte presenti, non le 118 caselle della tavola
+ok(boxWidths.join(",") === "50%,0%,50%,0%,0%",
+  "barre mazzi proporzionali alle carte assegnate", boxWidths.join(","));
 ok(/risposte 2/.test(d.getElementById("quizHist").innerHTML), "storico: quiz interrotto indica quante risposte",
   d.getElementById("quizHist").textContent.replace(/\s+/g, " "));
 

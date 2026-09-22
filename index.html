@@ -1198,7 +1198,7 @@ document.getElementById("wReset").onclick=()=>{
 };
 
 /* ========================= SCRIVI: SEQUENZA ========================= */
-let seq={i:0,ok:0,bad:0,fails:0,marks:[],last:""};
+let seq={i:0,ok:0,bad:0,marks:[],last:""};
 function seqRender(){
   const tot=ELEMENTS.length;
   const done=seq.i>=tot;
@@ -1218,9 +1218,11 @@ function seqRender(){
   const bar=document.getElementById("seqBar");
   bar.innerHTML="";
   seq.marks.forEach(m=>{ const s=document.createElement("span"); s.className=m; bar.appendChild(s); });
+  // l'input si svuota solo a fine corsa: cambiare l'indizio-nome non deve
+  // cancellare una risposta che l'utente aveva già digitato
   const inp=document.getElementById("seqInput");
   if(done){ inp.disabled=true; inp.value=""; }
-  else { inp.disabled=false; inp.value=""; }
+  else { inp.disabled=false; }
 }
 function seqCheck(){
   if(seq.i>=ELEMENTS.length) return;
@@ -1236,30 +1238,39 @@ function seqCheck(){
     return;
   }
   if(v===e.sym.toUpperCase()){
-    seq.ok++; seq.fails=0; seq.marks.push("ok"); addMastery(e.z,10);
+    seq.ok++; seq.marks.push("ok"); addMastery(e.z,10);
     seq.last = `✔ ${e.sym} — ${e.name}`;
   }else{
-    seq.bad++; seq.fails++; seq.marks.push("skip"); addMastery(e.z,-3);
-    seq.last = `✘ Era ${e.sym} (${e.name}).` + (seq.fails<3 ? ` Indizio: ${e.name}` : "");
+    seq.bad++; seq.marks.push("skip"); addMastery(e.z,-3);
+    // il nome dell'elemento mancato è già nel feedback: aggiungere un "Indizio"
+    // con lo stesso nome sarebbe ridondante
+    seq.last = `✘ Era ${e.sym} (${e.name}).`;
   }
   seq.i++;
   if(seq.i>state.write.seqBest) state.write.seqBest=seq.i;
   save(); updateHead(); refreshCellMastery(e.z); seqRender();
+  // niente nome del prossimo elemento qui: con l'indizio-nome spento sarebbe
+  // una fuga di risposta (il nome è già nel campo grande quando è acceso)
   if(seq.i<ELEMENTS.length){
-    const nxt=BY_Z[seq.i+1];
-    seq.last += `  Continua con Z=${nxt.z}` + (seq.fails?` (${nxt.name})`:"");
+    seq.last += `  Continua con Z=${BY_Z[seq.i+1].z}`;
     document.getElementById("seqHint").textContent=seq.last;
   }
+  inp.value="";   // svuotato solo qui, cioè dopo una risposta effettiva
   inp.focus();
 }
 document.getElementById("seqInput").addEventListener("keydown",e=>{
   if(e.key==="Enter"){ e.preventDefault(); seqCheck(); }
 });
 document.getElementById("seqRestart").onclick=()=>{
-  seq={i:0,ok:0,bad:0,fails:0,marks:[],last:""};
+  seq={i:0,ok:0,bad:0,marks:[],last:""};
+  document.getElementById("seqInput").value="";
   seqRender();
 };
-document.getElementById("seqShowName").addEventListener("change",seqRender);
+// l'etichetta segue la casella: spenta, il chip non deve restare evidenziato
+document.getElementById("seqShowName").addEventListener("change",e=>{
+  document.getElementById("seqHintToggle").classList.toggle("on",e.target.checked);
+  seqRender();
+});
 document.getElementById("writeMode").addEventListener("click",e=>{
   const b=e.target.closest("button[data-mode]"); if(!b) return;
   document.querySelectorAll("#writeMode button").forEach(x=>x.classList.toggle("on",x===b));
@@ -1302,7 +1313,9 @@ function renderStats(){
   const names=["Non assegnato"].concat(
     BOX_DAYS.slice(1).map((n,i)=>`${i+1} · ${n} ${n===1?"giorno":"giorni"}`));
   boxes.forEach((n,i)=>{
-    const p=Math.round(n/ELEMENTS.length*100);
+    // proporzionale alle carte effettivamente assegnate: con pochi mazzetti
+    // attivi usare 118 come denominatore lascerebbe tutte le barre quasi vuote
+    const p=cards5?Math.round(n/cards5*100):0;
     const d=document.createElement("div"); d.className="catbar";
     d.innerHTML=`<span>${names[i]}</span><span class="track"><i style="width:${p}%; background:var(--accent)"></i></span><span class="pct">${n}</span>`;
     bs.appendChild(d);
@@ -1327,7 +1340,8 @@ document.getElementById("resetAll").onclick=()=>{
   document.getElementById("quizDone").classList.add("hidden");
   document.getElementById("quizSetup").classList.remove("hidden");
   refreshQuizScopes();
-  seq={i:0,ok:0,bad:0,fails:0,marks:[],last:""}; seqRender();
+  seq={i:0,ok:0,bad:0,marks:[],last:""};
+  document.getElementById("seqInput").value=""; seqRender();
 };
 
 /* ========================= INIT ========================= */
