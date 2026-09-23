@@ -121,5 +121,15 @@ ok(o.catOf.He === "gasnobile", "He è gas nobile");
 ok(o.catOf.B === "semimetallo", "B è semimetallo");
 ok(o.catOf.Al === "post", "Al è post-transizione");
 
+/* --- i mazzetti devono derivare davvero da BOX_DAYS (il README promette che
+       cambiare BOX_DAYS basta): un Math.min(4,…) hardcoded bloccava le carte al
+       5° mazzo e un boxes=[0,0,0,0,0] faceva apparire "undefined" in Progressi --- */
+ok(/const MAX_BOX=BOX_DAYS\.length-1/.test(html), "MAX_BOX derivato da BOX_DAYS.length");
+ok(!/Math\.min\(4,/.test(html), "nessun Math.min(4,) hardcoded sui mazzetti");
+ok(!/boxes=\[0,0,0,0,0\]/.test(html), "righe dei mazzi dimensionate su BOX_DAYS");
+
+/* --- la soglia di padroneggio è unica (era replicata in 4 punti) --- */
+ok(/const MASTERY_THRESHOLD=\s*70/.test(html), "MASTERY_THRESHOLD definita");
+
 console.log("Dati: " + (fails === 0 ? "OK" : fails + " ERRORI"));
 process.exit(fails ? 1 : 0);

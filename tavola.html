@@ -249,7 +249,7 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
   <h1>⚛ Chem<span>Master 4000</span></h1>
   <nav id="tabs">
     <a class="home-link" href="index.html" title="Torna al menu principale">🏠 Menu</a>
-    <button data-view="table" class="active">Tavola</button>
+    <button data-view="table" class="active" aria-current="true">Tavola</button>
     <button data-view="cards">Flashcard</button>
     <button data-view="quiz">Quiz</button>
     <button data-view="write">Scrivi la tavola</button>
@@ -281,7 +281,7 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
         <div class="table-wrap"><div id="ptable"></div></div>
         <p class="legend-note">Le righe in basso (rosa e viola) sono i <b>lantanoidi</b> e gli <b>attinoidi</b>, estratti per rendere la tavola più compatta. Le caselle “57–71” e “89–103” ne indicano la posizione.</p>
       </div>
-      <aside class="panel" id="detail"></aside>
+      <aside class="panel" id="detail" aria-live="polite"></aside>
     </div>
   </section>
 
@@ -317,7 +317,7 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
           <span class="tag" id="cardTag">Nome</span>
           <span class="tag2" id="cardIdx">1/20</span>
           <div class="front" id="cardFront"></div>
-          <div class="back hidden" id="cardBack"></div>
+          <div class="back hidden" id="cardBack" aria-live="polite"></div>
           <div class="tap" id="cardTap">Clicca (o <kbd>Spazio</kbd>) per girare la carta</div>
         </div>
         <div class="grade hidden" id="cardGrade">
@@ -378,7 +378,7 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
         </div>
         <div class="qtext" id="qText"></div>
         <div class="options" id="qOptions"></div>
-        <div class="feedback" id="qFeedback"></div>
+        <div class="feedback" id="qFeedback" aria-live="polite"></div>
         <div style="text-align:center; margin-top:10px">
           <button class="btn hidden" id="qNext">Prossima →</button>
           <button class="btn ghost sm hidden" id="qEnd" style="margin-left:8px">Termina</button>
@@ -419,7 +419,7 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
         <button class="btn ghost sm" id="wReset">Azzera tavola</button>
         <span style="font-size:13.5px; color:var(--txt-dim)"><b id="wFilled">0</b>/118</span>
       </div>
-      <div class="wmsg" id="wMsg"></div>
+      <div class="wmsg" id="wMsg" aria-live="polite"></div>
       <div class="table-wrap"><div id="wtable"></div></div>
     </div>
 
@@ -428,7 +428,7 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
       <div class="seq-prompt">
         <div class="z" id="seqZ">Z = 1</div>
         <div class="bigname" id="seqName">Idrogeno</div>
-        <div class="hint" id="seqHint"></div>
+        <div class="hint" id="seqHint" aria-live="polite"></div>
         <input type="text" id="seqInput" aria-label="Simbolo dell’elemento richiesto" placeholder="simbolo" autocomplete="off" spellcheck="false">
         <div class="seqbar" id="seqBar"></div>
         <div class="score-line">
@@ -600,6 +600,7 @@ const BIO_Z = new Set(BIO_SYMS.map(s=>SYMBOLS.indexOf(s)+1).filter(z=>z>0));
 
 /* ========================= STATO ========================= */
 const STORE_KEY="chemmaster-4000-v1";
+const DAY=86400000;   // qui, non nelle flashcard: load() serve per gli intervalli dello storico
 const defaultState = ()=>({
   mastery:{}, leitner:{}, due:{},
   quiz:{correct:0,wrong:0,history:[]},
@@ -610,6 +611,9 @@ const isObj=v=>v!==null&&typeof v==="object"&&!Array.isArray(v);
 // numero o stringa numerica (non null/vuoto/booleano: +true===1 farbbe entrare i booleani)
 const isNum=v=>(typeof v==="number"||typeof v==="string")&&String(v).trim()!==""&&Number.isFinite(+v);
 const numMap=o=>Object.fromEntries(Object.entries(o).filter(([,v])=>isNum(v)).map(([k,v])=>[k,+v]));
+// intero ≥0: -10 domande giuste o seqBest 1e9 supererebbero il type-check
+// e finirebbero dritte nelle statistiche ("67% su -15 domande", "Posizione 1000000000")
+const uint=v=>Math.max(0,Math.floor(+v));
 let state = load();
 function load(){
   try{
@@ -637,17 +641,22 @@ function load(){
       .filter(([k,v])=>BY_Z[+k] && isNum(v)).map(([k])=>[k,1]));
     // isNum accetta le stringhe numeriche, ma qui vanno proprio convertite:
     // correct+wrong nelle statistiche diventerebbe "5"+"3" = "53" domande
-    out.write.seqBest = isNum(out.write.seqBest) ? +out.write.seqBest : 0;
-    out.quiz.correct  = isNum(out.quiz.correct)  ? +out.quiz.correct  : 0;
-    out.quiz.wrong    = isNum(out.quiz.wrong)    ? +out.quiz.wrong    : 0;
+    out.write.seqBest = isNum(out.write.seqBest) ? Math.min(ELEMENTS.length, uint(out.write.seqBest)) : 0;
+    out.quiz.correct  = isNum(out.quiz.correct)  ? uint(out.quiz.correct)  : 0;
+    out.quiz.wrong    = isNum(out.quiz.wrong)    ? uint(out.quiz.wrong)    : 0;
     if(!Array.isArray(out.quiz.history)) out.quiz.history=[];
-    out.quiz.history=out.quiz.history.filter(isObj).map(h=>Object.assign({
-        d:0, score:0, total:0, wrong:[]
-      },{
-        d:isNum(h.d)?+h.d:0, score:isNum(h.score)?+h.score:0, total:isNum(h.total)?+h.total:0,
-        wrong:Array.isArray(h.wrong)?h.wrong.filter(isNum).map(v=>+v):[]
-      },
-      isNum(h.answered)?{answered:+h.answered}:{})).slice(0,10);
+    // storico: interi plausibili, timestamp entro un giorno di tolleranza
+    // (altrimenti "Invalid Date" e punteggi impossibili finiscono in Progressi)
+    out.quiz.history=out.quiz.history.filter(isObj).map(h=>{
+      const total=isNum(h.total)?uint(h.total):0;
+      const o={d:0, score:0, total, wrong:[]};
+      if(isNum(h.d) && +h.d>=0 && +h.d<=Date.now()+DAY) o.d=+h.d;
+      o.score=Math.min(isNum(h.score)?uint(h.score):0, total*10);
+      // solo Z reali: un fantasma gonfierebbe "· N errori" nello storico
+      o.wrong=Array.isArray(h.wrong)?h.wrong.filter(isNum).map(v=>+v).filter(v=>BY_Z[v]):[];
+      if(isNum(h.answered)) o.answered=Math.min(total,uint(h.answered));
+      return o;
+    }).slice(0,10);
     // valori non numerici nelle mappe: scartati (evita "NaN%" nelle statistiche)
     ["mastery","leitner","due"].forEach(k=>{ out[k]=numMap(out[k]); });
     // padroneggio entro 0..100: addMastery clampa solo al primo utilizzo,
@@ -662,17 +671,31 @@ function addMastery(z,d){
   const v=Math.max(0,Math.min(100,mastery(z)+d));
   state.mastery[z]=Math.round(v);
 }
-function masteredCount(){ return ELEMENTS.filter(e=>mastery(e.z)>=70).length; }
+// soglia unica di "padroneggiato": usata dal contatore in testa, dagli ambiti
+// flashcard/quiz e dall'etichetta delle statistiche (prima era replicata in 4 punti)
+const MASTERY_THRESHOLD=70;
+function masteredCount(){ return ELEMENTS.filter(e=>mastery(e.z)>=MASTERY_THRESHOLD).length; }
 function avgMastery(){ return Math.round(ELEMENTS.reduce((s,e)=>s+mastery(e.z),0)/ELEMENTS.length); }
 
 /* ========================= NAV ========================= */
-const views=["table","cards","quiz","write","stats"];
 function go(v){
-  views.forEach(x=>document.getElementById("view-"+x).classList.toggle("active",x===v));
-  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+  // le viste le decide il DOM: un data-view senza sezione (o una sezione dimenticata)
+  // non deve nascondere la pagina intera
+  const sections=[...document.querySelectorAll("main section.view")];
+  if(!sections.some(s=>s.id==="view-"+v)) return;
+  sections.forEach(s=>s.classList.toggle("active",s.id==="view-"+v));
+  document.querySelectorAll("#tabs button").forEach(b=>{
+    const on=b.dataset.view===v;
+    b.classList.toggle("active",on);
+    // aria-current: senza uno screen reader la vista attiva non è annunciable
+    if(on) b.setAttribute("aria-current","true"); else b.removeAttribute("aria-current");
+  });
   if(v==="stats") renderStats();
   if(v==="cards") refreshCardScopes();
   if(v==="quiz") refreshQuizScopes();
+  // il focus segue la vista: da tastiera si continua dall'indirizzo della nuova pagina
+  const h=document.querySelector("#view-"+v+" h2");
+  if(h){ h.setAttribute("tabindex","-1"); h.focus({preventScroll:true}); }
   window.scrollTo({top:0,behavior:"smooth"});
 }
 document.getElementById("tabs").addEventListener("click",e=>{
@@ -847,21 +870,24 @@ function scopeOptions(sel){
   const add=(v,t)=>{const o=document.createElement("option");o.value=v;o.textContent=t;sel.appendChild(o);};
   add("all","Tutti gli elementi (118)");
   add("due","Nuovi e da ripassare");
-  add("weak","Non padroneggiati (< 70%)");
+  add("weak",`Non padroneggiati (< ${MASTERY_THRESHOLD}%)`);
   CAT_DEF.forEach(c=>add("cat:"+c.id,c.label));
 }
-const DAY=86400000;
 const BOX_DAYS=[0,1,3,7,21];
-// mazzo validato: difende da valori corrotti in localStorage (es. 99 -> 4° mazzo)
+// ultimo mazzetto, derivato dalle scadenze: aggiungere/togliere una scadenza
+// in BOX_DAYS deve bastare (i vecchi clamp sul 5° mazzo bloccavano le carte
+// e in Progressi facevano apparire "undefined" nell'etichetta)
+const MAX_BOX=BOX_DAYS.length-1;
+// mazzo validato: difende da valori corrotti in localStorage (es. 99 -> ultimo mazzo)
 function boxOf(z){
   const v=Math.floor(Number(state.leitner[z]||0));
-  return Number.isFinite(v)?Math.min(BOX_DAYS.length-1,Math.max(0,v)):0;
+  return Number.isFinite(v)?Math.min(MAX_BOX,Math.max(0,v)):0;
 }
 function dueNow(z){ const d=state.due[z]; return !d || d<=Date.now(); }
 function scopePool(scope){
   if(scope==="all") return ELEMENTS.slice();
   if(scope==="due") return ELEMENTS.filter(e=>dueNow(e.z));
-  if(scope==="weak") return ELEMENTS.filter(e=>mastery(e.z)<70);
+  if(scope==="weak") return ELEMENTS.filter(e=>mastery(e.z)<MASTERY_THRESHOLD);
   if(scope.startsWith("cat:")) return ELEMENTS.filter(e=>e.cat===scope.slice(4));
   return ELEMENTS.slice();
 }
@@ -941,8 +967,8 @@ function gradeCard(g){
   cards.done++;
   let box=boxOf(e.z);
   if(g===0){ box=0; addMastery(e.z,-15); }
-  else if(g===1){ box=Math.min(4,box+1); addMastery(e.z,12); cards.ok++; }
-  else { box=Math.min(4,box+2); addMastery(e.z,20); cards.ok++; }
+  else if(g===1){ box=Math.min(MAX_BOX,box+1); addMastery(e.z,12); cards.ok++; }
+  else { box=Math.min(MAX_BOX,box+2); addMastery(e.z,20); cards.ok++; }
   state.leitner[e.z]=box;
   state.due[e.z]=Date.now()+BOX_DAYS[box]*DAY;
   save(); updateHead(); refreshCellMastery(e.z);
@@ -1057,7 +1083,9 @@ function renderQuestion(){
   document.getElementById("qFeedback").textContent="";
   document.getElementById("qFeedback").className="feedback";
   document.getElementById("qNext").classList.add("hidden");
-  document.getElementById("qEnd").classList.add("hidden");
+  // "Termina" è sempre lì: un quiz si deve poter abbandonare anche
+  // senza aver risposto alla prima domanda
+  document.getElementById("qEnd").classList.remove("hidden");
 }
 function answerQuiz(v){
   if(quiz.answered) return;
@@ -1181,6 +1209,7 @@ function checkCell(){
   if(!val) return;
   const el=BY_Z[wSel];
   const cell=document.querySelector(`#wtable .cell[data-z="${wSel}"]`);
+  const solved=!!state.write.solved[wSel];
   if(val===el.name.toUpperCase()){
     // nome giusto ma la casella chiede il simbolo: nessuna penalità, nessuna soluzione
     wMsg(`Il nome è giusto, ma qui serve il simbolo di ${el.name}.`,"");
@@ -1188,7 +1217,7 @@ function checkCell(){
     return;
   }
   if(val===el.sym.toUpperCase()){
-    if(!state.write.solved[wSel]){
+    if(!solved){
       state.write.solved[wSel]=1; addMastery(wSel,12);
       cell.classList.remove("blank","hinted","wrong"); cell.classList.add("solved");
       cell.innerHTML=cellHTML(el);
@@ -1196,8 +1225,18 @@ function checkCell(){
       cell.removeAttribute("aria-label");   // altrimenti resterebbe "Casella vuota" per gli screen reader
       save(); updateHead(); refreshCellMastery(wSel); updateWFilled();
       wMsg(`Corretto! ${el.name} → ${el.sym}`,"ok");
-    }else{ wMsg("Già compilato correttamente.","ok"); }
+    }else{
+      // già risolto: via gli stati d'errore e d'indizio residui, altrimenti
+      // .wrong (definita DOPO .solved nella CSS) lascerebbe la casella rossa per sempre
+      cell.classList.remove("wrong","hinted");
+      wMsg("Già compilato correttamente.","ok");
+    }
     clearCellSelection();
+  }else if(solved){
+    // cella già risolta: la risposta è in vista, sbagliarla non deve costare
+    // padroneggio né segnare in rosso una casella che è corretta
+    wMsg(`${el.name} è già corretto: qui il simbolo è ${el.sym}.`,"");
+    inp.select();
   }else{
     addMastery(wSel,-3); save(); refreshCellMastery(wSel);
     cell.classList.remove("wrong"); void cell.offsetWidth; cell.classList.add("wrong");
@@ -1211,6 +1250,10 @@ document.getElementById("wCellInput").addEventListener("keydown",e=>{
 document.getElementById("wHint").onclick=()=>{
   if(!wSel){ wMsg("Seleziona prima una casella.",""); return; }
   const el=BY_Z[wSel];
+  if(state.write.solved[wSel]){
+    // niente righe di indizio su una casella già risolta: la risposta è già lì
+    wMsg(`${el.name} è già compilato correttamente (${el.sym}).`,"ok"); return;
+  }
   document.querySelector(`#wtable .cell[data-z="${wSel}"]`).classList.add("hinted");
   wMsg(`Indizio: ${el.name} — inizia per «${el.name[0]}», Z=${el.z}, ${CAT_LABEL[el.cat]}.`,"");
 };
@@ -1312,15 +1355,15 @@ function renderStats(){
   // non deve far superare 118 la somma dei mazzi
   const leitnerEntries=Object.entries(state.leitner).filter(([k])=>BY_Z[k]);
   const cards5=leitnerEntries.length;
-  const boxes=[0,0,0,0,0];
+  const boxes=Array(BOX_DAYS.length).fill(0);   // una riga per mazzo + "Non assegnato", come i nomi
   leitnerEntries.forEach(([,v])=>{
-    const b=Math.min(4,Math.max(0,Math.floor(+v)||0));   // difende da valori corrotti in localStorage
+    const b=Math.min(MAX_BOX,Math.max(0,Math.floor(+v)||0));   // difende da valori corrotti in localStorage
     boxes[b]++;
   });
   const solvedN=ELEMENTS.filter(e=>state.write.solved[e.z]).length;
   document.getElementById("statCards").innerHTML=`
     <div class="stat"><div class="v">${avg}%</div><div class="l">Padroneggio medio</div></div>
-    <div class="stat"><div class="v">${m}/${ELEMENTS.length}</div><div class="l">Elementi padroneggiati (≥70%)</div></div>
+    <div class="stat"><div class="v">${m}/${ELEMENTS.length}</div><div class="l">Elementi padroneggiati (≥${MASTERY_THRESHOLD}%)</div></div>
     <div class="stat"><div class="v">${qtot?Math.round(q.correct/qtot*100):0}%</div><div class="l">Quiz risposti bene (${qtot} domande)</div></div>
     <div class="stat"><div class="v">${solvedN}/${ELEMENTS.length}</div><div class="l">Caselle scritte nella tavola</div></div>
     <div class="stat"><div class="v">${cards5}</div><div class="l">Elementi nelle flashcard</div></div>

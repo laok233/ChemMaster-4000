@@ -416,6 +416,36 @@ type(win, d.getElementById("wCellInput"), "He");
 keyOn(win, d.getElementById("wCellInput"), { key: "Enter" });
 ok(cell2.classList.contains("solved"), "poi il simbolo risolve la casella");
 
+/* cella GIA risolta: un errore non deve lasciarla rossa (.wrong sta dopo .solved
+   nella CSS) né costare padroneggio su una risposta che gia si vede */
+const mCell1Solved = ev(win, "mastery(1)");
+click(win, cell1);
+type(win, d.getElementById("wCellInput"), "Xe");
+keyOn(win, d.getElementById("wCellInput"), { key: "Enter" });
+ok(!cell1.classList.contains("wrong"), "cella risolta: l'errore non la segna in rosso", cell1.className);
+ok(ev(win, "mastery(1)") === mCell1Solved, "cella risolta: nessuna penalità per l'errore",
+  mCell1Solved + "->" + ev(win, "mastery(1)"));
+ok(!d.getElementById("wMsg").classList.contains("no"),
+  "cella risolta: nessun feedback d'errore", d.getElementById("wMsg").className);
+
+type(win, d.getElementById("wCellInput"), "h");
+keyOn(win, d.getElementById("wCellInput"), { key: "Enter" });
+ok(/Già compilato/.test(d.getElementById("wMsg").textContent),
+  "cella risolta: simbolo corretto riconosciuto", d.getElementById("wMsg").textContent);
+ok(!cell1.classList.contains("wrong") && !cell1.classList.contains("hinted")
+  && cell1.classList.contains("solved"),
+  "cella risolta: nessuno stato d'errore residuo dopo la correzione", cell1.className);
+ok(ev(win, "mastery(1)") === mCell1Solved, "cella risolta: la correzione non tocca il padroneggio",
+  mCell1Solved + "->" + ev(win, "mastery(1)"));
+
+click(win, cell1);   // la risposta corretta qui sopra ha ripulito la selezione
+click(win, d.getElementById("wHint"));
+ok(!cell1.classList.contains("hinted"), "suggerimento su cella risolta: niente righe d'indizio",
+  cell1.className);
+ok(/già compilato/i.test(d.getElementById("wMsg").textContent),
+  "suggerimento su cella risolta: feedback dedicato", d.getElementById("wMsg").textContent);
+
+click(win, cell2);
 click(win, d.querySelector('#wtable .cell[data-z="3"]'));
 click(win, d.getElementById("wHint"));
 ok(d.querySelector('#wtable .cell[data-z="3"]').classList.contains("hinted"), "suggerimento applicato");
@@ -656,6 +686,32 @@ click(win7, view(win7, "stats"));
 ok(/1\/10/.test(win7.document.getElementById("quizHist").textContent),
   "storico senza 'wrong' renderizzato", win7.document.getElementById("quizHist").textContent.replace(/\s+/g, " "));
 
+/* contatori e storico fuori scala: clampati a valori plausibili, altrimenti
+   le statistiche mostrano "67% su -15 domande", "Posizione 1000000000" e "Invalid Date" */
+const TS_OK = 1700000000000;   // timestamp fisso: Date.now() nel seed e nell'attesa divergerebbero
+const winClamp = makeApp(JSON.stringify({
+  mastery: {}, leitner: {}, due: {},
+  quiz: { correct: -10, wrong: -5, history: [
+    { d: 1e30, score: 7, total: 3, wrong: [999, 26], answered: 99 },
+    { d: TS_OK, score: 500, total: 10, wrong: [7] }
+  ] },
+  write: { seqBest: 1e9, solved: {} },
+  wrongZ: []
+}));
+ok(ev(winClamp, "JSON.stringify([state.quiz.correct, state.quiz.wrong])") === "[0,0]",
+  "contatori quiz negativi azzerati", ev(winClamp, "JSON.stringify([state.quiz.correct, state.quiz.wrong])"));
+ok(ev(winClamp, "state.write.seqBest") === 118, "seqBest clampato a 118",
+  String(ev(winClamp, "state.write.seqBest")));
+ok(ev(winClamp, "JSON.stringify(state.quiz.history.map(h=>[h.d,h.score,h.total,h.answered,h.wrong]))")
+  === JSON.stringify([[0,7,3,3,[26]], [TS_OK,100,10,null,[7]]]),
+  "storico clampato (d fuori scala, score ≤ total*10, answered ≤ total, Z fantasma tolto)",
+  ev(winClamp, "JSON.stringify(state.quiz.history.map(h=>[h.d,h.score,h.total,h.answered,h.wrong]))"));
+click(winClamp, view(winClamp, "stats"));
+const clampStats = winClamp.document.getElementById("statCards").textContent
+  + winClamp.document.getElementById("quizHist").textContent;
+ok(!/Invalid Date/.test(clampStats) && !/1000000000/.test(clampStats) && !/\(-\d+ domande\)/.test(clampStats),
+  "nessun valore impossibile renderizzato nelle statistiche", clampStats.replace(/\s+/g, " "));
+
 /* JSON malformato */
 const win3 = makeApp("{non-json");
 ok(win3.__errors.length === 0, "nessun crash con JSON malformato", win3.__errors.join("|"));
@@ -702,6 +758,41 @@ ok(ev(win, "ELEMENTS.length") === 118, "118 elementi");
 ok(ev(win, "new Set(ELEMENTS.map(e=>e.sym)).size") === 118, "simboli univoci");
 ok(ev(win, "ELEMENTS.every(e=>e.cfg.split(' ').reduce((a,t)=>a+ +t.match(/(\\d+)$/)[1],0)===e.z)") === true,
   "somma elettroni = Z per tutti e 118");
+
+/* ================= NAVIGAZIONE E ACCESSIBILITÀ ================= */
+section("Navigazione e accessibilità");
+/* una vista senza sezione corrispondente non deve nascondere la pagina intera */
+ev(win, 'go("non-esiste")');
+const activeViews = () => [...d.querySelectorAll("main section.view")]
+  .filter(s => s.classList.contains("active")).map(s => s.id);
+ok(activeViews().length === 1, "go() con vista ignota: nessuno schermo vuoto", activeViews().join(","));
+ev(win, 'go("table")');
+
+/* aria-current: uno screen reader deve poter annunciare la vista attiva */
+click(win, view(win, "quiz"));
+ok(view(win, "quiz").getAttribute("aria-current") === "true",
+  "aria-current sulla vista attiva", String(view(win, "quiz").getAttribute("aria-current")));
+ok(!view(win, "table").hasAttribute("aria-current"),
+  "aria-current tolto alle viste inattive", String(view(win, "table").getAttribute("aria-current")));
+ok(d.querySelector("#view-quiz h2").getAttribute("tabindex") === "-1",
+  "heading della vista predisposto per ricevere il focus al cambio vista");
+
+/* le regioni che cambiano in corso d'opera devono essere annunciate */
+["detail", "qFeedback", "wMsg", "seqHint", "cardBack"].forEach(id => {
+  const el = d.getElementById(id);
+  ok(!!el && el.getAttribute("aria-live") === "polite", "aria-live=polite su #" + id,
+    el ? String(el.getAttribute("aria-live")) : "elemento mancante");
+});
+
+/* "Termina" deve poter abbandonare il quiz anche prima della prima risposta */
+click(win, d.getElementById("startQuiz"));
+ok(!d.getElementById("qEnd").classList.contains("hidden"),
+  "Termina visibile già prima di rispondere", d.getElementById("qEnd").className);
+const histBeforeQuit = ev(win, "state.quiz.history.length");
+click(win, d.getElementById("qEnd"));
+ok(ev(win, "state.quiz.history.length") === histBeforeQuit,
+  "abbandono senza risposte: nessuna voce spuria nello storico", String(histBeforeQuit));
+ok(!d.getElementById("quizDone").classList.contains("hidden"), "abbandono: riepilogo mostrato");
 
 console.log("\n================ RISULTATO ================");
 console.log("PASS: " + pass + "   FAIL: " + fail);
