@@ -1,6 +1,6 @@
 # ⚗ ChemMaster 4000 — impara a memoria
 
-![Test](https://github.com/laok233/chemmaster-4000/actions/workflows/test.yml/badge.svg)
+![Test](https://github.com/laok233/ChemMaster-4000/actions/workflows/test.yml/badge.svg)
 
 > [!Warning] 
 > This application is VIBE CODED, i have no idea how it works lol 
