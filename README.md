@@ -1,4 +1,4 @@
-# ⚗ ChemMaster 4000 — impara a memoria
+# ⚗ ChemMaster 4000
 
 ![Test](https://github.com/laok233/ChemMaster-4000/actions/workflows/test.yml/badge.svg)
 
