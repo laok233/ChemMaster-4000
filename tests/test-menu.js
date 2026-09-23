@@ -1,5 +1,5 @@
 // Test del menu principale (hub multipagina): struttura e link, nessuno script.
-// Esecuzione: npm test   (oppure: bun tests/test-menu.js)
+// Esecuzione: bun tests/test-menu.js
 const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");

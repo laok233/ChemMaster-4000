@@ -1,5 +1,5 @@
 // Verifica dei dati della tavola periodica (nessuna dipendenza esterna).
-// Esecuzione: node tests/check-data.js   oppure   bun tests/check-data.js
+// Esecuzione: bun tests/check-data.js
 const fs = require("fs");
 const vm = require("vm");
 const path = require("path");

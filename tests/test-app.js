@@ -1,5 +1,5 @@
 // Test funzionali della app (jsdom): clic, digitazione, scorciatoie, persistenza.
-// Esecuzione: npm install && npm test   (oppure: bun install && bun run test)
+// Esecuzione: bun install && bun run test
 const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
@@ -80,6 +80,12 @@ ok(d.getElementById("searchEl").hasAttribute("aria-label"), "input ricerca con a
 ok(d.getElementById("storageWarning").hidden &&
    win.getComputedStyle(d.getElementById("storageWarning")).display === "none",
   "nessun avviso persistenza quando localStorage è disponibile");
+ok(d.getElementById("storageImport").hidden,
+  "import dal banner nascosto quando lo storage è regolare");
+ok(!!d.getElementById("importBackup") && !d.getElementById("importBackup").hidden,
+  "import JSON sempre disponibile nella sezione Progressi");
+ok(d.getElementById("progressFile").accept.includes("application/json"),
+  "file picker limitato ai backup JSON");
 ok(d.querySelector('#ptable .cell[data-z="1"]').getAttribute("aria-current") === "true" &&
    d.querySelector('#ptable .cell[data-z="1"]').classList.contains("sel"),
   "tavola iniziale: elemento del dettaglio marcato e selezionato");
@@ -670,8 +676,9 @@ const failedSave = ev(winNoStorage, "addMastery(2,5); save()");
 ok(failedSave === false && ev(winNoStorage, "storageDirty") === true,
   "errore di scrittura segnalato e stato marcato dirty");
 ok(!winNoStorage.document.getElementById("storageWarning").hidden &&
-   !winNoStorage.document.getElementById("storageExport").hidden,
-  "errore storage mostra l'esportazione della copia");
+   !winNoStorage.document.getElementById("storageExport").hidden &&
+   !winNoStorage.document.getElementById("storageImport").hidden,
+  "errore storage mostra import ed esportazione della copia");
 
 /* export: click, nome file e contenuto JSON */
 const winExport = makeApp();
@@ -687,6 +694,42 @@ ok(/^chemmaster-4000-\d{4}-\d{2}-\d{2}\.json$/.test(ev(winExport, "__exportName"
   "export avvia il download con nome file datato", ev(winExport, "__exportName"));
 ok(JSON.parse(ev(winExport, "__exportParts[0]")).version === 1,
   "export contiene lo stato versionato come JSON");
+
+/* import: lo stesso backup deve superare validazione, rendering e persistenza */
+const importedAt=Date.now();
+const backup=JSON.stringify({
+  version:1,
+  mastery:{1:42}, leitner:{1:2}, due:{},
+  quiz:{correct:3,wrong:1,history:[
+    {d:importedAt,score:20,total:4,answered:4,wrong:[26]}
+  ]},
+  write:{seqBest:7,solved:{1:1}}, wrongZ:[26], unknown:"scartato"
+});
+const winImport=makeApp();
+const imported=ev(winImport, `applyImportedState(${JSON.stringify(backup)})`);
+ok(imported===true, "backup valido importato dopo conferma");
+ok(ev(winImport, "JSON.stringify([state.mastery[1],state.write.seqBest,state.wrongZ])")==='[42,7,[26]]',
+  "stato importato applicato e sanificato", ev(winImport, "JSON.stringify(state)"));
+ok(ev(winImport, "Object.prototype.hasOwnProperty.call(state,'unknown')")===false,
+  "campi sconosciuti del backup scartati");
+ok(JSON.parse(winImport.localStorage.getItem(KEY)).mastery["1"]===42,
+  "stato importato salvato nello storage");
+ok(winImport.document.getElementById("headPctTxt").textContent==="0/118 padroneggiati",
+  "sezione Progressi aggiornata dopo l'import");
+ok(winImport.document.getElementById("storageWarning").hidden,
+  "import riuscito senza lasciare l'avviso di errore");
+
+const winImportBad=makeApp();
+const beforeBad=ev(winImportBad, "JSON.stringify(state)");
+ok(ev(winImportBad, `applyImportedState(${JSON.stringify(JSON.stringify({version:99,mastery:{1:99}}))})`)===false,
+  "versione futura rifiutata durante l'import");
+ok(ev(winImportBad, "JSON.stringify(state)")===beforeBad,
+  "import rifiutato non modifica lo stato corrente");
+ok(/non supportata/.test(winImportBad.__lastAlert||""),
+  "import di versione futura spiega il motivo del rifiuto", winImportBad.__lastAlert);
+ok(ev(winImportBad, "applyImportedState('{non-json')")===false &&
+   /JSON valido/.test(winImportBad.__lastAlert||""),
+  "import JSON malformato rifiutato con messaggio");
 
 /* "Cancella tutto" con una casella selezionata non deve lasciare l'input attivo */
 click(win, view(win, "write"));
@@ -739,7 +782,8 @@ const winEdges = makeApp(JSON.stringify({
   quiz:{correct:1e308, wrong:1e308, history:[
     {d:Date.now(),score:0,total:0,wrong:[]},
     {d:Date.now(),score:1180,total:Number.MAX_SAFE_INTEGER,wrong:[]},
-    {d:Date.now(),score:0,total:1,wrong:[26,26,27]}
+    {d:Date.now(),score:0,total:1,wrong:[26,26,27]},
+    {d:Date.now(),score:0,total:1,answered:true,wrong:[]}
   ]},
   write:{seqBest:0, solved:{}}, wrongZ:[]
 }));
@@ -757,6 +801,33 @@ ok(ev(winEdges, "JSON.stringify(state.quiz.history[1].wrong)") === "[26]",
 click(winEdges, view(winEdges, "stats"));
 ok(!/Infinity|NaN/.test(winEdges.document.getElementById("statCards").textContent),
   "nessun totale impossibile nelle statistiche");
+
+/* versioni non supportate: avviso, stato predefinito e possibilità di importare */
+const winFuture=makeApp(JSON.stringify({version:99,mastery:{1:99},extra:"futuro"}));
+const futureWarning=winFuture.document.getElementById("storageWarning");
+ok(winFuture.__errors.length===0, "stato con versione futura avviato senza crash", winFuture.__errors.join("|"));
+ok(ev(winFuture, "JSON.stringify([state.version,mastery(1),state.unknown])")==='[1,0,null]',
+  "versione futura non reinterpretata e campi sconosciuti scartati",
+  ev(winFuture, "JSON.stringify(state)"));
+ok(!futureWarning.hidden && /non supportata/.test(futureWarning.textContent),
+  "versione futura comunicata senza perdere il backup grezzo su disco");
+ok(futureWarning.dataset.kind==="version",
+  "avviso iniziale distingue lo schema non supportato");
+ok(!winFuture.document.getElementById("storageImport").hidden,
+  "avviso versione futura offre l'import di un backup compatibile");
+const futureRaw=winFuture.localStorage.getItem(KEY);
+ok(ev(winFuture, "addMastery(1,10); save()")===false,
+  "salvataggio automatico bloccato per uno stato con versione futura");
+ok(winFuture.localStorage.getItem(KEY)===futureRaw,
+  "stato con versione futura non viene sovrascritto da un'azione dell'app");
+ok(futureWarning.dataset.kind==="version" && /non verranno sovrascritti/.test(futureWarning.textContent),
+  "tentativo di salvataggio spiega come sbloccare il ripristino", futureWarning.textContent);
+click(winFuture, view(winFuture, "stats"));
+click(winFuture, winFuture.document.getElementById("resetAll"));
+ok(ev(winFuture, "storageWriteBlocked")===false && futureWarning.hidden,
+  "azzeramento esplicito sblocca e chiude lo stato non supportato");
+ok(JSON.parse(winFuture.localStorage.getItem(KEY)).version===1,
+  "azzeramento sostituisce lo stato futuro solo dopo conferma");
 
 /* membri null in localStorage: l'app deve avviarsi lo stesso */
 const win5 = makeApp(JSON.stringify({ mastery: null, leitner: null, due: null, quiz: null, write: null, wrongZ: null }));
@@ -845,7 +916,8 @@ const winClamp = makeApp(JSON.stringify({
   mastery: {}, leitner: {}, due: {},
   quiz: { correct: -10, wrong: -5, history: [
     { d: 1e30, score: 7, total: 3, wrong: [999, 26], answered: 99 },
-    { d: TS_OK, score: 500, total: 10, wrong: [7] }
+    { d: TS_OK, score: 500, total: 10, wrong: [7] },
+    { d: TS_OK + 1, score: 100, total: 10, answered: 1, wrong: [1, 2, 3] }
   ] },
   write: { seqBest: 1e9, solved: {} },
   wrongZ: []
@@ -855,8 +927,8 @@ ok(ev(winClamp, "JSON.stringify([state.quiz.correct, state.quiz.wrong])") === "[
 ok(ev(winClamp, "state.write.seqBest") === 118, "seqBest clampato a 118",
   String(ev(winClamp, "state.write.seqBest")));
 ok(ev(winClamp, "JSON.stringify(state.quiz.history.map(h=>[h.d,h.score,h.total,h.answered,h.wrong]))")
-  === JSON.stringify([[0,7,3,3,[26]], [TS_OK,100,10,null,[7]]]),
-  "storico clampato (d fuori scala, score ≤ total*10, answered ≤ total, Z fantasma tolto)",
+  === JSON.stringify([[TS_OK,100,10,10,[]], [TS_OK+1,10,10,1,[]]]),
+  "storico coerente: data invalida scartata, answered derivato e Z in eccesso rimosso",
   ev(winClamp, "JSON.stringify(state.quiz.history.map(h=>[h.d,h.score,h.total,h.answered,h.wrong]))"));
 click(winClamp, view(winClamp, "stats"));
 const clampStats = winClamp.document.getElementById("statCards").textContent
@@ -870,6 +942,8 @@ ok(win3.__errors.length === 0, "nessun crash con JSON malformato", win3.__errors
 ok(ev(win3, "state.quiz.correct") === 0, "stato di default ripristinato");
 ok(!win3.document.getElementById("storageWarning").hidden,
   "JSON malformato non viene più ignorato silenziosamente");
+ok(!win3.document.getElementById("storageImport").hidden,
+  "stato malformato: avviso con import del backup compatibile");
 ok(ev(win3, "save()") === true && win3.document.getElementById("storageWarning").hidden,
   "il primo salvataggio valido sostituisce lo stato corrotto e chiude l'avviso");
 
@@ -953,6 +1027,17 @@ click(win, d.getElementById("qEnd"));
 ok(ev(win, "state.quiz.history.length") === histBeforeQuit,
   "abbandono senza risposte: nessuna voce spuria nello storico", String(histBeforeQuit));
 ok(!d.getElementById("quizDone").classList.contains("hidden"), "abbandono: riepilogo mostrato");
+
+/* lo scorrimento al cambio vista rispetta prefers-reduced-motion */
+const scrollCalls=[];
+win.scrollTo=opts=>scrollCalls.push(opts);
+win.matchMedia=()=>({matches:true});
+ev(win, 'go("table")');
+ok(scrollCalls.at(-1).behavior==="auto", "reduced motion: cambio vista senza animazione", JSON.stringify(scrollCalls.at(-1)));
+win.matchMedia=()=>({matches:false});
+ev(win, 'go("stats")');
+ok(scrollCalls.at(-1).behavior==="smooth", "senza reduced motion: cambio vista con animazione", JSON.stringify(scrollCalls.at(-1)));
+ok(/#detail\{position:static\}/.test(html), "pannello dettagli non sticky nel layout mobile");
 
 console.log("\n================ RISULTATO ================");
 console.log("PASS: " + pass + "   FAIL: " + fail);

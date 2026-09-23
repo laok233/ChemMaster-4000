@@ -2,19 +2,20 @@
   "name": "chemmaster-4000",
   "version": "1.0.0",
   "private": true,
-  "description": "ChemMaster 4000 — tavola periodica interattiva per memorizzazione (app in un singolo file HTML)",
+  "description": "ChemMaster 4000 — tavola periodica interattiva per memorizzazione (app HTML senza build)",
   "scripts": {
-    "lint": "eslint .",
-    "validate": "html-validate index.html tavola.html",
-    "test": "eslint . && html-validate index.html tavola.html && node tests/check-data.js && node tests/test-app.js && node tests/test-menu.js && node tests/test-storage-lock.js",
-    "test:app": "node tests/test-app.js",
-    "test:data": "node tests/check-data.js",
-    "test:menu": "node tests/test-menu.js",
-    "test:storage": "node tests/test-storage-lock.js"
+    "lint": "bun ./node_modules/eslint/bin/eslint.js .",
+    "validate": "bun ./node_modules/html-validate/bin/html-validate.mjs index.html tavola.html",
+    "test": "bun ./node_modules/eslint/bin/eslint.js . && bun ./node_modules/html-validate/bin/html-validate.mjs index.html tavola.html && bun tests/check-data.js && bun tests/test-app.js && bun tests/test-menu.js && bun tests/test-storage-lock.js",
+    "test:app": "bun tests/test-app.js",
+    "test:data": "bun tests/check-data.js",
+    "test:menu": "bun tests/test-menu.js",
+    "test:storage": "bun tests/test-storage-lock.js"
   },
   "engines": {
-    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+    "bun": ">=1.4.2"
   },
+  "packageManager": "bun@1.4.2",
   "devDependencies": {
     "@eslint/js": "^9",
     "eslint": "^9",

@@ -18,11 +18,11 @@ Per ora l'unica funzione è la **tavola periodica** (`tavola.html`), che contien
 | **Flashcard** | Ripetizione spaziata (mazzetti di Leitner, scadenze 0/1/3/7/21 giorni). 6 direzioni di domanda (nome↔simbolo↔numero atomico), 13 ambiti, giudizio *Non sapevo / Sapevo / Facile*; la percentuale del riepilogo è calcolata sulle carte effettivamente svolte. Scorciatoie: `Spazio`/`Invio` girano la carta, `1` `2` `3` giudicano. |
 | **Quiz** | Risposta multipla con 4 opzioni (più “Non so”), 6 tipi di domanda, punteggio e serie. “Non so” conta come errore: va **subito** in “Ripassa gli errori”, azzera la serie e toglie punti di padroneggio. Ogni errore viene salvato **subito** in “Ripassa gli errori” e una risposta giusta lo toglie; la percentuale del riepilogo è calcolata sulle risposte effettivamente date. Scorciatoie: `1`–`4` rispondono, `5` = “Non so”, `Invio` va avanti. |
 | **Scrivi la tavola** | **Tavola vuota**: clicchi una casella e scrivi il **simbolo** (il tooltip non svela la risposta; il nome completo riceve un richiamo senza penalità), con suggerimento e correzione immediata. **Sequenza**: scrivi i 118 simboli in ordine di numero atomico, con feedback e miglior posizione — anche qui il nome completo è ammesso come richiamo, senza penalità. |
-| **Progressi** | Padroneggio medio, % per categoria, mazzetti (etichette derivate da `BOX_DAYS`, quindi sempre allineate alle scadenze, e barre proporzionali alle carte assegnate), storico quiz, azzeramento. |
+| **Progressi** | Padroneggio medio, % per categoria, mazzetti (etichette derivate da `BOX_DAYS`, quindi sempre allineate alle scadenze, e barre proporzionali alle carte assegnate), storico quiz, importazione/esportazione JSON e azzeramento. |
 
-Tutti i progressi sono salvati in `localStorage` e ripristinati al riavvio. Quando Web Locks è disponibile, le scritture sono serializzate tra le schede; il fallback verifica comunque il baseline e rifiuta snapshot obsoleti. In caso di storage non disponibile la app mostra un avviso e permette di esportare una copia JSON.
+Tutti i progressi sono salvati in `localStorage` e ripristinati al riavvio; una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Senza Web Locks il confronto del baseline rifiuta la maggior parte degli snapshot obsoleti, ma `localStorage` non offre un confronto-e-scrittura atomico: due salvataggi davvero simultanei possono ancora gareggiare. Lo stato importato attraversa la stessa sanitizzazione dei dati locali e le versioni non supportate vengono rifiutate.
 
-Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera sono regioni `aria-live="polite"`; le scorciatoie tastiera si attivano solo senza tasti modificatori e ogni controllo ha un nome accessibile.
+Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera sono regioni `aria-live="polite"`; le scorciatoie tastiera si attivano solo senza tasti modificatori, ogni controllo ha un nome accessibile e lo scorrimento programmatico rispetta `prefers-reduced-motion`.
 
 ## Struttura del progetto
 
@@ -36,11 +36,11 @@ tavola.html    funzione «Tavola periodica» (ex index.html)
     │                 configurazioni elettronica (con le eccezioni note: Cr, Cu, Mo, Au…)
     │                 e BIO_SYMS/BIO_Z (i 26 elementi biorilevanti)
     ├── STATO         persistenza versionata in localStorage, protezione dai conflitti
-    │                 multi-tab, avviso/esportazione se lo storage non è disponibile,
-    │                 sanitizzazione dello stato corrotto (anche ai membri annidati),
-    │                 scarto di booleani/chiavi non canoniche, caselle `solved` a soli
-    │                 valori/elementi validi, `wrongZ` a soli Z reali, contatori
-    │                 quiz/sequenza convertiti in numero e clamp 0..100
+    │                 multi-tab, import/export JSON e avviso se lo storage non è disponibile,
+    │                 migrazione v0→v1 e rifiuto delle versioni future, sanitizzazione
+    │                 dello stato corrotto (anche ai membri annidati), scarto di booleani/
+    │                 chiavi non canoniche, storico quiz con invarianti risposte/punteggio,
+    │                 caselle `solved` a soli valori/elementi validi, `wrongZ` a soli Z reali
     ├── TAVOLA        griglia, ricerca, filtri, chip biorilevanti, pannello dettaglio (badge 🧬)
     ├── FLASHCARD     coda, mazzetti di Leitner, scadenze
     ├── QUIZ          generazione domande + distrattori
@@ -53,19 +53,19 @@ tests/
 └── test-storage-lock.js due tab concorrenti serializzate tramite Web Locks
 ├── eslint.config.mjs   lint (ESLint): script inline dentro gli HTML + test
 ├── .htmlvalidate.json  regole per la validazione HTML
-└── package-lock.json   grafo delle dipendenze riproducibile per npm/CI
+└── bun.lock            grafo delle dipendenze riproducibile per Bun/CI
 ```
 
 ## Test
 
 ```bash
-npm ci               # (o: bun install) serve solo per test, lint e validazione; l'app non ha dipendenze runtime
-npm test             # (o: bun run test)  → lint + validazione HTML + i quattro test
-npm run lint         # solo ESLint
-npm run validate     # solo HTML validate
+bun install --frozen-lockfile   # serve solo per test, lint e validazione; l'app non ha dipendenze runtime
+bun run test                    # lint + validazione HTML + i quattro test
+bun run lint                    # solo ESLint
+bun run validate                # solo HTML validate
 ```
 
-In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`**, con matrix **Node 22 e 24** (`npm ci --ignore-scripts` + `npm test`, usando il `package-lock.json` committed) e una job separata con **Bun 1.4.2** pinnato (`bun install --frozen-lockfile` + `bun run test`) per validare il `bun.lock`. Le Action sono referenziate per SHA; `npm test` include lint ESLint e validazione HTML. La badge qui sopra riflette l'ultimo run.
+In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`** con **Bun 1.4.2** pinnato (`bun install --frozen-lockfile` + `bun run test`): non viene avviato alcun processo Node. Le Action sono referenziate per SHA; `bun run test` include lint ESLint e validazione HTML. La badge qui sopra riflette l'ultimo run.
 
 - **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, posizioni senza collisioni,
   ogni elemento categorizzato (con la regola CSS `.cat-<id>` corrispondente nel foglio di stile),
@@ -76,8 +76,8 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   gusci coerenti, eccezioni di configurazione reali, controlli incrociati noti (Ar>K, Co>Ni, Te>I…),
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
-- **`npm run validate`** — validazione HTML delle due pagine con `html-validate`.
-- **`tests/test-app.js`** — 293 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`bun run validate`** — validazione HTML delle due pagine con `html-validate`.
+- **`tests/test-app.js`** — 320 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,
@@ -94,11 +94,13 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   assegnate (non alle 118 caselle),
   `Enter`/`Spazio`/`Shift` con il focus sui controlli, Invio ripetuto senza penalità multiple,
   box Leitner 0 distinto da “nuovo”, conflitti multi-tab rifiutati senza sovrascrivere,
-  storage non disponibile con avviso/esportazione, schema versionato e sanitizia di chiavi ereditate/non canoniche,
+  storage non disponibile con avviso/import/export, import valido o malformato e versioni future rifiutate,
+  campi sconosciuti scartati e storico quiz coerente tra risposte, punteggio, errori e data,
   cella già risolta che non si segna in rosso dopo un errore e non viene penalizzata,
   suggerimento su casella già compilata, contatori e storico quiz fuori scala clamped
   (niente percentuali su domande negative, «Posizione 1000000000» o «Invalid Date»),
   `go()` con vista ignota che non lascia la pagina vuota, `aria-current`/`aria-pressed`/`aria-live`,
+  navigazione senza animazione con `prefers-reduced-motion`, pannello dettagli non sticky su mobile,
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
 - **`tests/test-storage-lock.js`** — 4 asserzioni: due finestre con storage condiviso e lock
   concorrenti; la seconda scrittura obsoleta viene rifiutata e non annulla la prima.

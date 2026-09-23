@@ -3,7 +3,7 @@ import html from "eslint-plugin-html";
 import globals from "globals";
 
 // L'app vive in <script> dentro gli HTML (nessun build step): eslint-plugin-html
-// estrae e stima quegli script, mentre i test sono CommonJS avviati da Node/Bun.
+// estrae e stima quegli script, mentre i test sono CommonJS avviati da Bun.
 const rules = {
   ...js.configs.recommended.rules,
   // save() e load() hanno catch vuoti di proposito: un localStorage inaccessibile
