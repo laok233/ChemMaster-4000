@@ -112,6 +112,13 @@ o.ELEMENTS.forEach(e => {
 
 /* --- masse: solo cifre o [numero] --- */
 o.MASSES.forEach((m, i) => ok(/^\[\d+\]$|^\d+(\.\d+)?$/.test(m), "formato massa: " + o.SYMBOLS[i] + " " + m));
+// Valori abridgiati IUPAC: tabella 2021 e revisione 2024 di Zr. I numeri tra
+// parentesi quadre sono quelli scelti dalla tavola per gli elementi radioattivi.
+const EXPECTED_MASSES = { 18:"39.95", 40:"91.222", 43:"[97]", 103:"[262]", 109:"[277]", 114:"[290]" };
+Object.entries(EXPECTED_MASSES).forEach(([z,mass]) => {
+  ok(o.MASSES[Number(z)-1] === mass,
+    `massa IUPAC Z=${z}: atteso ${mass}, trovato ${o.MASSES[Number(z)-1]}`);
+});
 
 /* --- controlli incrociati noti (errori tipici delle tavole) --- */
 const byS = Object.fromEntries(o.ELEMENTS.map(e => [e.sym, e]));

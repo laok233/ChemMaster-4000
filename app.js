@@ -173,6 +173,11 @@ function renderDetail(z){
   const posTxt = (e.y===9||e.y===10)
     ? `Periodo ${e.period} · ${e.y===9?"Lantanoidi":"Attinoidi"} (riga separata)`
     : `Gruppo ${e.group} · Periodo ${e.period}`;
+  // Il valore tra parentesi quadre non è un peso in u: è il numero di massa
+  // dell'isotopo indicato da IUPAC per gli elementi senza isotopi stabili.
+  const radioactive=e.mass.startsWith("[");
+  const massLabel=radioactive?"Numero di massa":"Massa atomica";
+  const massValue=radioactive?e.mass:`${e.mass} u`;
   const box=boxOf(z);
   host.innerHTML=`
     <div class="detail-hero">
@@ -182,7 +187,7 @@ function renderDetail(z){
     </div>
     <dl class="kv">
       <dt>Numero atomico</dt><dd>${e.z}</dd>
-      <dt>Massa atomica</dt><dd>${e.mass} u</dd>
+      <dt>${massLabel}</dt><dd>${massValue}</dd>
       <dt>Posizione</dt><dd>${posTxt}</dd>
       <dt>Padroneggio</dt><dd>${mastery(e.z)}%</dd>
       <dt>Mazzo flashcard</dt><dd>${box===null?"— (nuovo)":box+"° mazzo · "+(box===0?"oggi":BOX_DAYS[box]+(BOX_DAYS[box]===1?" giorno":" giorni"))}</dd>
@@ -772,7 +777,9 @@ function renderStats(){
     const els=ELEMENTS.filter(e=>e.cat===c.id);
     const p=Math.round(els.reduce((s,e)=>s+mastery(e.z),0)/els.length);
     const d=document.createElement("div"); d.className="catbar";
-    d.innerHTML=`<span>${c.label}</span><span class="track cat-${c.id}"><i style="width:${p}%"></i></span><span class="pct">${p}%</span>`;
+    d.innerHTML=`<span>${c.label}</span><span class="track cat-${c.id}" role="progressbar"
+      aria-label="Padroneggio ${c.label}" aria-valuemin="0" aria-valuemax="100"
+      aria-valuenow="${p}" aria-valuetext="${p}%"><i style="width:${p}%"></i></span><span class="pct">${p}%</span>`;
     cs.appendChild(d);
   });
   const bs=document.getElementById("boxStats"); bs.innerHTML="";
@@ -782,8 +789,11 @@ function renderStats(){
     // proporzionale alle carte effettivamente assegnate: con pochi mazzetti
     // attivi usare 118 come denominatore lascerebbe tutte le barre quasi vuote
     const p=assignedCards?Math.round(n/assignedCards*100):0;
+    const valueText=`${n} ${n===1?"carta":"carte"}${assignedCards?`, ${p}% del totale`:""}`;
     const d=document.createElement("div"); d.className="catbar";
-    d.innerHTML=`<span>${names[i]}</span><span class="track"><i style="width:${p}%; background:var(--accent)"></i></span><span class="pct">${n}</span>`;
+    d.innerHTML=`<span>${names[i]}</span><span class="track" role="progressbar"
+      aria-label="Carte nel mazzo ${names[i]}" aria-valuemin="0" aria-valuemax="${assignedCards||1}"
+      aria-valuenow="${n}" aria-valuetext="${valueText}"><i style="width:${p}%; background:var(--accent)"></i></span><span class="pct">${n}</span>`;
     bs.appendChild(d);
   });
   const h=document.getElementById("quizHist");

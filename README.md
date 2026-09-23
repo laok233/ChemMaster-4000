@@ -14,7 +14,7 @@ Per ora l'unica funzione è la **tavola periodica** (`tavola.html`), che contien
 | Sezione | Cosa fai |
 |---|---|
 | **Menu principale** | La home (`index.html`): griglia di tessere, una per funzione disponibile. Clicca una tessera e la funzione si apre nella stessa finestra; il link **🏠 Menu** nell'header di ogni funzione riporta alla home. |
-| **Tavola** | 118 elementi cliccabili: numero atomico, massa, gruppo/periodo, configurazione elettronica, gusci, categoria (il pannello dettagli si aggiorna anche quando il padroneggio cambia da altri esercizi). Ricerca testuale (se la query è un simbolo si evidenziano i simboli, altrimenti i nomi) e filtri per categoria, raggiungibili anche da tastiera. La barretta sotto ogni cella mostra quanto la padroneggi. Il chip **🧬 Biorilevanti** evidenzia i 26 elementi biorilevanti oscurando tutti gli altri (si combina con ricerca e filtri, e “Mostra tutti” lo spegne); il pannello dettagli mostra il badge 🧬 accanto alla categoria quando l’elemento è biorilevante. |
+| **Tavola** | 118 elementi cliccabili: numero atomico, peso atomico (numero di massa per gli elementi radioattivi), gruppo/periodo, configurazione elettronica, gusci, categoria (il pannello dettagli si aggiorna anche quando il padroneggio cambia da altri esercizi). Ricerca testuale (se la query è un simbolo si evidenziano i simboli, altrimenti i nomi) e filtri per categoria, raggiungibili anche da tastiera. La barretta sotto ogni cella mostra quanto la padroneggi. Il chip **🧬 Biorilevanti** evidenzia i 26 elementi biorilevanti oscurando tutti gli altri (si combina con ricerca e filtri, e “Mostra tutti” lo spegne); il pannello dettagli mostra il badge 🧬 accanto alla categoria quando l’elemento è biorilevante. |
 | **Flashcard** | Ripetizione spaziata (mazzetti di Leitner, scadenze 0/1/3/7/21 giorni). 6 direzioni di domanda (nome↔simbolo↔numero atomico), 13 ambiti, giudizio *Non sapevo / Sapevo / Facile*; la percentuale del riepilogo è calcolata sulle carte effettivamente svolte. Scorciatoie: `Spazio`/`Invio` girano la carta, `1` `2` `3` giudicano. |
 | **Quiz** | Risposta multipla con 4 opzioni (più “Non so”), 6 tipi di domanda, punteggio e serie. “Non so” conta come errore: va **subito** in “Ripassa gli errori”, azzera la serie e toglie punti di padroneggio. Ogni errore viene salvato **subito** in “Ripassa gli errori” e una risposta giusta lo toglie; la percentuale del riepilogo è calcolata sulle risposte effettivamente date. Scorciatoie: `1`–`4` rispondono, `5` = “Non so”, `Invio` va avanti. |
 | **Scrivi la tavola** | **Tavola vuota**: clicchi una casella e scrivi il **simbolo** (il tooltip non svela la risposta; il nome completo riceve un richiamo senza penalità), con suggerimento e correzione immediata. **Sequenza**: scrivi i 118 simboli in ordine di numero atomico, con feedback e miglior posizione — anche qui il nome completo è ammesso come richiamo, senza penalità. |
@@ -64,7 +64,8 @@ bun run validate                # solo HTML validate
 
 In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`** con **Bun 1.4.2** pinnato (`bun install --frozen-lockfile` + `bun run test`): non viene avviato alcun processo Node. Le Action sono referenziate per SHA; `bun run test` include lint ESLint e validazione HTML. La badge qui sopra riflette l'ultimo run.
 
-- **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, posizioni senza collisioni,
+- **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, masse IUPAC di riferimento
+  (inclusa la revisione 2024 di Zr e i numeri di massa radioattivi), posizioni senza collisioni,
   ogni elemento categorizzato (con la regola CSS `.cat-<id>` corrispondente nel foglio di stile),
   elenco biorilevante senza simboli fantasmi né duplicati (26 voci, `BIO_Z` coerente,
   i 6 bioelementi strutturali presenti, categoria e regola CSS per ciascuno),
@@ -74,7 +75,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
 - **`bun run validate`** — validazione HTML delle due pagine con `html-validate`.
-- **`tests/test-app.js`** — 338 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`tests/test-app.js`** — 343 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,
@@ -87,10 +88,11 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   membri `null` anche
   annidati, chiavi fantasma nei mazzetti, azzeramento con quiz aperto (e messaggio + input ripuliti),
   `wrongZ` con duplicati/non numerici/booleani, percentuale flashcard calcolata sulle carte svolte,
-  pannello dettagli che segue i cambi di padroneggio, barre dei mazzi proporzionali alle carte
-  assegnate (non alle 118 caselle),
+  pannello dettagli che segue i cambi di padroneggio e distingue peso atomico e numero di massa,
+  barre di categoria e mazzi proporzionali alle carte assegnate (non alle 118 caselle), con valori accessibili,
   `Enter`/`Spazio`/`Shift` con il focus sui controlli, Invio ripetuto senza penalità multiple,
   box Leitner 0 distinto da “nuovo”, conflitti multi-tab rifiutati senza sovrascrivere,
+  eventi `sessionStorage` ignorati senza provocare falsi conflitti,
   storage non disponibile con avviso/import/export, import valido o malformato e versioni future rifiutate,
   campi sconosciuti scartati e storico quiz coerente tra risposte, punteggio, errori e data,
   cella già risolta che non si segna in rosso dopo un errore e non viene penalizzata,

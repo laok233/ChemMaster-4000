@@ -329,8 +329,17 @@ document.getElementById("progressFile").addEventListener("change",e=>{
   e.target.value="";
   importProgress(file);
 });
+function isRelevantStorageEvent(e){
+  if(e.key!==STORE_KEY&&e.key!==null) return false;
+  // Un evento con storageArea nullo viene accettato per compatibilità con
+  // eventi sintetici; quelli espliciti devono però provenire da localStorage.
+  // sessionStorage può infatti emettere un evento con la stessa chiave.
+  if(!e.storageArea) return true;
+  try{ return e.storageArea===localStorage; }
+  catch(_){ return false; }
+}
 function handleStorageEvent(e){
-  if(e.key!==STORE_KEY&&e.key!==null) return;
+  if(!isRelevantStorageEvent(e)) return;
   if(e.newValue===storageBaseline) return;
   if(storageDirty){
     storageConflict=true;
@@ -349,7 +358,7 @@ function handleStorageEvent(e){
   showStorageLoadIssue();
 }
 globalThis.addEventListener("storage",e=>{
-  if(e.key!==STORE_KEY&&e.key!==null) return;
+  if(!isRelevantStorageEvent(e)) return;
   // L'evento può arrivare tra storage.js e app.js: conserva l'ultimo senza
   // chiamare funzioni UI che non sono ancora state inizializzate.
   if(!appReady){ pendingStorageEvent=e; return; }

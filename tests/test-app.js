@@ -145,6 +145,15 @@ ok(!bioBadge(), "nessun badge per Elio (non biorilevante)", bioBadge() ? bioBadg
 click(win, d.querySelector('#ptable .cell[data-z="60"]'));
 ok(!bioBadge(), "nessun badge per un lantanotide", bioBadge() ? bioBadge().textContent : "ok");
 
+/* un numero di massa tra parentesi quadre non va presentato come peso in u */
+click(win, d.querySelector('#ptable .cell[data-z="26"]'));
+const feDetail=d.getElementById("detail").textContent.replace(/\s+/g," ");
+ok(/Massa atomica55\.845 u/.test(feDetail), "dettaglio Fe mostra il peso atomico in unità atomica", feDetail);
+click(win, d.querySelector('#ptable .cell[data-z="43"]'));
+const tcDetail=d.getElementById("detail").textContent.replace(/\s+/g," ");
+ok(/Numero di massa\[97\]/.test(tcDetail) && !/\[97\] u/.test(tcDetail),
+  "dettaglio Tc distingue il numero di massa dal peso atomico", tcDetail);
+
 const search = q => { type(win, d.getElementById("searchEl"), q); d.getElementById("searchEl").dispatchEvent(new win.Event("input", { bubbles: true })); };
 const matchedSyms = () => [...d.querySelectorAll("#ptable .cell.match")].map(c => c.querySelector(".s").textContent);
 search("fe");
@@ -648,6 +657,11 @@ section("Progressi");
 click(win, view(win, "stats"));
 ok(d.querySelectorAll("#statCards .stat").length === 6, "6 card statistiche");
 ok(d.querySelectorAll("#catStats .catbar").length === 10, "10 barre categoria");
+const catTracks=[...d.querySelectorAll("#catStats .track")];
+ok(catTracks.length===10 && catTracks.every(t=>t.getAttribute("role")==="progressbar" &&
+   t.getAttribute("aria-valuemin")==="0" && t.getAttribute("aria-valuemax")==="100" &&
+   /^\d+%$/.test(t.getAttribute("aria-valuetext")||"")),
+"barre categoria accessibili con valore e testo", catTracks.map(t=>t.outerHTML).join(" "));
 const boxRows = [...d.querySelectorAll("#boxStats .catbar")].map(r => r.querySelector("span").textContent);
 ok(boxRows.length === 5, "5 righe mazzi", boxRows.length);
 ok(boxRows[0] === "0 · oggi", "box 0 mostrato come box reale, non come 'Non assegnato'", boxRows[0]);
@@ -664,6 +678,12 @@ ok(!boxRows.some(t => /undefined|NaN/.test(t)), "nessuna etichetta undefined/NaN
 const boxWidths = [...d.querySelectorAll("#boxStats .track i")].map(i => i.style.width);
 ok(boxWidths.length === 5 && boxWidths.every(w => /^\d+%$/.test(w)),
   "barre mazzi con larghezze valide (nessun NaN)", boxWidths.join(","));
+const boxTracks=[...d.querySelectorAll("#boxStats .track")];
+ok(boxTracks.length===5 && boxTracks.every(t=>{
+  const max=Number(t.getAttribute("aria-valuemax")), now=Number(t.getAttribute("aria-valuenow"));
+  return t.getAttribute("role")==="progressbar" && max>0 && now>=0 && now<=max &&
+    /\d+ (?:carta|carte)(, \d+% del totale)?/.test(t.getAttribute("aria-valuetext")||"");
+}), "barre mazzi accessibili con conteggio e percentuale", boxTracks.map(t=>t.outerHTML).join(" "));
 // due carte assegnate in tutto (una nel mazzo 0 e una nel 2): le barre misurano
 // le carte presenti, non le 118 caselle della tavola
 ok(boxWidths.join(",") === "50%,0%,50%,0%,0%",
@@ -711,6 +731,15 @@ ok(ev(winRemoteEvent, "mastery(1)") === 80,
   "evento storage aggiorna una tab che non ha modifiche locali");
 ok(winRemoteEvent.document.getElementById("storageWarning").hidden,
   "aggiornamento remoto silenzioso senza warning di conflitto");
+
+/* sessionStorage emette StorageEvent nello stesso ambito: non deve essere
+   confuso con un aggiornamento della persistenza locale */
+const winSessionEvent = makeApp(conflictSeed);
+winSessionEvent.localStorage.setItem(KEY, remoteRaw);
+ev(winSessionEvent, `globalThis.dispatchEvent(new StorageEvent("storage",{key:${JSON.stringify(KEY)},newValue:${JSON.stringify(remoteRaw)},storageArea:sessionStorage}))`);
+ok(ev(winSessionEvent, "mastery(1)") === 10 &&
+   winSessionEvent.document.getElementById("storageWarning").hidden,
+  "evento sessionStorage ignorato senza falso conflitto");
 
 /* un aggiornamento remoto non deve mescolarsi a una sessione ancora aperta */
 const winPendingEvent = makeApp(conflictSeed);
