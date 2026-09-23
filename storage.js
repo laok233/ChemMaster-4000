@@ -357,6 +357,10 @@ async function reloadFromDisk(){
   if(storageConflict&&!confirm("Ricaricare da disco chiuderà la sessione aperta e scarterà eventuali cambiamenti non salvati. Continuare?")) return;
   const epoch=++storageEpoch, readEpoch=++storageReadEpoch;
   try{
+    // Attendi le transazioni già avviate: una scrittura stale che termina dopo
+    // la lettura potrebbe rimettere su disco lo snapshot precedente.
+    await saveQueue.catch(()=>{});
+    if(epoch!==storageEpoch) return;
     const loaded=await readActiveState();
     if(epoch!==storageEpoch||readEpoch!==storageReadEpoch) return;
     applyLoadedState(loaded);
