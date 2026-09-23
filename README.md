@@ -44,9 +44,19 @@ tavola.html    funzione «Tavola periodica» (ex index.html)
     │                 caselle `solved` con flag canonico 1 ed elementi validi, `wrongZ` a soli Z reali
     └── app.js        navigazione, TAVOLA, FLASHCARD, QUIZ, SCRIVI e PROGRESSI
 tests/
-├── check-data.js   verifiche sui dati della tavola (nessuna dipendenza)
-├── test-app.js          test funzionali sulla tavola, interazioni reali (jsdom)
-├── test-menu.js         test del menu principale: struttura e link (jsdom)
+├── check-data.js       verifiche sui dati della tavola (nessuna dipendenza)
+├── helpers/
+│   └── app-harness.js  harness JSDOM condiviso e helper di interazione
+├── app/
+│   ├── table.js        inizializzazione, ricerca, filtri e biorilevanti
+│   ├── flashcards.js   flashcards, giudizi e scorciatoie
+│   ├── quiz.js         quiz, risposte e ripasso errori
+│   ├── writing.js      tavola vuota e sequenza
+│   ├── progress.js     statistiche e barre accessibili
+│   ├── persistence.js  salvataggio, import/export e stati corrotti
+│   └── navigation.js   accessibilità, focus e navigazione
+├── test-app.js         orchestratore dei test funzionali sulla tavola
+├── test-menu.js        test del menu principale: struttura e link (jsdom)
 └── test-storage-lock.js due tab concorrenti serializzate tramite Web Locks
 ├── eslint.config.mjs   lint (ESLint): script esterni dell’app + test
 ├── .htmlvalidate.json  regole per la validazione HTML
