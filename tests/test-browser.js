@@ -67,8 +67,11 @@ async function main() {
   const context = await browser.newContext({ reducedMotion: "reduce" });
   const page = await context.newPage();
   const runtimeErrors = [];
-  page.on("pageerror", error => runtimeErrors.push(error.message));
-  page.on("console", message => { if (message.type() === "error") runtimeErrors.push(message.text()); });
+  const watchRuntimeErrors = target => {
+    target.on("pageerror", error => runtimeErrors.push(error.message));
+    target.on("console", message => { if (message.type() === "error") runtimeErrors.push(message.text()); });
+  };
+  watchRuntimeErrors(page);
 
   try {
     await page.goto(`${base}/index.html`, { waitUntil: "networkidle" });
@@ -80,14 +83,36 @@ async function main() {
     ok(await page.evaluate(() => eval("storageBackend")) === "indexeddb", "browser: IndexedDB selezionato come backend");
     ok(await page.evaluate(key => localStorage.getItem(key), KEY) === null, "browser: nessun backup localStorage residuo");
     ok(await page.locator("#ptable .cell").count() === 118, "tavola: 118 celle renderizzate");
+    const reducedMotionCell = page.locator("#ptable .cell").first();
+    await reducedMotionCell.hover();
+    ok(await reducedMotionCell.evaluate(element =>
+      element.ownerDocument.defaultView.getComputedStyle(element).transform === "none"),
+    "motion ridotto: l'hover non applica trasformazioni immediate");
 
     const secondPage = await context.newPage();
+    watchRuntimeErrors(secondPage);
     await secondPage.goto(`${base}/tavola.html`, { waitUntil: "networkidle" });
     await page.evaluate(() => eval("addMastery(1,10); save()"));
     await secondPage.waitForFunction(() => eval("mastery(1)") === 10, null, { timeout:5000 });
     ok(true, "browser: BroadcastChannel sincronizza due schede IndexedDB");
     await secondPage.close();
     await assertA11y(page, "Tavola");
+
+    await page.setViewportSize({ width:320, height:568 });
+    const narrowTable = await page.evaluate(() => {
+      const wrap = globalThis.document.querySelector("#view-table .table-wrap");
+      return {
+        viewport: globalThis.innerWidth,
+        documentWidth: globalThis.document.documentElement.scrollWidth,
+        clientWidth: wrap.clientWidth,
+        contentWidth: wrap.scrollWidth
+      };
+    });
+    ok(narrowTable.documentWidth === narrowTable.viewport,
+      "tavola stretta: nessun overflow della pagina", JSON.stringify(narrowTable));
+    ok(narrowTable.contentWidth > narrowTable.clientWidth,
+      "tavola stretta: la tabella scorre dentro il proprio contenitore", JSON.stringify(narrowTable));
+    await page.setViewportSize({ width:1280, height:720 });
 
     for (const [label, view] of [
       ["Flashcard", "cards"], ["Quiz", "quiz"], ["Scrivi la tavola", "write"],

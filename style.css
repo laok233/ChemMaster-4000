@@ -114,6 +114,9 @@ button.chip{-webkit-appearance:none; appearance:none}
 
 /* ---------- TAVOLA ---------- */
 .table-layout{display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:18px; align-items:start}
+/* Un grid item ha min-width:auto: senza questo reset il min-content della
+   tavola (960px) allarga il pannello e l'intero documento su mobile. */
+.table-layout>.panel{min-width:0}
 @media (max-width:1100px){
   .table-layout{grid-template-columns:1fr}
   /* sotto questo breakpoint l'header occupa più righe: un top fisso finirebbe sotto il menu */
@@ -275,6 +278,9 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important; animation-iteration-count:1 !important;
     transition-duration:.01ms !important}
+  /* Le transizioni sono quasi azzerate, ma senza questo reset l'hover sposterebbe
+     comunque elementi e celle con una trasformazione immediata. */
+  a.tile:hover,.btn:hover,.cell:hover,.opt:hover:not(:disabled){transform:none}
 }
 /* il menu mantiene il proprio ritmo tipografico, separato dalla tavola */
 body.menu-page h2{font-size:22px; margin:0 0 4px}
