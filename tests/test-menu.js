@@ -20,6 +20,10 @@ const d = new JSDOM(html, { url: "http://localhost/index.html" }).window.documen
 section("Menu: struttura");
 ok(/ChemMaster 4000/.test(d.title), "titolo della pagina menu", d.title);
 ok(html.includes('lang="it"'), "pagina dichiara lang=it");
+const stylesheet = d.querySelector('link[rel="stylesheet"]');
+ok(!!stylesheet && stylesheet.getAttribute("href") === "style.css",
+  "menu collega il CSS esterno", stylesheet && stylesheet.getAttribute("href"));
+ok(fs.existsSync(path.join(__dirname, "..", "style.css")), "file style.css presente");
 const h1 = d.querySelector("header h1");
 ok(!!h1 && /ChemMaster\s*4000/.test(h1.textContent.replace(/\s+/g, " ")),
   "h1 con il nome del progetto", h1 && h1.textContent);

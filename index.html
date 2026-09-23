@@ -4,54 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ChemMaster 4000 — Menu</title>
-<style>
-:root{
-  --bg:#0d1020; --bg2:#121631; --panel:#171c38; --panel2:#1d2346; --line:#2a3159;
-  --txt:#e8ebf9; --txt-dim:#9aa2c9; --accent:#5ac8fa;
-  --radius:10px;
-  --shadow:0 8px 30px rgba(0,0,0,.35);
-}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{
-  background:radial-gradient(1200px 600px at 20% -10%,#1b2150 0%,var(--bg) 55%) fixed, var(--bg);
-  color:var(--txt); font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
-  font-size:15px; line-height:1.45; min-height:100vh;
-  display:flex; flex-direction:column;
-}
-header{
-  display:flex; align-items:center; gap:18px; flex-wrap:wrap;
-  padding:14px 20px; border-bottom:1px solid var(--line);
-  background:rgba(13,16,32,.85); backdrop-filter:blur(8px);
-  position:sticky; top:0; z-index:50;
-}
-header h1{font-size:19px; margin:0; letter-spacing:.3px; font-weight:700; white-space:nowrap}
-header h1 span{color:var(--accent)}
-header .tagline{color:var(--txt-dim); font-size:13.5px}
-main{padding:34px 20px; max-width:1000px; margin:0 auto; width:100%; flex:1}
-h2{font-size:22px; margin:0 0 4px}
-.sub{color:var(--txt-dim); font-size:14px; margin:0 0 22px}
-.menu-grid{
-  display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px;
-}
-a.tile{
-  display:flex; flex-direction:column; gap:8px;
-  background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-  padding:22px; text-decoration:none; color:var(--txt);
-  transition:.15s; box-shadow:var(--shadow);
-}
-a.tile:hover{border-color:var(--accent); transform:translateY(-3px)}
-a.tile .icon{font-size:34px; line-height:1}
-a.tile .name{font-size:17px; font-weight:700}
-a.tile .desc{color:var(--txt-dim); font-size:13.5px; flex:1}
-a.tile .open{color:var(--accent); font-size:13px; font-weight:700; margin-top:6px}
-.more{color:var(--txt-dim); font-size:13px; margin-top:26px; font-style:italic}
-footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 10px 40px}
-@media (prefers-reduced-motion:reduce){
-  a.tile{transition:none}
-  a.tile:hover{transform:none}
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>

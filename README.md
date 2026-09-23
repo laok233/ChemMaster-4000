@@ -28,8 +28,9 @@ Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus;
 
 ```
 index.html     menu principale (hub): griglia con una tessera per funzione
+style.css       tema scuro, layout comune e layout a griglia CSS della tavola
+                (18 colonne + colonna periodi)
 tavola.html    funzione «Tavola periodica» (ex index.html)
-├── <style>   tema scuro, layout a griglia CSS della tavola (18 colonne + colonna periodi)
 ├── <body>    5 sezioni (una vista per modalità)
 └── <script>
     ├── DATI          simboli, nomi italiani, masse, categorie, posizioni,
@@ -77,7 +78,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
 - **`bun run validate`** — validazione HTML delle due pagine con `html-validate`.
-- **`tests/test-app.js`** — 320 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`tests/test-app.js`** — 321 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,

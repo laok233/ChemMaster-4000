@@ -5,6 +5,7 @@ const vm = require("vm");
 const path = require("path");
 
 const html = fs.readFileSync(path.join(__dirname, "..", "tavola.html"), "utf8");
+const css = fs.readFileSync(path.join(__dirname, "..", "style.css"), "utf8");
 const code = html.slice(html.indexOf("<script>") + 8, html.indexOf("</scr" + "ipt>"));
 const data = code.slice(0, code.indexOf("// END DATA"));
 
@@ -18,6 +19,8 @@ const o = sandbox.__out;
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.log("FAIL: " + msg); fails++; } };
+ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
+  "CSS esterno collegato e nessun blocco inline residuo");
 
 /* --- struttura --- */
 ok(o.SYMBOLS.length === 118, "118 simboli (ottenuti " + o.SYMBOLS.length + ")");
@@ -50,12 +53,12 @@ o.BIO_SYMS.forEach(s => ok(o.BIO_Z.has(o.SYMBOLS.indexOf(s) + 1), "BIO_Z privo d
 // una cella biorilevante deve poter essere colorata: la categoria esiste e la regola CSS pure
 o.BIO_SYMS.forEach(s => {
   ok(!!o.catOf[s], "categoria mancante per il biorilevante " + s);
-  ok(new RegExp("\\.cat-" + o.catOf[s] + "\\{").test(html), "regola CSS mancante per il biorilevante " + s);
+  ok(new RegExp("\\.cat-" + o.catOf[s] + "\\{").test(css), "regola CSS mancante per il biorilevante " + s);
 });
 
 /* --- le classi CSS delle categorie devono esistere davvero ---
    (cat-lantanoidi vs cat-lanthanoidi lasciava le celle dei lantanoidi senza colore) */
-o.CAT_DEF.forEach(c => ok(new RegExp("\\.cat-" + c.id + "\\{").test(html), "regola CSS mancante: .cat-" + c.id));
+o.CAT_DEF.forEach(c => ok(new RegExp("\\.cat-" + c.id + "\\{").test(css), "regola CSS mancante: .cat-" + c.id));
 
 /* --- posizioni: nessuna collisione, coordinate valide --- */
 const pos = {};
@@ -124,12 +127,12 @@ ok(o.catOf.Al === "post", "Al è post-transizione");
 /* --- i mazzetti devono derivare davvero da BOX_DAYS (il README promette che
        cambiare BOX_DAYS basta): un Math.min(4,…) hardcoded bloccava le carte al
        5° mazzo e un boxes=[0,0,0,0,0] faceva apparire "undefined" in Progressi --- */
-ok(/const MAX_BOX=BOX_DAYS\.length-1/.test(html), "MAX_BOX derivato da BOX_DAYS.length");
-ok(!/Math\.min\(4,/.test(html), "nessun Math.min(4,) hardcoded sui mazzetti");
-ok(!/boxes=\[0,0,0,0,0\]/.test(html), "righe dei mazzi dimensionate su BOX_DAYS");
+ok(/const MAX_BOX=BOX_DAYS\.length-1/.test(code), "MAX_BOX derivato da BOX_DAYS.length");
+ok(!/Math\.min\(4,/.test(code), "nessun Math.min(4,) hardcoded sui mazzetti");
+ok(!/boxes=\[0,0,0,0,0\]/.test(code), "righe dei mazzi dimensionate su BOX_DAYS");
 
 /* --- la soglia di padroneggio è unica (era replicata in 4 punti) --- */
-ok(/const MASTERY_THRESHOLD=\s*70/.test(html), "MASTERY_THRESHOLD definita");
+ok(/const MASTERY_THRESHOLD=\s*70/.test(code), "MASTERY_THRESHOLD definita");
 
 console.log("Dati: " + (fails === 0 ? "OK" : fails + " ERRORI"));
 process.exit(fails ? 1 : 0);

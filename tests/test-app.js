@@ -5,8 +5,11 @@ const path = require("path");
 const { JSDOM } = require("jsdom");
 
 const html = fs.readFileSync(path.join(__dirname, "..", "tavola.html"), "utf8");
+const css = fs.readFileSync(path.join(__dirname, "..", "style.css"), "utf8");
 const KEY = "chemmaster-4000-v1";
 const PAGE_CODE = html.slice(html.indexOf("<script>") + 8, html.indexOf("</scr" + "ipt>"));
+// JSDOM non carica i stylesheet esterni senza un server: li inseriamo solo nel DOM di test.
+const TEST_HTML = html.replace('<link rel="stylesheet" href="style.css">', `<style>${css}</style>`);
 // il codice della pagina è strict-mode: le let/const restano private all'eval.
 // L'hook riesegue espressioni nello stesso scope lessicale per l'ispezione.
 const HOOK = ";globalThis.__t={run:(s)=>eval(s)};";
@@ -21,7 +24,7 @@ function section(t) { console.log("== " + t + " =="); }
 
 function makeApp(seed, pageUrl = "http://localhost/tavola.html") {
   const errors = [];
-  const dom = new JSDOM(html, {
+  const dom = new JSDOM(TEST_HTML, {
     runScripts: "outside-only",
     url: pageUrl,
     beforeParse(w) {
@@ -57,6 +60,8 @@ section("Init / rendering");
 const win = makeApp();
 const d = win.document;
 ok(win.__errors.length === 0, "nessun errore JS al caricamento", win.__errors.join(" | "));
+ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
+  "tavola usa il CSS esterno senza stili inline");
 ok(d.querySelectorAll("#ptable .cell").length === 118, "118 celle nella tavola");
 ok(d.querySelectorAll("#wtable .cell").length === 118, "118 celle nella tavola vuota");
 ok(d.querySelectorAll("#wtable .cell.blank").length === 118, "tutte le celle di scrittura vuote");
@@ -92,7 +97,7 @@ ok(d.querySelector('#ptable .cell[data-z="1"]').getAttribute("aria-current") ===
 
 /* ================= LEGENDA (variabili CSS) ================= */
 section("Legenda colori");
-const rootVars = new Set([...html.match(/:root\{[\s\S]*?\}/)[0].matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]));
+const rootVars = new Set([...css.match(/:root\{[\s\S]*?\}/)[0].matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]));
 const legendBad = [];
 d.querySelectorAll("#legend .chip").forEach(chip => {
   const m = (chip.querySelector("i").getAttribute("style") || "").match(/var\((--[\w-]+)\)/);
@@ -1037,7 +1042,7 @@ ok(scrollCalls.at(-1).behavior==="auto", "reduced motion: cambio vista senza ani
 win.matchMedia=()=>({matches:false});
 ev(win, 'go("stats")');
 ok(scrollCalls.at(-1).behavior==="smooth", "senza reduced motion: cambio vista con animazione", JSON.stringify(scrollCalls.at(-1)));
-ok(/#detail\{position:static\}/.test(html), "pannello dettagli non sticky nel layout mobile");
+ok(/#detail\{position:static\}/.test(css), "pannello dettagli non sticky nel layout mobile");
 
 console.log("\n================ RISULTATO ================");
 console.log("PASS: " + pass + "   FAIL: " + fail);
