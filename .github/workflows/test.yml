@@ -42,7 +42,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # pinnato: "latest" renderebbe la CI dipendente da un rilascio di Bun
+          bun-version: 1.4.2
       - name: Installa le dipendenze (bun.lock congelato)
         run: bun install --frozen-lockfile
       - name: Esegui i test
