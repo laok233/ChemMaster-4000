@@ -119,15 +119,16 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
 - **`tests/test-browser.js`** — 21 asserzioni: Chromium headless sul menu e su tutte le viste della
   tavola, nessun errore JavaScript, zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili,
   viewport a 320 px senza overflow della pagina e hover neutrale con motion ridotto.
-- **`tests/test-storage-indexeddb.js`** — 13 asserzioni: migrazione automatica da localStorage,
+- **`tests/test-storage-indexeddb.js`** — 14 asserzioni: migrazione automatica da localStorage,
   caricamento condiviso del database, rifiuto di una seconda scrittura con baseline obsoleto e
-  serializzazione dei salvataggi rapidi nella stessa scheda.
-- **`tests/test-storage-lock.js`** — 18 asserzioni: due finestre con storage condiviso e lock
+  serializzazione dei salvataggi rapidi nella stessa scheda e rifiuto dei record falsi corrotti.
+- **`tests/test-storage-lock.js`** — 21 asserzioni: due finestre con storage condiviso e lock
   concorrenti; la seconda scrittura obsoleta viene rifiutata e non annulla la prima; un reset
   invalida anche i salvataggi già in coda prima di scrivere lo stato vuoto; una modifica effettuata
   durante una transazione resta `dirty` finché non viene salvata; import esplicito dopo conflitto
-  e reload con annuncio remoto vengono gestiti senza perdere lo snapshot; due richieste già incluse
-  nello snapshot precedente producono una sola scrittura.
+  e reload con annuncio remoto vengono gestiti senza perdere lo snapshot; il reset della sola griglia
+  non sovrascrive il mastery remoto; due richieste già incluse nello snapshot precedente producono
+  una sola scrittura.
 - **`tests/test-menu.js`** — menu principale: titolo/h1, sottotitolo piattaforma, una sola tessera
   («Tavola periodica» → `tavola.html`), e tutti i link `*.html` del menu puntano a file esistenti.
 
