@@ -20,9 +20,9 @@ Per ora l'unica funzione è la **tavola periodica** (`tavola.html`), che contien
 | **Scrivi la tavola** | **Tavola vuota**: clicchi una casella e scrivi il **simbolo** (il tooltip non svela la risposta; il nome completo riceve un richiamo senza penalità), con suggerimento e correzione immediata. **Sequenza**: scrivi i 118 simboli in ordine di numero atomico, con feedback e miglior posizione — anche qui il nome completo è ammesso come richiamo, senza penalità. |
 | **Progressi** | Padroneggio medio, % per categoria, mazzetti (etichette derivate da `BOX_DAYS`, quindi sempre allineate alle scadenze, e barre proporzionali alle carte assegnate), storico quiz, importazione/esportazione JSON e azzeramento. |
 
-Tutti i progressi sono salvati principalmente in IndexedDB e ripristinati al riavvio; il vecchio `localStorage` viene migrato automaticamente e resta il fallback quando IndexedDB non è disponibile. Le scritture IndexedDB usano una transazione atomica di confronto-and-scrittura e `BroadcastChannel` per sincronizzare le schede; nel fallback localStorage, quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Lo stato importato attraversa la stessa sanitizzazione dei dati salvati e le versioni non supportate vengono rifiutate.
+Tutti i progressi sono salvati principalmente in IndexedDB e ripristinati al riavvio; il vecchio `localStorage` viene migrato automaticamente e resta il fallback quando IndexedDB non è disponibile. Le scritture IndexedDB usano una transazione atomica di confronto-and-scrittura e `BroadcastChannel` per sincronizzare le schede; nel fallback localStorage, quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Le richieste di salvataggio già incluse nello snapshot precedente vengono compatte, mentre una modifica avvenuta durante una transazione non viene considerata salvata finché non viene persistita. Reset e import espliciti ricaricano il baseline corrente prima del CAS, così non falliscono silenziosamente dopo un conflitto. Una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Lo stato importato attraversa la stessa sanitizzazione dei dati salvati, i payload locali sono limitati a 1 MB e le versioni non supportate vengono rifiutate.
 
-Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera e il numero di elementi filtrati sono regioni `aria-live="polite"`; le barre di avanzamento espongono il valore tramite `role="progressbar"`; le scorciatoie tastiera sono dichiarate con `aria-keyshortcuts` e si attivano solo senza tasti modificatori; ogni controllo ha un nome accessibile e lo scorrimento programmatico rispetta `prefers-reduced-motion`.
+Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera e il numero di elementi filtrati sono regioni `aria-live="polite"`; le barre di avanzamento espongono il valore tramite `role="progressbar"`; le scorciatoie tastiera sono dichiarate con `aria-keyshortcuts` e si attivano solo senza tasti modificatori; ogni controllo ha un nome accessibile e `prefers-reduced-motion` disattiva sia animazioni sia trasformazioni immediate dell’hover. Su viewport stretti la tavola scorre dentro il proprio contenitore senza allargare la pagina.
 
 ## Struttura del progetto
 
@@ -90,7 +90,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
 - **`bun run validate`** — validazione HTML delle due pagine con `html-validate`.
-- **`tests/test-app.js`** — 343 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`tests/test-app.js`** — 345 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,
@@ -108,7 +108,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   `Enter`/`Spazio`/`Shift` con il focus sui controlli, Invio ripetuto senza penalità multiple,
   box Leitner 0 distinto da “nuovo”, conflitti multi-tab rifiutati senza sovrascrivere,
   eventi `sessionStorage` ignorati senza provocare falsi conflitti,
-  storage non disponibile con avviso/import/export, import valido o malformato e versioni future rifiutate,
+  storage non disponibile con avviso/import/export, import valido o malformato, payload oltre 1 MB rifiutato e versioni future rifiutate,
   campi sconosciuti scartati e storico quiz coerente tra risposte, punteggio, errori e data,
   cella già risolta che non si segna in rosso dopo un errore e non viene penalizzata,
   suggerimento su casella già compilata, contatori e storico quiz fuori scala clamped
@@ -116,14 +116,18 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   `go()` con vista ignota che non lascia la pagina vuota, `aria-current`/`aria-pressed`/`aria-live`,
   navigazione senza animazione con `prefers-reduced-motion`, pannello dettagli non sticky su mobile,
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
-- **`tests/test-browser.js`** — Chromium headless sul menu e su tutte le viste della tavola:
-  nessun errore JavaScript e zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili.
+- **`tests/test-browser.js`** — 21 asserzioni: Chromium headless sul menu e su tutte le viste della
+  tavola, nessun errore JavaScript, zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili,
+  viewport a 320 px senza overflow della pagina e hover neutrale con motion ridotto.
 - **`tests/test-storage-indexeddb.js`** — 13 asserzioni: migrazione automatica da localStorage,
   caricamento condiviso del database, rifiuto di una seconda scrittura con baseline obsoleto e
   serializzazione dei salvataggi rapidi nella stessa scheda.
-- **`tests/test-storage-lock.js`** — 7 asserzioni: due finestre con storage condiviso e lock
+- **`tests/test-storage-lock.js`** — 18 asserzioni: due finestre con storage condiviso e lock
   concorrenti; la seconda scrittura obsoleta viene rifiutata e non annulla la prima; un reset
-  invalida anche i salvataggi già in coda prima di scrivere lo stato vuoto.
+  invalida anche i salvataggi già in coda prima di scrivere lo stato vuoto; una modifica effettuata
+  durante una transazione resta `dirty` finché non viene salvata; import esplicito dopo conflitto
+  e reload con annuncio remoto vengono gestiti senza perdere lo snapshot; due richieste già incluse
+  nello snapshot precedente producono una sola scrittura.
 - **`tests/test-menu.js`** — menu principale: titolo/h1, sottotitolo piattaforma, una sola tessera
   («Tavola periodica» → `tavola.html`), e tutti i link `*.html` del menu puntano a file esistenti.
 
