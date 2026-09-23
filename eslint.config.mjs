@@ -19,7 +19,7 @@ const sharedGlobalNames = [
   "storageBaseline", "storageBaselineKnown", "storageDirty", "storageConflict", "storageLoadIssue", "storageWriteBlocked",
   "storageSavePending", "storageEpoch", "storageReadEpoch", "appReady", "pendingStorageEvent",
   "decodeStoredState", "applyLoadedState", "readActiveState", "initializeStorage", "showStorageWarning", "hideStorageWarning",
-  "showStorageLoadIssue", "storageWriteError", "saveNow", "saveDirect", "saveWithLock", "save", "exportProgress",
+  "showStorageLoadIssue", "storageWriteError", "saveNow", "saveWithLock", "enqueueSave", "save", "exportProgress",
   "applyImportedState", "importProgress", "hasPendingTransientState", "resetTransientUI",
   "renderPersistedState", "reloadFromDisk", "openImportDialog", "handleProgressEvent", "handleStorageEvent", "mastery",
   "addMastery", "MASTERY_THRESHOLD", "masteredCount", "avgMastery",

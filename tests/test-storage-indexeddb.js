@@ -64,6 +64,14 @@ async function main() {
   ok(resultB === false, "seconda scrittura con baseline obsoleto rifiutata", String(resultB));
   ok(a.__run("mastery(1)") === 52, "stato della prima finestra conservato");
   ok(b.__run("mastery(1)") === 62, "stato locale della seconda finestra non sovrascritto");
+
+  const rapidA = a.__run("addMastery(1,1); save()");
+  const rapidB = a.__run("addMastery(1,1); save()");
+  const [rapidResultA,rapidResultB] = await Promise.all([rapidA,rapidB]);
+  ok(rapidResultA === true && rapidResultB === true,
+    "salvataggi rapidi della stessa scheda serializzati senza falsi conflitti",
+    `${rapidResultA}/${rapidResultB}`);
+  ok(a.__run("mastery(1)") === 54, "entrambi i salvataggi rapidi applicati");
   ok(a.__run("storageSavePending") === 0 && b.__run("storageSavePending") === 0,
     "nessuna transazione IndexedDB resta pendente");
 

@@ -118,8 +118,9 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
 - **`tests/test-browser.js`** — Chromium headless sul menu e su tutte le viste della tavola:
   nessun errore JavaScript e zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili.
-- **`tests/test-storage-indexeddb.js`** — 11 asserzioni: migrazione automatica da localStorage,
-  caricamento condiviso del database e rifiuto di una seconda scrittura con baseline obsoleto.
+- **`tests/test-storage-indexeddb.js`** — 13 asserzioni: migrazione automatica da localStorage,
+  caricamento condiviso del database, rifiuto di una seconda scrittura con baseline obsoleto e
+  serializzazione dei salvataggi rapidi nella stessa scheda.
 - **`tests/test-storage-lock.js`** — 7 asserzioni: due finestre con storage condiviso e lock
   concorrenti; la seconda scrittura obsoleta viene rifiutata e non annulla la prima; un reset
   invalida anche i salvataggi già in coda prima di scrivere lo stato vuoto.

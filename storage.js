@@ -120,6 +120,7 @@ const progressStore=createProgressStore(STORE_KEY);
 let storageBaseline=null, storageBaselineKnown=false;
 let storageDirty=false, storageConflict=false, storageLoadIssue="", storageWriteBlocked=false;
 let storageSavePending=0, storageEpoch=0, storageReadEpoch=0;
+let saveQueue=Promise.resolve();
 let appReady=false, pendingStorageEvent=null;
 
 function decodeStoredState(raw){
@@ -227,24 +228,26 @@ async function saveNow(){
     return false;
   }
 }
-async function saveDirect(epoch){
-  try{ return epoch===storageEpoch?await saveNow():false; }
-  catch(_){
-    if(epoch===storageEpoch) storageWriteError();
-    return false;
-  }finally{
-    storageSavePending=Math.max(0,storageSavePending-1);
-  }
-}
 async function saveWithLock(epoch,locks){
   try{
     return await locks.request(`${STORE_KEY}:write`,()=>epoch===storageEpoch?saveNow():false);
   }catch(_){
     if(epoch===storageEpoch) storageWriteError();
     return false;
-  }finally{
-    storageSavePending=Math.max(0,storageSavePending-1);
   }
+}
+function enqueueSave(epoch){
+  storageSavePending++;
+  const task=saveQueue.then(()=>{
+    if(epoch!==storageEpoch) return false;
+    if(storageBackend==="indexeddb") return saveNow();
+    const locks=globalThis.navigator&&globalThis.navigator.locks;
+    return locks&&typeof locks.request==="function"?saveWithLock(epoch,locks):saveNow();
+  });
+  // La catena deve restare risolvibile anche quando una singola operazione
+  // fallisce: le salvataggi successivi devono comunque poter proseguire.
+  saveQueue=task.catch(()=>false);
+  return task.finally(()=>{ storageSavePending=Math.max(0,storageSavePending-1); });
 }
 function save(){
   // Un'azione locale invalida eventuali letture remote già in volo.
@@ -252,13 +255,10 @@ function save(){
   storageDirty=true;
   if(storageBackend==="pending") return storageReady.then(()=>save());
   const epoch=storageEpoch;
-  storageSavePending++;
-  // IndexedDB esegue il confronto e la scrittura nella stessa transazione.
-  // Il fallback locale usa Web Locks quando disponibile.
-  if(storageBackend==="indexeddb") return saveDirect(epoch);
-  const locks=globalThis.navigator&&globalThis.navigator.locks;
-  if(locks&&typeof locks.request==="function") return saveWithLock(epoch,locks);
-  return saveDirect(epoch);
+  // Anche le scritture rapide della stessa scheda vengono serializzate:
+  // due snapshot altrimenti leggerebbero lo stesso baseline e il secondo
+  // salvataggio finirebbe per essere trattato come un falso conflitto.
+  return enqueueSave(epoch);
 }
 function exportProgress(){
   let url="";
