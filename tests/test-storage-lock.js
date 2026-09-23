@@ -110,6 +110,20 @@ async function main(){
   ok(reloadWindow.window.__run("storageConflict")===true,
     "l'annuncio durante reload conserva il conflitto invece di applicare uno snapshot stale");
 
+  // L'azzeramento della sola griglia non deve sostituire lo stato completo:
+  // una scheda stale deve ricevere un conflitto, non sovrascrivere la scrittura remota.
+  const gridA = await makeApp(), gridB = await makeApp();
+  const remoteGridSave = gridB.window.__run("addMastery(3,50); save()");
+  ok(await remoteGridSave===true, "la seconda scheda salva un aggiornamento remoto");
+  gridA.window.__run("state.write.solved={1:1}");
+  gridA.window.document.getElementById("wReset").dispatchEvent(new gridA.window.MouseEvent("click", { bubbles:true, cancelable:true }));
+  await new Promise(resolve=>setTimeout(resolve,0));
+  await lockTail;
+  const gridDisk = JSON.parse(storage.getItem(KEY));
+  ok(gridDisk.mastery["3"]===50, "azzeramento griglia non sovrascrive il mastery remoto", JSON.stringify(gridDisk.mastery));
+  ok(gridA.window.__run("storageConflict")===true,
+    "azzeramento griglia stale segnala il conflitto senza perdere i dati locali");
+
   // Un reset avviato mentre un salvataggio è ancora in coda deve invalidare
   // quel lock: il callback pre-reset non deve più essere considerato corrente.
   const c = await makeApp();

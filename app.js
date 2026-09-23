@@ -684,7 +684,7 @@ document.getElementById("wHint").onclick=()=>{
 };
 document.getElementById("wReset").onclick=()=>{
   if(!confirm("Azzerare la tavola compilata?")) return;
-  state.write.solved={}; const persistence=saveReplacement();
+  state.write.solved={}; const persistence=save();
   clearCellSelection();   // la griglia viene ricostruita: niente selezione/input residui
   initWriteGrid(); wMsg("Tavola azzerata in questa scheda; eventuali errori di salvataggio sono segnalati sopra.","");
   persistence.catch(()=>{});
