@@ -56,6 +56,7 @@ tests/
 │   ├── persistence.js  salvataggio, import/export e stati corrotti
 │   └── navigation.js   accessibilità, focus e navigazione
 ├── test-app.js         orchestratore dei test funzionali sulla tavola
+├── test-browser.js     smoke test Chromium e audit WCAG con axe-core
 ├── test-menu.js        test del menu principale: struttura e link (jsdom)
 └── test-storage-lock.js due tab concorrenti serializzate tramite Web Locks
 ├── eslint.config.mjs   lint (ESLint): script esterni dell’app + test
@@ -67,12 +68,14 @@ tests/
 
 ```bash
 bun install --frozen-lockfile   # serve solo per test, lint e validazione; l'app non ha dipendenze runtime
-bun run test                    # lint + validazione HTML + i quattro test
+bunx playwright install chromium # una volta, per i test browser (con --with-deps in CI)
+bun run test                    # lint + HTML + JSDOM + lock + Chromium/axe
 bun run lint                    # solo ESLint
 bun run validate                # solo HTML validate
+bun run test:browser            # solo smoke test Chromium e audit axe-core
 ```
 
-In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`** con **Bun 1.4.2** pinnato (`bun install --frozen-lockfile` + `bun run test`): non viene avviato alcun processo Node. Le Action sono referenziate per SHA; `bun run test` include lint ESLint e validazione HTML. La badge qui sopra riflette l'ultimo run.
+In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`** con **Bun 1.4.2** pinnato (`bun install --frozen-lockfile`, installazione Chromium e `bun run test`): non viene avviato alcun processo Node per la suite. Le Action sono referenziate per SHA; `bun run test` include lint ESLint, validazione HTML, test JSDOM, lock multi-tab e smoke test Chromium con axe-core. La badge qui sopra riflette l'ultimo run.
 
 - **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, masse IUPAC di riferimento
   (inclusa la revisione 2024 di Zr e i numeri di massa radioattivi), posizioni senza collisioni,
@@ -111,6 +114,8 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   `go()` con vista ignota che non lascia la pagina vuota, `aria-current`/`aria-pressed`/`aria-live`,
   navigazione senza animazione con `prefers-reduced-motion`, pannello dettagli non sticky su mobile,
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
+- **`tests/test-browser.js`** — Chromium headless sul menu e su tutte le viste della tavola:
+  nessun errore JavaScript e zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili.
 - **`tests/test-storage-lock.js`** — 7 asserzioni: due finestre con storage condiviso e lock
   concorrenti; la seconda scrittura obsoleta viene rifiutata e non annulla la prima; un reset
   invalida anche i salvataggi già in coda prima di scrivere lo stato vuoto.

@@ -27,5 +27,7 @@ jobs:
           bun-version: 1.4.2
       - name: Installa le dipendenze (bun.lock congelato)
         run: bun install --frozen-lockfile
+      - name: Installa Chromium per i test browser
+        run: bunx playwright install --with-deps chromium
       - name: Esegui i test
         run: bun run test
