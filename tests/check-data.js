@@ -4,7 +4,7 @@ const fs = require("fs");
 const vm = require("vm");
 const path = require("path");
 
-const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const html = fs.readFileSync(path.join(__dirname, "..", "tavola.html"), "utf8");
 const code = html.slice(html.indexOf("<script>") + 8, html.indexOf("</scr" + "ipt>"));
 const data = code.slice(0, code.indexOf("// END DATA"));
 

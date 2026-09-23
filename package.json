@@ -1,12 +1,13 @@
 {
-  "name": "tavola-periodica",
+  "name": "chemmaster-4000",
   "version": "1.0.0",
   "private": true,
-  "description": "Tavola periodica interattiva per memorizzazione (app in un singolo file HTML)",
+  "description": "ChemMaster 4000 — tavola periodica interattiva per memorizzazione (app in un singolo file HTML)",
   "scripts": {
-    "test": "node tests/check-data.js && node tests/test-app.js",
+    "test": "node tests/check-data.js && node tests/test-app.js && node tests/test-menu.js",
     "test:data": "node tests/check-data.js",
-    "test:app": "node tests/test-app.js"
+    "test:app": "node tests/test-app.js",
+    "test:menu": "node tests/test-menu.js"
   },
   "devDependencies": {
     "jsdom": "^30.1.1"

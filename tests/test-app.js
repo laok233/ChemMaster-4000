@@ -4,8 +4,8 @@ const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
 
-const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-const KEY = "tavola-periodica-v1";
+const html = fs.readFileSync(path.join(__dirname, "..", "tavola.html"), "utf8");
+const KEY = "chemmaster-4000-v1";
 const PAGE_CODE = html.slice(html.indexOf("<script>") + 8, html.indexOf("</scr" + "ipt>"));
 // il codice della pagina è strict-mode: le let/const restano private all'eval.
 // L'hook riesegue espressioni nello stesso scope lessicale per l'ispezione.
@@ -23,7 +23,7 @@ function makeApp(seed) {
   const errors = [];
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
-    url: "http://localhost/index.html",
+    url: "http://localhost/tavola.html",
     beforeParse(w) {
       w.scrollTo = () => {};
       w.alert = m => { w.__lastAlert = m; };
