@@ -64,9 +64,10 @@ const d = win.document;
 ok(win.__errors.length === 0, "nessun errore JS al caricamento", win.__errors.join(" | "));
 ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
   "tavola usa il CSS esterno senza stili inline");
-ok(["data.js", "storage.js", "app.js"].every(f=>html.includes(`<script src="${f}" defer></script>`)) &&
+const scriptSources=[...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map(m=>m[1]);
+ok(JSON.stringify(scriptSources)===JSON.stringify(["data.js", "storage.js", "app.js"]) &&
    !html.includes("<script>"),
-  "tavola carica i tre script esterni senza codice inline");
+  "tavola carica i tre script esterni nell'ordine corretto senza codice inline");
 ok(win.getComputedStyle(d.body).display !== "flex",
   "stili del menu non invadono il layout della tavola", win.getComputedStyle(d.body).display);
 ok(d.querySelectorAll("#ptable .cell").length === 118, "118 celle nella tavola");
@@ -87,6 +88,13 @@ ok([...d.querySelectorAll("#legend .chip")].every(c => c.getAttribute("aria-pres
 ok(d.querySelectorAll("#quizTypes input").length === 6, "6 tipi di domanda");
 ok(d.querySelectorAll("#ptable .ph").length === 2, "2 placeholder (57-71 / 89-103)");
 ok(d.getElementById("headPctTxt").textContent === "0/118 padroneggiati", "barra iniziale", d.getElementById("headPctTxt").textContent);
+const headTrack=d.getElementById("headPctTrack");
+ok(headTrack.getAttribute("role")==="progressbar" && headTrack.getAttribute("aria-valuenow")==="0" &&
+   headTrack.getAttribute("aria-valuemax")==="118",
+  "barra di padroneggio esposta come progressbar", headTrack.outerHTML);
+ok(d.getElementById("filterStatus").getAttribute("aria-live")==="polite" &&
+   /118 elementi/.test(d.getElementById("filterStatus").textContent),
+  "lo stato dei filtri viene annunciato", d.getElementById("filterStatus").textContent);
 ok(d.querySelector("#detail .detail-sym b").textContent === "H", "dettaglio iniziale = H");
 ok(d.getElementById("searchEl").hasAttribute("aria-label"), "input ricerca con aria-label");
 ok(d.getElementById("storageWarning").hidden &&
@@ -144,6 +152,9 @@ ok(matchedSyms().length === 2 && matchedSyms().includes("Fe") && matchedSyms().i
   "ricerca 'fer' evidenzia Ferro e Fermio", matchedSyms().join(","));
 search("26");
 ok(JSON.stringify(matchedSyms()) === JSON.stringify(["Fe"]), "ricerca per numero atomico", matchedSyms().join(","));
+search("nessun-elemento");
+ok(/^Nessun elemento/.test(d.getElementById("filterStatus").textContent),
+  "ricerca senza risultati annunciata", d.getElementById("filterStatus").textContent);
 click(win, d.getElementById("clearFilter"));
 ok(d.querySelectorAll("#ptable .cell.dim").length === 0, "Mostra tutti azzera il filtro");
 ok([...d.querySelectorAll("#legend .chip")].every(c => c.getAttribute("aria-pressed") === "true"),
@@ -238,6 +249,9 @@ ok(d.querySelectorAll("#cardScope option").length === 13, "13 ambiti", d.querySe
 ok(d.querySelectorAll("#cardDir option").length === 6, "6 direzioni");
 ok(d.getElementById("card").hasAttribute("tabindex"), "flashcard focusabile da tastiera");
 ok(d.getElementById("card").getAttribute("role") === "button", "flashcard esposta come pulsante");
+ok(d.getElementById("card").getAttribute("aria-keyshortcuts")==="Space Enter" &&
+   d.getElementById("cardMeterTrack").getAttribute("role")==="progressbar",
+  "scorciatoie e avanzamento flashcard accessibili");
 
 d.getElementById("cardCount").value = "10";
 click(win, d.getElementById("startCards"));
@@ -252,12 +266,16 @@ ok(d.getElementById("cardBack").classList.contains("hidden"), "retro nascosto al
 
 click(win, d.getElementById("card"));
 ok(!d.getElementById("cardBack").classList.contains("hidden"), "clic gira la carta");
+ok(!d.getElementById("card").hasAttribute("aria-keyshortcuts"),
+  "shortcut della carta rimossi dopo il flip", d.getElementById("card").getAttribute("aria-keyshortcuts"));
 ok(/risposta .*1, 2 e 3/.test(d.getElementById("card").getAttribute("aria-label") || ""),
   "la carta girata annuncia risposta e controlli di giudizio");
 ok(!d.getElementById("cardGrade").classList.contains("hidden"), "bottoni giudizio visibili");
 
 const before = ev(win, "mastery(" + z1 + ")");
 click(win, d.querySelector('#cardGrade button[data-g="2"]'));
+ok(d.getElementById("card").getAttribute("aria-keyshortcuts")==="Space Enter",
+  "shortcut della carta ripristinati sulla carta successiva");
 ok(ev(win, "mastery(" + z1 + ")") === before + 20, "Facile = +20", before + "->" + ev(win, "mastery(" + z1 + ")"));
 ok(ev(win, "state.leitner[" + z1 + "]") === 2, "Facile salta di 2 mazzi", ev(win, "state.leitner[" + z1 + "]"));
 ok(ev(win, "state.due[" + z1 + "]") - Date.now() > 2 * 86400000, "scadenza ~3 giorni (mazzo 2)");
@@ -309,6 +327,12 @@ d.getElementById("cardScope").dispatchEvent(new win.Event("change", { bubbles: t
 ok(/Elementi nell'ambito: 118/.test(d.getElementById("cardScopeInfo").textContent), "info ambito aggiornata",
   d.getElementById("cardScopeInfo").textContent);
 
+const winMeter=makeApp();
+ev(winMeter, "cards={queue:[{z:1}],dir:DIRS[0],total:1,done:0,ok:0,flipped:true}; gradeCard(2)");
+ok(winMeter.document.getElementById("cardMeterTrack").getAttribute("aria-valuenow")==="100" &&
+   /1 di 1 carte, 100%/.test(winMeter.document.getElementById("cardMeterTrack").getAttribute("aria-valuetext") || ""),
+  "progressbar flashcard aggiornata al 100% dopo l'ultima carta");
+
 /* ================= QUIZ ================= */
 section("Quiz");
 click(win, view(win, "quiz"));
@@ -317,6 +341,8 @@ click(win, d.getElementById("startQuiz"));
 ok(!d.getElementById("quizStage").classList.contains("hidden"), "quiz avviato");
 ok(win.__lastFocus === d.getElementById("qText"), "il focus passa al testo della prima domanda");
 ok(d.querySelectorAll("#qOptions .opt").length === 5, "4 opzioni + 'Non so'");
+ok([...d.querySelectorAll("#qOptions .opt")].every((b,i)=>b.getAttribute("aria-keyshortcuts")===String(i+1)),
+  "shortcut numerici dichiarati sulle opzioni quiz");
 
 /* scorciatoie con modificatore: Ctrl/Cmd+1..5 non devono rispondere */
 key(win, { key: "1", code: "Digit1", ctrlKey: true });
@@ -328,6 +354,8 @@ const zQ1 = ev(win, "quiz.list[0].e.z");
 const rightVal = ev(win, "quiz.list[0].answer");
 const mBefore = ev(win, "mastery(" + zQ1 + ")");
 click(win, [...d.querySelectorAll("#qOptions .opt")].find(b => b.dataset.v === rightVal));
+ok([...d.querySelectorAll("#qOptions .opt")].every(b=>!b.hasAttribute("aria-keyshortcuts")),
+  "shortcut quiz rimossi dopo la risposta");
 ok(ev(win, "quiz.score") === 10, "risposta giusta = 10 punti");
 ok(ev(win, "quiz.streak") === 1, "serie incrementata");
 ok(ev(win, "mastery(" + zQ1 + ")") === mBefore + 8, "quiz giusto +8");
@@ -373,6 +401,8 @@ click(win, d.getElementById("qNext"));
 
 /* quiz subito terminato: nessuna risposta -> nessuno storico spurio */
 click(win, d.getElementById("quizAgain"));
+ok(win.__lastFocus === d.getElementById("startQuiz"),
+  "nuovo quiz: il focus torna al pulsante di avvio");
 click(win, d.getElementById("startQuiz"));
 click(win, d.getElementById("qEnd"));
 const histLen = ev(win, "state.quiz.history.length");
@@ -707,6 +737,12 @@ ok(/^chemmaster-4000-\d{4}-\d{2}-\d{2}\.json$/.test(ev(winExport, "__exportName"
 ok(JSON.parse(ev(winExport, "__exportParts[0]")).version === 1,
   "export contiene lo stato versionato come JSON");
 
+const winExportUnsupported=makeApp();
+ev(winExportUnsupported, "Object.defineProperty(globalThis.URL,'createObjectURL',{value:undefined, configurable:true})");
+const unsupportedExport=ev(winExportUnsupported, "exportProgress()");
+ok(unsupportedExport===false && /non supporta/.test(winExportUnsupported.__lastAlert||""),
+  "export su browser senza Blob URL mostra un errore comprensibile", winExportUnsupported.__lastAlert);
+
 /* import: lo stesso backup deve superare validazione, rendering e persistenza */
 const importedAt=Date.now();
 const backup=JSON.stringify({
@@ -814,6 +850,19 @@ click(winEdges, view(winEdges, "stats"));
 ok(!/Infinity|NaN/.test(winEdges.document.getElementById("statCards").textContent),
   "nessun totale impossibile nelle statistiche");
 
+/* lo storico deve rispettare gli invarianti interi, anche su dati importati */
+const winStrictHistory = makeApp(JSON.stringify({
+  quiz:{history:[
+    {d:Date.now(),score:20,total:4,answered:4,wrong:[26]},
+    {d:Date.now(),score:10.5,total:4,answered:4,wrong:[]},
+    {d:Date.now(),score:-10,total:4,answered:4,wrong:[]}
+  ]}
+}));
+ok(ev(winStrictHistory, "JSON.stringify(state.quiz.history.map(h=>[h.score,h.total,h.answered]))")
+   === '[[20,4,4]]',
+  "storico: score frazionari o negativi rifiutati",
+  ev(winStrictHistory, "JSON.stringify(state.quiz.history)"));
+
 /* versioni non supportate: avviso, stato predefinito e possibilità di importare */
 const winFuture=makeApp(JSON.stringify({version:99,mastery:{1:99},extra:"futuro"}));
 const futureWarning=winFuture.document.getElementById("storageWarning");
@@ -852,11 +901,11 @@ click(win5, view(win5, "stats"));
 ok(win5.document.querySelectorAll("#statCards .stat").length === 6,
   "statistiche renderizzate con stato precedentemente null");
 
-/* write.solved corrotto: stringhe/booleani e chiavi fantasma scartati (la casella
-   non deve svelare la risposta né gonfiare il contatore x/118) */
-const winSolved = makeApp(JSON.stringify({ write:{seqBest:0, solved:{"2":"boh", "3":true, "4":1, "999":1}} }));
+/* write.solved corrotto: solo il flag canonico 1 viene accettato; valori
+   numerici non validi, booleani e chiavi fantasma non devono svelare risposte */
+const winSolved = makeApp(JSON.stringify({ write:{seqBest:0, solved:{"1":0,"2":-1,"3":0.5,"4":"1","5":"01", "999":1}} }));
 ok(ev(winSolved, "JSON.stringify(state.write.solved)") === '{"4":1}',
-  "solved corrotto ripulito (solo valori numerici di elementi reali)",
+  "solved corrotto ripulito (solo flag 1 di elementi reali)",
   ev(winSolved, "JSON.stringify(state.write.solved)"));
 click(winSolved, view(winSolved, "write"));
 ok(winSolved.document.querySelectorAll("#wtable .cell.solved").length === 1,

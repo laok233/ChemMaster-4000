@@ -21,8 +21,8 @@
     <button type="button" data-view="stats">Progressi</button>
   </nav>
   <div class="head-progress">
-    <span id="headPctTxt">0% padroneggiati</span>
-    <span class="bar"><i id="headPctBar"></i></span>
+    <span id="headPctTxt">0/118 padroneggiati</span>
+    <span class="bar" id="headPctTrack" role="progressbar" aria-label="Padroneggiamento complessivo" aria-valuemin="0" aria-valuemax="118" aria-valuenow="0" aria-valuetext="0 di 118 elementi padroneggiati"><i id="headPctBar"></i></span>
   </div>
 </header>
 
@@ -46,6 +46,7 @@
       </div>
       <div class="row">
         <input type="search" id="searchEl" aria-label="Cerca un elemento per nome, simbolo o numero atomico" placeholder="Cerca nome, simbolo o numero…" style="min-width:230px">
+        <span id="filterStatus" class="sr-only" aria-live="polite" aria-atomic="true"></span>
         <button type="button" class="btn ghost sm" id="bioToggle" aria-pressed="false">🧬 Biorilevanti</button>
         <button type="button" class="btn ghost sm" id="clearFilter">Mostra tutti</button>
       </div>
@@ -88,7 +89,7 @@
       </div>
 
       <div id="cardsStage" class="hidden" style="margin-top:16px">
-        <div class="card" id="card" role="button" tabindex="0" aria-label="Carta: premi Spazio o Invio per girarla">
+        <div class="card" id="card" role="button" tabindex="0" aria-keyshortcuts="Space Enter" aria-label="Carta: premi Spazio o Invio per girarla">
           <span class="tag" id="cardTag">Nome</span>
           <span class="tag2" id="cardIdx">1/20</span>
           <div class="front" id="cardFront"></div>
@@ -96,14 +97,14 @@
           <div class="tap" id="cardTap">Clicca (o <kbd>Spazio</kbd>) per girare la carta</div>
         </div>
         <div class="grade hidden" id="cardGrade">
-          <button type="button" class="btn bad" data-g="0">Non sapevo <kbd>1</kbd></button>
-          <button type="button" class="btn warn" data-g="1">Sapevo <kbd>2</kbd></button>
-          <button type="button" class="btn good" data-g="2">Facile <kbd>3</kbd></button>
+          <button type="button" class="btn bad" data-g="0" aria-keyshortcuts="1">Non sapevo <kbd>1</kbd></button>
+          <button type="button" class="btn warn" data-g="1" aria-keyshortcuts="2">Sapevo <kbd>2</kbd></button>
+          <button type="button" class="btn good" data-g="2" aria-keyshortcuts="3">Facile <kbd>3</kbd></button>
         </div>
         <div class="counts" style="margin-top:12px">
           <span id="cardLeft"></span><span id="cardBox"></span>
         </div>
-        <div class="meter"><i id="cardMeter"></i></div>
+        <div class="meter" id="cardMeterTrack" role="progressbar" aria-label="Avanzamento delle flashcard" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0%"><i id="cardMeter"></i></div>
         <div style="text-align:center; margin-top:14px">
           <button type="button" class="btn ghost sm" id="stopCards">Termina sessione</button>
         </div>

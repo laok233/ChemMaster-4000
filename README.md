@@ -22,7 +22,7 @@ Per ora l'unica funzione è la **tavola periodica** (`tavola.html`), che contien
 
 Tutti i progressi sono salvati in `localStorage` e ripristinati al riavvio; una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Senza Web Locks il confronto del baseline rifiuta la maggior parte degli snapshot obsoleti, ma `localStorage` non offre un confronto-e-scrittura atomico: due salvataggi davvero simultanei possono ancora gareggiare. Lo stato importato attraversa la stessa sanitizzazione dei dati locali e le versioni non supportate vengono rifiutate.
 
-Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera sono regioni `aria-live="polite"`; le scorciatoie tastiera si attivano solo senza tasti modificatori, ogni controllo ha un nome accessibile e lo scorrimento programmatico rispetta `prefers-reduced-motion`.
+Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera e il numero di elementi filtrati sono regioni `aria-live="polite"`; le barre di avanzamento espongono il valore tramite `role="progressbar"`; le scorciatoie tastiera sono dichiarate con `aria-keyshortcuts` e si attivano solo senza tasti modificatori; ogni controllo ha un nome accessibile e lo scorrimento programmatico rispetta `prefers-reduced-motion`.
 
 ## Struttura del progetto
 
@@ -41,7 +41,7 @@ tavola.html    funzione «Tavola periodica» (ex index.html)
     │                 migrazione v0→v1 e rifiuto delle versioni future, sanitizzazione
     │                 dello stato corrotto (anche ai membri annidati), scarto di booleani/
     │                 chiavi non canoniche, storico quiz con invarianti risposte/punteggio,
-    │                 caselle `solved` a soli valori/elementi validi, `wrongZ` a soli Z reali
+    │                 caselle `solved` con flag canonico 1 ed elementi validi, `wrongZ` a soli Z reali
     └── app.js        navigazione, TAVOLA, FLASHCARD, QUIZ, SCRIVI e PROGRESSI
 tests/
 ├── check-data.js   verifiche sui dati della tavola (nessuna dipendenza)
@@ -74,7 +74,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
 - **`bun run validate`** — validazione HTML delle due pagine con `html-validate`.
-- **`tests/test-app.js`** — 323 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`tests/test-app.js`** — 335 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,

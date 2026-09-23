@@ -30,8 +30,13 @@ document.body.addEventListener("click",e=>{
 });
 function updateHead(){
   const p=masteredCount(), tot=ELEMENTS.length;
+  const pct=tot?p/tot*100:0;
   document.getElementById("headPctTxt").textContent = `${p}/${tot} padroneggiati`;
-  document.getElementById("headPctBar").style.width = (p/tot*100)+"%";
+  const track=document.getElementById("headPctTrack");
+  track.setAttribute("aria-valuemax",String(tot));
+  track.setAttribute("aria-valuenow",String(p));
+  track.setAttribute("aria-valuetext",`${p} di ${tot} elementi padroneggiati`);
+  document.getElementById("headPctBar").style.width = pct+"%";
 }
 
 /* ========================= TAVOLA ========================= */
@@ -118,6 +123,7 @@ function applyFilter(){
   // se la query coincide con un simbolo, siacciono solo i simboli:
   // evita che "fe" illumini anche Fermio
   const symExact = !!q && ELEMENTS.some(x=>x.sym.toLowerCase()===q);
+  let visible=0;
   document.querySelectorAll("#ptable .cell").forEach(c=>{
     const e=BY_Z[c.dataset.z];
     const matchQ = !q || String(e.z)===q ||
@@ -127,9 +133,15 @@ function applyFilter(){
     // con il chip acceso i biorilevanti restano accesi, tutti gli altri si oscurano
     const matchB = !bioOn || BIO_Z.has(e.z);
     const ok = matchQ && matchC && matchB;
+    if(ok) visible++;
     c.classList.toggle("dim",!ok);
     c.classList.toggle("match", ok && (!!q || (bioOn && BIO_Z.has(e.z))));
   });
+  const status=document.getElementById("filterStatus");
+  if(status) status.textContent=visible===0?
+    "Nessun elemento corrisponde ai filtri.":
+    visible===ELEMENTS.length?`Tutti i ${visible} elementi sono mostrati.`:
+      `${visible} elementi mostrati su ${ELEMENTS.length}.`;
 }
 function setBio(on){
   bioOn=!!on;
@@ -206,7 +218,7 @@ function fieldLabel(f){ return f==="symbol"?"Simbolo":f==="name"?"Nome":"Numero 
 function scopeOptions(sel){
   sel.innerHTML="";
   const add=(v,t)=>{const o=document.createElement("option");o.value=v;o.textContent=t;sel.appendChild(o);};
-  add("all","Tutti gli elementi (118)");
+  add("all",`Tutti gli elementi (${ELEMENTS.length})`);
   add("due","Nuovi e da ripassare");
   add("weak",`Non padroneggiati (< ${MASTERY_THRESHOLD}%)`);
   CAT_DEF.forEach(c=>add("cat:"+c.id,c.label));
@@ -281,10 +293,23 @@ function setCardA11y(e,dir,flipped){
   const answer=flipped?`, risposta ${fieldValue(e,dir.to)}`:"";
   const action=flipped?"Usa i pulsanti o i tasti 1, 2 e 3 per giudicarla.":
     "Premi Spazio o Invio per girarla.";
-  document.getElementById("card").setAttribute("aria-label",
+  const card=document.getElementById("card");
+  if(flipped) card.removeAttribute("aria-keyshortcuts");
+  else card.setAttribute("aria-keyshortcuts","Space Enter");
+  card.setAttribute("aria-label",
     `Carta ${cards.done+1} di ${cards.total}. ${fieldLabel(dir.from)}: ${fieldValue(e,dir.from)}${answer}. ${action}`);
 }
+function updateCardMeter(){
+  const meterPct=cards.total?Math.round(cards.done/cards.total*100):0;
+  const meter=document.getElementById("cardMeterTrack");
+  meter.setAttribute("aria-valuenow",String(meterPct));
+  meter.setAttribute("aria-valuetext",`${cards.done} di ${cards.total} carte, ${meterPct}%`);
+  document.getElementById("cardMeter").style.width=meterPct+"%";
+}
 function showCard(){
+  // Aggiorna il valore anche quando la coda è vuota: l'ultima carta appena
+  // valutata deve portare semanticamente la barra al 100% prima del riepilogo.
+  updateCardMeter();
   if(!cards.queue.length){ finishCards(); return; }
   cards.flipped=false;
   const e=cards.queue[0], dir=cards.dir;
@@ -300,7 +325,6 @@ function showCard(){
   const box=boxOf(e.z);
   document.getElementById("cardBox").textContent=box===null?"Nuova":
     `${box}° mazzo · ${BOX_DAYS[box]} ${BOX_DAYS[box]===1?"giorno":"giorni"}`;
-  document.getElementById("cardMeter").style.width=(cards.done/cards.total*100)+"%";
   setCardA11y(e,dir,false);
   document.getElementById("card").focus({preventScroll:true});
 }
@@ -425,14 +449,16 @@ function renderQuestion(){
   document.getElementById("qScore").textContent=`Punti: ${quiz.score}`;
   document.getElementById("qText").innerHTML=q.type.text(q.e);
   const host=document.getElementById("qOptions"); host.innerHTML="";
-  q.options.forEach(v=>{
+  q.options.forEach((v,i)=>{
     const b=document.createElement("button");
     b.className="opt"; b.type="button"; b.textContent=v; b.dataset.v=v;
+    b.setAttribute("aria-keyshortcuts",String(i+1));
     host.appendChild(b);
   });
   // quinta opzione: rinunciare in partenza è meglio che indovinare a caso
   const skip=document.createElement("button");
   skip.className="opt skip"; skip.type="button"; skip.textContent="Non so"; skip.dataset.v=NON_SO;
+  skip.setAttribute("aria-keyshortcuts","5");
   host.appendChild(skip);
   document.getElementById("qFeedback").textContent="";
   document.getElementById("qFeedback").className="feedback";
@@ -450,6 +476,7 @@ function answerQuiz(v){
   const ok = !skipped && v===q.answer;
   document.querySelectorAll("#qOptions .opt").forEach(b=>{
     b.disabled=true;
+    b.removeAttribute("aria-keyshortcuts");
     if(b.dataset.v===q.answer) b.classList.add("correct");
     else if(skipped){ if(b.dataset.v===NON_SO) b.classList.add("chosen"); }
     else if(b.dataset.v===v) b.classList.add("wrong");
@@ -517,6 +544,7 @@ document.getElementById("qEnd").onclick=finishQuiz;
 document.getElementById("quizAgain").onclick=()=>{
   document.getElementById("quizDone").classList.add("hidden");
   document.getElementById("quizSetup").classList.remove("hidden");
+  document.getElementById("startQuiz").focus({preventScroll:true});
 };
 document.addEventListener("keydown",e=>{
   // come nelle flashcard: Ctrl/Cmd/Alt/Shift+1..5 non deve rispondere al posto nostro
@@ -635,7 +663,7 @@ function seqRender(){
   const e=BY_Z[Math.min(seq.i+1,tot)];
   document.getElementById("seqZ").textContent= done ? "Sequenza completata!" : `Z = ${e.z}`;
   if(done){
-    document.getElementById("seqName").textContent = seq.bad===0 ? "Tavola perfetta 🎉" : "Hai finito i 118 elementi";
+    document.getElementById("seqName").textContent = seq.bad===0 ? "Tavola perfetta 🎉" : `Hai finito i ${tot} elementi`;
   }else{
     document.getElementById("seqName").textContent =
       document.getElementById("seqShowName").checked ? e.name : "—";
@@ -722,7 +750,7 @@ function renderStats(){
   // solo chiavi canoniche riferite a elementi reali: una chiave anomala in
   // localStorage non deve far superare 118 la somma dei mazzi
   const leitnerEntries=Object.entries(state.leitner).filter(([k])=>isElementKey(k));
-  const cards5=leitnerEntries.length;
+  const assignedCards=leitnerEntries.length;
   const boxes=Array(BOX_DAYS.length).fill(0);   // una riga per ogni box reale 0..MAX_BOX
   leitnerEntries.forEach(([,v])=>{
     const b=Math.min(MAX_BOX,Math.max(0,Math.floor(+v)||0));   // difende da valori corrotti in localStorage
@@ -734,7 +762,7 @@ function renderStats(){
     <div class="stat"><div class="v">${m}/${ELEMENTS.length}</div><div class="l">Elementi padroneggiati (≥${MASTERY_THRESHOLD}%)</div></div>
     <div class="stat"><div class="v">${qtot?Math.round(q.correct/qtot*100):0}%</div><div class="l">Quiz risposti bene (${qtot} domande)</div></div>
     <div class="stat"><div class="v">${solvedN}/${ELEMENTS.length}</div><div class="l">Caselle scritte nella tavola</div></div>
-    <div class="stat"><div class="v">${cards5}</div><div class="l">Elementi nelle flashcard</div></div>
+    <div class="stat"><div class="v">${assignedCards}</div><div class="l">Elementi nelle flashcard</div></div>
     <div class="stat"><div class="v">${state.write.seqBest}</div><div class="l">Posizione massima nella sequenza</div></div>`;
   const cs=document.getElementById("catStats"); cs.innerHTML="";
   CAT_DEF.forEach(c=>{
@@ -750,7 +778,7 @@ function renderStats(){
   boxes.forEach((n,i)=>{
     // proporzionale alle carte effettivamente assegnate: con pochi mazzetti
     // attivi usare 118 come denominatore lascerebbe tutte le barre quasi vuote
-    const p=cards5?Math.round(n/cards5*100):0;
+    const p=assignedCards?Math.round(n/assignedCards*100):0;
     const d=document.createElement("div"); d.className="catbar";
     d.innerHTML=`<span>${names[i]}</span><span class="track"><i style="width:${p}%; background:var(--accent)"></i></span><span class="pct">${n}</span>`;
     bs.appendChild(d);

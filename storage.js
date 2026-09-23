@@ -14,6 +14,14 @@ const defaultState = ()=>({
 const isObj=v=>v!==null&&typeof v==="object"&&!Array.isArray(v);
 // numero o stringa numerica (non null/vuoto/booleano: +true===1 farbbe entrare i booleani)
 const isNum=v=>(typeof v==="number"||typeof v==="string")&&String(v).trim()!==""&&Number.isFinite(+v);
+const isSafeNonNegativeInt=v=>{
+  if(!isNum(v)) return false;
+  const n=Number(v);
+  return Number.isSafeInteger(n)&&n>=0;
+};
+// Il flag delle caselle è un booleano persistito come 1: accettare solo il
+// valore canonico evita che uno stato corrotto (0, -1 o 0.5) riveli risposte.
+const isSolvedFlag=v=>v===1||v==="1";
 const uint=v=>{
   const n=Math.floor(Number(v));
   return Number.isSafeInteger(n)?Math.max(0,n):0;
@@ -62,10 +70,10 @@ function sanitizeState(value){
   // un Z fantasma gonfierebbe il contatore "Ripassa gli errori (n)".
   out.wrongZ=[...new Set(out.wrongZ.filter(isNum).map(v=>+v)
     .filter(v=>Number.isSafeInteger(v)&&BY_Z[v]))];
-  // caselle scritte: solo elementi reali e valori numerici ("boh"/true o chiavi
-  // fantasma svelerebbero la risposta e gonfierebbero il contatore x/118).
+  // caselle scritte: solo elementi reali e il flag canonico 1 ("boh", true,
+  // 0 o un valore negativo non devono rivelare una risposta).
   out.write.solved=Object.fromEntries(Object.entries(out.write.solved)
-    .filter(([k,v])=>isElementKey(k)&&isNum(v)).map(([k])=>[k,1]));
+    .filter(([k,v])=>isElementKey(k)&&isSolvedFlag(v)).map(([k])=>[k,1]));
   // isNum accetta le stringhe numeriche, ma qui vanno proprio convertite:
   // correct+wrong nelle statistiche diventerebbe "5"+"3" = "53" domande.
   out.write.seqBest=isNum(out.write.seqBest)?Math.min(ELEMENTS.length,uint(out.write.seqBest)):0;
@@ -80,14 +88,16 @@ function sanitizeState(value){
     if(!isNum(h.d)) return [];
     const d=+h.d;
     if(!Number.isSafeInteger(d)||d<=0||d>now+DAY) return [];
-    const total=isNum(h.total)?Math.min(ELEMENTS.length,uint(h.total)):0;
+    const total=isSafeNonNegativeInt(h.total)?Math.min(ELEMENTS.length,Number(h.total)):0;
     if(!total) return [];
     const answered=h.answered===undefined?total:
-      isNum(h.answered)?Math.min(total,uint(h.answered)):0;
+      isSafeNonNegativeInt(h.answered)?Math.min(total,Number(h.answered)):0;
     if(!answered) return [];
-    if(h.score!==undefined&&!isNum(h.score)) return [];
-    const rawScore=isNum(h.score)?uint(h.score):0;
-    if(rawScore%10!==0) return [];
+    // I record v0 senza score valgono zero; uno score esplicitamente presente
+    // deve invece essere un intero non negativo multiplo di 10.
+    if(h.score!==undefined&&!isSafeNonNegativeInt(h.score)) return [];
+    const rawScore=h.score===undefined?0:Number(h.score);
+    if(!Number.isSafeInteger(rawScore)||rawScore%10!==0) return [];
     const score=Math.min(rawScore,answered*10);
     const wrongCount=answered-score/10;
     const wrong=Array.isArray(h.wrong)?[...new Set(h.wrong.filter(isNum).map(v=>+v)
@@ -205,12 +215,32 @@ function save(){
   return saved;
 }
 function exportProgress(){
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
-  const url=URL.createObjectURL(blob), a=document.createElement("a");
-  a.href=url;
-  a.download=`chemmaster-4000-${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),0);
+  let url="";
+  try{
+    if(typeof globalThis.Blob!=="function"||
+       !globalThis.URL||typeof globalThis.URL.createObjectURL!=="function"){
+      alert("Questo browser non supporta l’esportazione del file JSON.");
+      return false;
+    }
+    const blob=new globalThis.Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+    url=globalThis.URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`chemmaster-4000-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    try{ a.click(); } finally { a.remove(); }
+    setTimeout(()=>{
+      try{ if(typeof globalThis.URL.revokeObjectURL==="function") globalThis.URL.revokeObjectURL(url); }
+      catch(e){ /* il download è già stato avviato */ }
+    },0);
+    return true;
+  }catch(e){
+    if(url&&typeof globalThis.URL?.revokeObjectURL==="function"){
+      try{ globalThis.URL.revokeObjectURL(url); }catch(_){ }
+    }
+    alert("Impossibile esportare una copia dei progressi.");
+    return false;
+  }
 }
 function applyImportedState(raw){
   let value;
