@@ -1,4 +1,19 @@
 "use strict";
+// Piccolo costruttore DOM per mantenere testo e attributi fuori dai template HTML.
+function makeElement(tag,attrs={},...children){
+  const node=document.createElement(tag);
+  Object.entries(attrs).forEach(([name,value])=>{
+    if(value===undefined||value===null||value===false) return;
+    if(name==="class") node.className=value;
+    else if(name==="text") node.textContent=value;
+    else if(name==="style") Object.assign(node.style,value);
+    else if(name==="dataset") Object.assign(node.dataset,value);
+    else if(name.startsWith("on")&&typeof value==="function") node.addEventListener(name.slice(2),value);
+    else node.setAttribute(name,String(value));
+  });
+  children.forEach(child=>{ if(child!==undefined&&child!==null) node.append(child); });
+  return node;
+}
 /* ========================= NAV ========================= */
 function go(v){
   // le viste le decide il DOM: un data-view senza sezione (o una sezione dimenticata)
@@ -44,9 +59,13 @@ const activeCats=new Set(CAT_DEF.map(c=>c.id));
 let placeholderTimer=null;
 // evidenziazione "biorilevanti": come i filtri di categoria, non persistita
 let bioOn=false;
-function cellHTML(e){
-  return `<span class="n">${e.z}</span><span class="s">${e.sym}</span><span class="nm">${e.name}</span>`+
-         `<span class="mbar" style="width:${mastery(e.z)}%"></span>`;
+function cellChildren(e){
+  return [
+    makeElement("span",{class:"n",text:e.z}),
+    makeElement("span",{class:"s",text:e.sym}),
+    makeElement("span",{class:"nm",text:e.name}),
+    makeElement("span",{class:"mbar",style:{width:`${mastery(e.z)}%`}})
+  ];
 }
 function setCellA11y(cell,e,kind){
   const status=kind==="solved"?"casella completata, ":
@@ -80,7 +99,7 @@ function buildGrid(host, opts={}){
     else if(e.z===detailZ){ b.setAttribute("aria-current","true"); b.classList.add("sel"); }
     b.dataset.z=e.z;
     b.style.gridColumn=e.x+1; b.style.gridRow=e.y+1;
-    b.innerHTML=cellHTML(e);
+    b.append(...cellChildren(e));
     // nella "tavola vuota" il tooltip non deve svelare nome e simbolo
     if(opts.blank && !state.write.solved[e.z]){
       b.setAttribute("aria-label",
@@ -154,11 +173,11 @@ function setBio(on){
   applyFilter();
 }
 function renderLegend(){
-  const host=document.getElementById("legend"); host.innerHTML="";
+  const host=document.getElementById("legend"); host.replaceChildren();
   CAT_DEF.forEach(c=>{
     const b=document.createElement("button");
     b.type="button"; b.className="chip on"; b.dataset.cat=c.id; b.setAttribute("aria-pressed","true");
-    b.innerHTML=`<i style="background:var(--${c.v})"></i>${c.label}`;
+    b.append(makeElement("i",{style:{background:`var(--${c.v})`}}),c.label);
     b.onclick=()=>{ activeCats.has(c.id)?activeCats.delete(c.id):activeCats.add(c.id);
       const on=activeCats.has(c.id);
       b.classList.toggle("on",on); b.classList.toggle("off",!on);
@@ -179,25 +198,30 @@ function renderDetail(z){
   const massLabel=radioactive?"Numero di massa":"Massa atomica";
   const massValue=radioactive?e.mass:`${e.mass} u`;
   const box=boxOf(z);
-  host.innerHTML=`
-    <div class="detail-hero">
-      <div class="detail-sym cat-${e.cat}"><b>${e.sym}</b><span>${e.z}</span></div>
-      <div><p class="detail-name">${e.name}</p><div class="detail-cat">${CAT_LABEL[e.cat]}${
-        BIO_Z.has(e.z) ? `<span class="bio-badge">🧬 biorilevante</span>` : ""}</div></div>
-    </div>
-    <dl class="kv">
-      <dt>Numero atomico</dt><dd>${e.z}</dd>
-      <dt>${massLabel}</dt><dd>${massValue}</dd>
-      <dt>Posizione</dt><dd>${posTxt}</dd>
-      <dt>Padroneggio</dt><dd>${mastery(e.z)}%</dd>
-      <dt>Mazzo flashcard</dt><dd>${box===null?"— (nuovo)":box+"° mazzo · "+(box===0?"oggi":BOX_DAYS[box]+(BOX_DAYS[box]===1?" giorno":" giorni"))}</dd>
-    </dl>
-    <div class="cfg">${prettyCfg(e.cfg)}</div>
-    <div class="shells">${e.shells.map((s,i)=>`<span>n${i+1}: ${s}</span>`).join("")}</div>
-    <p class="legend-note">Configurazione elettronica e gusci (modello a gusci).</p>
-    <div class="row" style="margin-top:12px">
-      <button type="button" class="btn sm" data-goto="cards">Studia con le flashcard</button>
-    </div>`;
+  const category=makeElement("div",{class:"detail-cat"},CAT_LABEL[e.cat],
+    BIO_Z.has(e.z)?makeElement("span",{class:"bio-badge",text:"🧬 biorilevante"}):null);
+  const hero=makeElement("div",{class:"detail-hero"},
+    makeElement("div",{class:`detail-sym cat-${e.cat}`},
+      makeElement("b",{text:e.sym}),makeElement("span",{text:e.z})),
+    makeElement("div",{},makeElement("p",{class:"detail-name",text:e.name}),category));
+  const boxText=box===null?"— (nuovo)":box+"° mazzo · "+
+    (box===0?"oggi":BOX_DAYS[box]+(BOX_DAYS[box]===1?" giorno":" giorni"));
+  const pairs=[
+    ["Numero atomico",e.z],[massLabel,massValue],["Posizione",posTxt],
+    ["Padroneggio",`${mastery(e.z)}%`],["Mazzo flashcard",boxText]
+  ];
+  const details=makeElement("dl",{class:"kv"},...pairs.flatMap(([label,value])=>[
+    makeElement("dt",{text:label}),makeElement("dd",{text:value})
+  ]));
+  host.replaceChildren(
+    hero,
+    details,
+    makeElement("div",{class:"cfg",text:prettyCfg(e.cfg)}),
+    makeElement("div",{class:"shells"},...e.shells.map((s,i)=>makeElement("span",{text:`n${i+1}: ${s}`}))),
+    makeElement("p",{class:"legend-note",text:"Configurazione elettronica e gusci (modello a gusci)."}),
+    makeElement("div",{class:"row",style:{marginTop:"12px"}},
+      makeElement("button",{type:"button",class:"btn sm","data-goto":"cards",text:"Studia con le flashcard"}))
+  );
 }
 function refreshCellMastery(z){
   document.querySelectorAll(`.cell[data-z="${z}"]`).forEach(c=>{
@@ -224,7 +248,7 @@ function fieldValue(e,f){
 }
 function fieldLabel(f){ return f==="symbol"?"Simbolo":f==="name"?"Nome":"Numero atomico"; }
 function scopeOptions(sel){
-  sel.innerHTML="";
+  sel.replaceChildren();
   const add=(v,t)=>{const o=document.createElement("option");o.value=v;o.textContent=t;sel.appendChild(o);};
   add("all",`Tutti gli elementi (${ELEMENTS.length})`);
   add("due","Nuovi e da ripassare");
@@ -293,10 +317,6 @@ function startCards(){
   document.getElementById("cardsStage").classList.remove("hidden");
   showCard();
 }
-function cardBackHTML(e,dir){
-  return `<div class="big">${fieldValue(e,dir.to)}</div>
-    <div class="meta">${e.z} · ${e.sym} · ${e.name} · ${CAT_LABEL[e.cat]}</div>`;
-}
 function setCardA11y(e,dir,flipped){
   const answer=flipped?`, risposta ${fieldValue(e,dir.to)}`:"";
   const action=flipped?"Usa i pulsanti o i tasti 1, 2 e 3 per giudicarla.":
@@ -326,7 +346,7 @@ function showCard(){
   document.getElementById("cardFront").textContent=fieldValue(e,dir.from);
   document.getElementById("cardFront").className="front"+(dir.from==="name"?" small":"");
   const back=document.getElementById("cardBack");
-  back.classList.add("hidden"); back.innerHTML="";
+  back.classList.add("hidden"); back.replaceChildren();
   document.getElementById("cardGrade").classList.add("hidden");
   document.getElementById("cardTap").classList.remove("hidden");
   document.getElementById("cardLeft").textContent=`Rimaste: ${cards.queue.length-1}`;
@@ -340,7 +360,11 @@ function flipCard(){
   if(cards.flipped) return;
   cards.flipped=true;
   const e=cards.queue[0], dir=cards.dir, back=document.getElementById("cardBack");
-  back.classList.remove("hidden"); back.innerHTML=cardBackHTML(e,dir);
+  back.classList.remove("hidden");
+  back.replaceChildren(
+    makeElement("div",{class:"big",text:fieldValue(e,dir.to)}),
+    makeElement("div",{class:"meta",text:`${e.z} · ${e.sym} · ${e.name} · ${CAT_LABEL[e.cat]}`})
+  );
   document.getElementById("cardGrade").classList.remove("hidden");
   document.getElementById("cardTap").classList.add("hidden");
   setCardA11y(e,dir,true);
@@ -397,20 +421,22 @@ document.addEventListener("keydown",e=>{
 });
 
 /* ========================= QUIZ ========================= */
+const questionFieldLabel=f=>f==="symbol"?"Simbolo":f==="name"?"Nome":"Numero";
 const QTYPES=[
-  {id:"n2s", from:"name",   to:"symbol", text:e=>`Qual è il simbolo di <em>${e.name}</em>?`},
-  {id:"s2n", from:"symbol", to:"name",   text:e=>`Che elemento è <em>${e.sym}</em>?`},
-  {id:"z2s", from:"number", to:"symbol", text:e=>`Qual è il simbolo dell’elemento <em>${e.z}</em>?`},
-  {id:"s2z", from:"symbol", to:"number", text:e=>`Qual è il numero atomico di <em>${e.sym}</em>?`},
-  {id:"n2z", from:"name",   to:"number", text:e=>`Qual è il numero atomico di <em>${e.name}</em>?`},
-  {id:"z2n", from:"number", to:"name",   text:e=>`Che elemento ha numero atomico <em>${e.z}</em>?`}
+  {id:"n2s", from:"name",   to:"symbol", prompt:e=>["Qual è il simbolo di ",makeElement("em",{text:e.name}),"?"]},
+  {id:"s2n", from:"symbol", to:"name",   prompt:e=>["Che elemento è ",makeElement("em",{text:e.sym}),"?"]},
+  {id:"z2s", from:"number", to:"symbol", prompt:e=>["Qual è il simbolo dell’elemento ",makeElement("em",{text:e.z}),"?"]},
+  {id:"s2z", from:"symbol", to:"number", prompt:e=>["Qual è il numero atomico di ",makeElement("em",{text:e.sym}),"?"]},
+  {id:"n2z", from:"name",   to:"number", prompt:e=>["Qual è il numero atomico di ",makeElement("em",{text:e.name}),"?"]},
+  {id:"z2n", from:"number", to:"name",   prompt:e=>["Che elemento ha numero atomico ",makeElement("em",{text:e.z}),"?"]}
 ];
 function buildQuizTypes(){
-  const host=document.getElementById("quizTypes"); host.innerHTML="";
+  const host=document.getElementById("quizTypes"); host.replaceChildren();
   QTYPES.forEach(t=>{
-    const l=document.createElement("label");
-    l.innerHTML=`<input type="checkbox" value="${t.id}" checked> ${t.from==="name"?"Nome":t.from==="symbol"?"Simbolo":"Numero"} → ${t.to==="name"?"Nome":t.to==="symbol"?"Simbolo":"Numero"}`;
-    host.appendChild(l);
+    const input=makeElement("input",{type:"checkbox",value:t.id,checked:true});
+    const label=makeElement("label",{},input,
+      ` ${questionFieldLabel(t.from)} → ${questionFieldLabel(t.to)}`);
+    host.appendChild(label);
   });
 }
 let quizScopeBuilt=false;
@@ -455,8 +481,8 @@ function renderQuestion(){
   document.getElementById("qIdx").textContent=`Domanda ${quiz.i+1}/${quiz.list.length}`;
   document.getElementById("qStreak").textContent=`🔥 Serie: ${quiz.streak}`;
   document.getElementById("qScore").textContent=`Punti: ${quiz.score}`;
-  document.getElementById("qText").innerHTML=q.type.text(q.e);
-  const host=document.getElementById("qOptions"); host.innerHTML="";
+  document.getElementById("qText").replaceChildren(...q.type.prompt(q.e));
+  const host=document.getElementById("qOptions"); host.replaceChildren();
   q.options.forEach((v,i)=>{
     const b=document.createElement("button");
     b.className="opt"; b.type="button"; b.textContent=v; b.dataset.v=v;
@@ -617,7 +643,7 @@ function checkCell(){
     if(!solved){
       state.write.solved[wSel]=1; addMastery(wSel,12);
       cell.classList.remove("blank","hinted","wrong"); cell.classList.add("solved");
-      cell.innerHTML=cellHTML(el);
+      cell.replaceChildren(...cellChildren(el));
       cell.title=`${el.name} (${el.sym}) — Z=${el.z}`;
       setCellA11y(cell,el,"solved");
       save(); updateHead(); refreshCellMastery(wSel); updateWFilled();
@@ -682,8 +708,7 @@ function seqRender(){
   document.getElementById("seqBad").textContent=seq.bad;
   document.getElementById("seqBest").textContent=state.write.seqBest;
   const bar=document.getElementById("seqBar");
-  bar.innerHTML="";
-  seq.marks.forEach(m=>{ const s=document.createElement("span"); s.className=m; bar.appendChild(s); });
+  bar.replaceChildren(...seq.marks.map(m=>makeElement("span",{class:m})));
   // l'input si svuota solo a fine corsa: cambiare l'indizio-nome non deve
   // cancellare una risposta che l'utente aveva già digitato
   const inp=document.getElementById("seqInput");
@@ -765,24 +790,29 @@ function renderStats(){
     boxes[b]++;
   });
   const solvedN=ELEMENTS.filter(e=>state.write.solved[e.z]).length;
-  document.getElementById("statCards").innerHTML=`
-    <div class="stat"><div class="v">${avg}%</div><div class="l">Padroneggio medio</div></div>
-    <div class="stat"><div class="v">${m}/${ELEMENTS.length}</div><div class="l">Elementi padroneggiati (≥${MASTERY_THRESHOLD}%)</div></div>
-    <div class="stat"><div class="v">${qtot?Math.round(q.correct/qtot*100):0}%</div><div class="l">Quiz risposti bene (${qtot} domande)</div></div>
-    <div class="stat"><div class="v">${solvedN}/${ELEMENTS.length}</div><div class="l">Caselle scritte nella tavola</div></div>
-    <div class="stat"><div class="v">${assignedCards}</div><div class="l">Elementi nelle flashcard</div></div>
-    <div class="stat"><div class="v">${state.write.seqBest}</div><div class="l">Posizione massima nella sequenza</div></div>`;
-  const cs=document.getElementById("catStats"); cs.innerHTML="";
+  const statValues=[
+    [`${avg}%`,"Padroneggio medio"],
+    [`${m}/${ELEMENTS.length}`,`Elementi padroneggiati (≥${MASTERY_THRESHOLD}%)`],
+    [`${qtot?Math.round(q.correct/qtot*100):0}%`,`Quiz risposti bene (${qtot} domande)`],
+    [`${solvedN}/${ELEMENTS.length}`,"Caselle scritte nella tavola"],
+    [String(assignedCards),"Elementi nelle flashcard"],
+    [String(state.write.seqBest),"Posizione massima nella sequenza"]
+  ];
+  document.getElementById("statCards").replaceChildren(...statValues.map(([value,label])=>
+    makeElement("div",{class:"stat"},
+      makeElement("div",{class:"v",text:value}),makeElement("div",{class:"l",text:label}))));
+  const cs=document.getElementById("catStats"); cs.replaceChildren();
   CAT_DEF.forEach(c=>{
     const els=ELEMENTS.filter(e=>e.cat===c.id);
     const p=Math.round(els.reduce((s,e)=>s+mastery(e.z),0)/els.length);
-    const d=document.createElement("div"); d.className="catbar";
-    d.innerHTML=`<span>${c.label}</span><span class="track cat-${c.id}" role="progressbar"
-      aria-label="Padroneggio ${c.label}" aria-valuemin="0" aria-valuemax="100"
-      aria-valuenow="${p}" aria-valuetext="${p}%"><i style="width:${p}%"></i></span><span class="pct">${p}%</span>`;
-    cs.appendChild(d);
+    const track=makeElement("span",{class:`track cat-${c.id}`,role:"progressbar",
+      "aria-label":`Padroneggio ${c.label}`,"aria-valuemin":"0","aria-valuemax":"100",
+      "aria-valuenow":String(p),"aria-valuetext":`${p}%`},
+      makeElement("i",{style:{width:`${p}%`}}));
+    cs.appendChild(makeElement("div",{class:"catbar"},
+      makeElement("span",{text:c.label}),track,makeElement("span",{class:"pct",text:`${p}%`})));
   });
-  const bs=document.getElementById("boxStats"); bs.innerHTML="";
+  const bs=document.getElementById("boxStats"); bs.replaceChildren();
   const names=BOX_DAYS.map((n,i)=>i===0?"0 · oggi":
     `${i} · ${n} ${n===1?"giorno":"giorni"}`);
   boxes.forEach((n,i)=>{
@@ -790,20 +820,25 @@ function renderStats(){
     // attivi usare 118 come denominatore lascerebbe tutte le barre quasi vuote
     const p=assignedCards?Math.round(n/assignedCards*100):0;
     const valueText=`${n} ${n===1?"carta":"carte"}${assignedCards?`, ${p}% del totale`:""}`;
-    const d=document.createElement("div"); d.className="catbar";
-    d.innerHTML=`<span>${names[i]}</span><span class="track" role="progressbar"
-      aria-label="Carte nel mazzo ${names[i]}" aria-valuemin="0" aria-valuemax="${assignedCards||1}"
-      aria-valuenow="${n}" aria-valuetext="${valueText}"><i style="width:${p}%; background:var(--accent)"></i></span><span class="pct">${n}</span>`;
-    bs.appendChild(d);
+    const track=makeElement("span",{class:"track",role:"progressbar",
+      "aria-label":`Carte nel mazzo ${names[i]}`,"aria-valuemin":"0",
+      "aria-valuemax":String(assignedCards||1),"aria-valuenow":String(n),
+      "aria-valuetext":valueText},
+      makeElement("i",{style:{width:`${p}%`,background:"var(--accent)"}}));
+    bs.appendChild(makeElement("div",{class:"catbar"},
+      makeElement("span",{text:names[i]}),track,makeElement("span",{class:"pct",text:String(n)})));
   });
-  const h=document.getElementById("quizHist");
-  h.innerHTML = q.history.length ? q.history.map(x=>{
+  const history=q.history.map(x=>{
     const dt=new Date(x.d).toLocaleDateString("it-IT",{day:"2-digit",month:"2-digit"});
     const answered=x.answered??x.total;
     const wrong=Math.max(0,answered-x.score/10);
     const ans=answered<x.total?` · risposte ${answered}`:"";
-    return `<div><span>${dt}</span><span>${x.score/10}/${x.total}${ans}${wrong?` · ${wrong} errori`:""}</span></div>`;
-  }).join("") : `<div style="border:none">Nessun quiz completato finora.</div>`;
+    return makeElement("div",{},makeElement("span",{text:dt}),
+      makeElement("span",{text:`${x.score/10}/${x.total}${ans}${wrong?` · ${wrong} errori`:""}`}));
+  });
+  document.getElementById("quizHist").replaceChildren(...(history.length?history:[
+    makeElement("div",{style:{border:"none"},text:"Nessun quiz completato finora."})
+  ]));
 }
 document.getElementById("resetAll").onclick=()=>{
   if(!confirm("Cancellare tutti i progressi? L’azione non è reversibile.")) return;

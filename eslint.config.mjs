@@ -21,12 +21,12 @@ const sharedGlobalNames = [
   "renderPersistedState", "reloadFromDisk", "openImportDialog", "handleStorageEvent", "mastery",
   "addMastery", "MASTERY_THRESHOLD", "masteredCount", "avgMastery",
   // app.js
-  "go", "updateHead", "activeCats", "placeholderTimer", "bioOn", "cellHTML", "setCellA11y",
+  "makeElement", "go", "updateHead", "activeCats", "placeholderTimer", "bioOn", "cellChildren", "setCellA11y",
   "buildGrid", "applyFilter", "setBio", "renderLegend", "detailZ", "renderDetail", "refreshCellMastery",
   "DIRS", "fieldValue", "fieldLabel", "scopeOptions", "MAX_BOX", "boxOf", "dueNow", "scopePool",
   "shuffle", "cards", "cardScopesBuilt", "refreshCardScopes", "updateCardInfo", "startCards",
-  "cardBackHTML", "setCardA11y", "showCard", "flipCard", "gradeCard", "finishCards", "resetCardsUI",
-  "QTYPES", "buildQuizTypes", "quizScopeBuilt", "refreshQuizScopes", "quiz", "NON_SO", "makeQuestion",
+  "setCardA11y", "showCard", "flipCard", "gradeCard", "finishCards", "resetCardsUI",
+  "questionFieldLabel", "QTYPES", "buildQuizTypes", "quizScopeBuilt", "refreshQuizScopes", "quiz", "NON_SO", "makeQuestion",
   "startQuiz", "renderQuestion", "answerQuiz", "nextQuestion", "finishQuiz", "wSel", "writeGridBound",
   "initWriteGrid", "wMsg", "updateWFilled", "clearCellSelection", "checkCell", "seq", "seqRender",
   "seqCheck", "renderStats"
