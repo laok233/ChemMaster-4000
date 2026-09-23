@@ -25,13 +25,13 @@ jobs:
         # jsdom 30 dichiede ^22.22.2 || ^24.15.0 || >=26.0.0
         node-version: [22, 24]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ matrix.node-version }}
-      # niente "npm install --ci": il repo non ha package-lock.json (usa bun.lock)
-      - name: Installa le dipendenze (servono solo per i test)
-        run: npm install
+          cache: npm
+      - name: Installa le dipendenze dal lockfile (servono solo per i test)
+        run: npm ci --ignore-scripts
       - name: Esegui i test
         run: npm test
 
@@ -39,8 +39,8 @@ jobs:
     name: Bun
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           # pinnato: "latest" renderebbe la CI dipendente da un rilascio di Bun
           bun-version: 1.4.2

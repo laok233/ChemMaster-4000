@@ -15,6 +15,7 @@
   --shadow:0 8px 30px rgba(0,0,0,.35);
 }
 *{box-sizing:border-box}
+[hidden]{display:none !important}
 html,body{margin:0;padding:0}
 body{
   background:radial-gradient(1200px 600px at 20% -10%,#1b2150 0%,var(--bg) 55%) fixed, var(--bg);
@@ -41,6 +42,12 @@ nav button.active{color:#06121c; background:var(--accent); box-shadow:0 4px 16px
 .head-progress .bar{width:140px; height:8px; background:var(--panel2); border-radius:99px; overflow:hidden}
 .head-progress .bar i{display:block; height:100%; background:linear-gradient(90deg,#3ddc97,#5ac8fa); width:0; transition:.4s}
 main{padding:20px; max-width:1500px; margin:0 auto}
+.storage-warning{
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  margin-bottom:16px; padding:11px 14px; border:1px solid var(--warn); border-radius:var(--radius);
+  background:rgba(255,200,87,.1); color:var(--warn); font-size:13.5px;
+}
+.storage-warning-actions{display:flex; gap:8px; flex-wrap:wrap}
 section.view{display:none; animation:fade .25s ease}
 section.view.active{display:block}
 @keyframes fade{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
@@ -249,11 +256,11 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
   <h1>⚛ Chem<span>Master 4000</span></h1>
   <nav id="tabs">
     <a class="home-link" href="index.html" title="Torna al menu principale">🏠 Menu</a>
-    <button data-view="table" class="active" aria-current="true">Tavola</button>
-    <button data-view="cards">Flashcard</button>
-    <button data-view="quiz">Quiz</button>
-    <button data-view="write">Scrivi la tavola</button>
-    <button data-view="stats">Progressi</button>
+    <button type="button" data-view="table" class="active" aria-current="true">Tavola</button>
+    <button type="button" data-view="cards">Flashcard</button>
+    <button type="button" data-view="quiz">Quiz</button>
+    <button type="button" data-view="write">Scrivi la tavola</button>
+    <button type="button" data-view="stats">Progressi</button>
   </nav>
   <div class="head-progress">
     <span id="headPctTxt">0% padroneggiati</span>
@@ -262,6 +269,14 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
 </header>
 
 <main>
+  <div class="storage-warning" id="storageWarning" role="alert" hidden>
+    <span id="storageWarningText"></span>
+    <span class="storage-warning-actions">
+      <button type="button" class="btn ghost sm" id="storageExport" hidden>Esporta una copia</button>
+      <button type="button" class="btn ghost sm" id="storageReload" hidden>Ricarica da disco</button>
+    </span>
+  </div>
+
   <!-- ============ TAVOLA ============ -->
   <section class="view active" id="view-table">
     <div class="spread" style="margin-bottom:14px">
@@ -271,13 +286,13 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
       </div>
       <div class="row">
         <input type="search" id="searchEl" aria-label="Cerca un elemento per nome, simbolo o numero atomico" placeholder="Cerca nome, simbolo o numero…" style="min-width:230px">
-        <button class="btn ghost sm" id="bioToggle" type="button" aria-pressed="false">🧬 Biorilevanti</button>
-        <button class="btn ghost sm" id="clearFilter">Mostra tutti</button>
+        <button type="button" class="btn ghost sm" id="bioToggle" aria-pressed="false">🧬 Biorilevanti</button>
+        <button type="button" class="btn ghost sm" id="clearFilter">Mostra tutti</button>
       </div>
     </div>
     <div class="table-layout">
       <div class="panel">
-        <div class="chips" id="legend" style="margin-bottom:14px"></div>
+        <div class="chips" id="legend" role="group" aria-label="Filtri per categoria" style="margin-bottom:14px"></div>
         <div class="table-wrap"><div id="ptable"></div></div>
         <p class="legend-note">Le righe in basso (rosa e viola) sono i <b>lantanoidi</b> e gli <b>attinoidi</b>, estratti per rendere la tavola più compatta. Le caselle “57–71” e “89–103” ne indicano la posizione.</p>
       </div>
@@ -308,12 +323,12 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
         </div>
         <div class="spread">
           <div class="legend-note" id="cardScopeInfo"></div>
-          <button class="btn" id="startCards">Inizia le flashcard</button>
+          <button type="button" class="btn" id="startCards">Inizia le flashcard</button>
         </div>
       </div>
 
       <div id="cardsStage" class="hidden" style="margin-top:16px">
-        <div class="card" id="card" tabindex="0" aria-label="Carta: premi Spazio o Invio per girarla">
+        <div class="card" id="card" role="button" tabindex="0" aria-label="Carta: premi Spazio o Invio per girarla">
           <span class="tag" id="cardTag">Nome</span>
           <span class="tag2" id="cardIdx">1/20</span>
           <div class="front" id="cardFront"></div>
@@ -321,25 +336,25 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
           <div class="tap" id="cardTap">Clicca (o <kbd>Spazio</kbd>) per girare la carta</div>
         </div>
         <div class="grade hidden" id="cardGrade">
-          <button class="btn bad" data-g="0">Non sapevo <kbd>1</kbd></button>
-          <button class="btn warn" data-g="1">Sapevo <kbd>2</kbd></button>
-          <button class="btn good" data-g="2">Facile <kbd>3</kbd></button>
+          <button type="button" class="btn bad" data-g="0">Non sapevo <kbd>1</kbd></button>
+          <button type="button" class="btn warn" data-g="1">Sapevo <kbd>2</kbd></button>
+          <button type="button" class="btn good" data-g="2">Facile <kbd>3</kbd></button>
         </div>
         <div class="counts" style="margin-top:12px">
           <span id="cardLeft"></span><span id="cardBox"></span>
         </div>
         <div class="meter"><i id="cardMeter"></i></div>
         <div style="text-align:center; margin-top:14px">
-          <button class="btn ghost sm" id="stopCards">Termina sessione</button>
+          <button type="button" class="btn ghost sm" id="stopCards">Termina sessione</button>
         </div>
       </div>
 
       <div id="cardsDone" class="hidden panel" style="margin-top:16px; text-align:center">
-        <div class="result-big" id="cardsScore">0%</div>
+        <div class="result-big" id="cardsScore" tabindex="-1" aria-describedby="cardsSummary">0%</div>
         <p class="sub" id="cardsSummary"></p>
         <div class="row" style="justify-content:center">
-          <button class="btn" id="againCards">Nuova sessione</button>
-          <button class="btn ghost" data-goto="stats">Vedi progressi</button>
+          <button type="button" class="btn" id="againCards">Nuova sessione</button>
+          <button type="button" class="btn ghost" data-goto="stats">Vedi progressi</button>
         </div>
       </div>
     </div>
@@ -365,8 +380,8 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
           </label>
         </div>
         <div class="spread">
-          <button class="btn ghost sm" id="quizWrongBtn">Ripassa gli errori (<span id="wrongCount">0</span>)</button>
-          <button class="btn" id="startQuiz">Avvia il quiz</button>
+          <button type="button" class="btn ghost sm" id="quizWrongBtn">Ripassa gli errori (<span id="wrongCount">0</span>)</button>
+          <button type="button" class="btn" id="startQuiz">Avvia il quiz</button>
         </div>
       </div>
 
@@ -376,22 +391,22 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
           <span id="qStreak">🔥 Serie: 0</span>
           <span id="qScore">Punti: 0</span>
         </div>
-        <div class="qtext" id="qText"></div>
-        <div class="options" id="qOptions"></div>
+        <div class="qtext" id="qText" tabindex="-1"></div>
+        <div class="options" id="qOptions" role="group" aria-labelledby="qText"></div>
         <div class="feedback" id="qFeedback" aria-live="polite"></div>
         <div style="text-align:center; margin-top:10px">
-          <button class="btn hidden" id="qNext">Prossima →</button>
-          <button class="btn ghost sm hidden" id="qEnd" style="margin-left:8px">Termina</button>
+          <button type="button" class="btn hidden" id="qNext">Prossima →</button>
+          <button type="button" class="btn ghost sm hidden" id="qEnd" style="margin-left:8px">Termina</button>
         </div>
       </div>
 
       <div id="quizDone" class="hidden panel" style="margin-top:16px; text-align:center">
-        <div class="result-big" id="quizScoreBig">0/20</div>
+        <div class="result-big" id="quizScoreBig" tabindex="-1" aria-describedby="quizSummary">0/20</div>
         <p class="sub" id="quizSummary"></p>
         <div class="row" style="justify-content:center">
-          <button class="btn" id="quizAgain">Nuovo quiz</button>
-          <button class="btn warn hidden" id="quizFix">Ripassa gli errori</button>
-          <button class="btn ghost" data-goto="stats">Vedi progressi</button>
+          <button type="button" class="btn" id="quizAgain">Nuovo quiz</button>
+          <button type="button" class="btn warn hidden" id="quizFix">Ripassa gli errori</button>
+          <button type="button" class="btn ghost" data-goto="stats">Vedi progressi</button>
         </div>
       </div>
     </div>
@@ -404,9 +419,9 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
         <h2>Scrivi la tavola a memoria</h2>
         <p class="sub">Due esercizi: compila la tavola vuota cliccando le caselle, oppure scrivi i 118 simboli in ordine di numero atomico.</p>
       </div>
-      <div class="seg" id="writeMode">
-        <button data-mode="grid" class="on">Tavola vuota</button>
-        <button data-mode="seq">Sequenza (1→118)</button>
+      <div class="seg" id="writeMode" role="group" aria-label="Modalità di scrittura">
+        <button type="button" data-mode="grid" class="on" aria-pressed="true">Tavola vuota</button>
+        <button type="button" data-mode="seq" aria-pressed="false">Sequenza (1→118)</button>
       </div>
     </div>
 
@@ -415,8 +430,8 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
       <div class="writebar">
         <span style="color:var(--txt-dim); font-size:13.5px">Clicca una casella, poi scrivi il simbolo:</span>
         <input type="text" id="wCellInput" aria-label="Simbolo dell’elemento selezionato" placeholder="??" autocomplete="off" spellcheck="false" disabled>
-        <button class="btn ghost sm" id="wHint">Suggerimento</button>
-        <button class="btn ghost sm" id="wReset">Azzera tavola</button>
+        <button type="button" class="btn ghost sm" id="wHint">Suggerimento</button>
+        <button type="button" class="btn ghost sm" id="wReset">Azzera tavola</button>
         <span style="font-size:13.5px; color:var(--txt-dim)"><b id="wFilled">0</b>/118</span>
       </div>
       <div class="wmsg" id="wMsg" aria-live="polite"></div>
@@ -439,7 +454,7 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
         </div>
         <div class="row" style="justify-content:center; margin-top:14px">
           <label class="chip on" id="seqHintToggle"><input type="checkbox" id="seqShowName" checked style="accent-color:var(--accent)"> mostra il nome come indizio</label>
-          <button class="btn ghost sm" id="seqRestart">Ricomincia</button>
+          <button type="button" class="btn ghost sm" id="seqRestart">Ricomincia</button>
         </div>
       </div>
     </div>
@@ -470,7 +485,7 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
           <b>Azzerare i progressi</b>
           <div class="legend-note">Cancella padroneggio, flashcard, statistiche dei quiz e della scrittura.</div>
         </div>
-        <button class="btn bad" id="resetAll">Cancella tutto</button>
+        <button type="button" class="btn bad" id="resetAll">Cancella tutto</button>
       </div>
     </div>
   </section>
@@ -601,7 +616,9 @@ const BIO_Z = new Set(BIO_SYMS.map(s=>SYMBOLS.indexOf(s)+1).filter(z=>z>0));
 /* ========================= STATO ========================= */
 const STORE_KEY="chemmaster-4000-v1";
 const DAY=86400000;   // qui, non nelle flashcard: load() serve per gli intervalli dello storico
+const BOX_DAYS=[0,1,3,7,21];
 const defaultState = ()=>({
+  version:1,
   mastery:{}, leitner:{}, due:{},
   quiz:{correct:0,wrong:0,history:[]},
   write:{seqBest:0,solved:{}},
@@ -610,19 +627,44 @@ const defaultState = ()=>({
 const isObj=v=>v!==null&&typeof v==="object"&&!Array.isArray(v);
 // numero o stringa numerica (non null/vuoto/booleano: +true===1 farbbe entrare i booleani)
 const isNum=v=>(typeof v==="number"||typeof v==="string")&&String(v).trim()!==""&&Number.isFinite(+v);
-const numMap=o=>Object.fromEntries(Object.entries(o).filter(([,v])=>isNum(v)).map(([k,v])=>[k,+v]));
-// intero ≥0: -10 domande giuste o seqBest 1e9 supererebbero il type-check
-// e finirebbero dritte nelle statistiche ("67% su -15 domande", "Posizione 1000000000")
-const uint=v=>Math.max(0,Math.floor(+v));
+const uint=v=>{
+  const n=Math.floor(Number(v));
+  return Number.isSafeInteger(n)?Math.max(0,n):0;
+};
+// solo chiavi canoniche 1..118: evita eredità come "toString" e forme come "01"/"1.5"
+const isElementKey=k=>{
+  const z=Number(k);
+  return Number.isInteger(z)&&z>=1&&z<=ELEMENTS.length&&String(z)===k;
+};
+const elementMap=o=>Object.fromEntries(Object.entries(o)
+  .filter(([k,v])=>isElementKey(k)&&isNum(v)).map(([k,v])=>[k,+v]));
+
+let storageBaseline=null, storageBaselineKnown=false;
+let storageDirty=false, storageConflict=false, storageLoadIssue="";
+let storageSavePending=0, storageEpoch=0;
 let state = load();
 function load(){
+  let raw;
   try{
-    const raw=localStorage.getItem(STORE_KEY);
-    if(!raw) return defaultState();
+    raw=localStorage.getItem(STORE_KEY);
+    storageBaseline=raw;
+    storageBaselineKnown=true;
+  }catch(e){
+    storageBaselineKnown=false;
+    storageLoadIssue="Il browser non ha reso disponibile localStorage.";
+    return defaultState();
+  }
+  try{
+    if(!raw){ storageLoadIssue=""; return defaultState(); }
     const s=JSON.parse(raw);
-    if(!isObj(s)) return defaultState();
+    if(!isObj(s)){
+      storageLoadIssue="I dati locali non avevano un formato valido.";
+      return defaultState();
+    }
+    storageLoadIssue="";
     const d=defaultState();
     const out=Object.assign(d,s,{
+      version:1,
       quiz:Object.assign({},d.quiz,isObj(s.quiz)?s.quiz:{}),
       write:Object.assign({},d.write,isObj(s.write)?s.write:{})
     });
@@ -632,13 +674,14 @@ function load(){
     // solo elementi reali, senza duplicati (stato corrotto o chiavi residue):
     // un Z fantasma gonfierebbe il contatore "Ripassa gli errori (n)" e poi
     // l'avvio del ripasso direbbe "Nessun elemento in questo ambito"
-    out.wrongZ=[...new Set(out.wrongZ.filter(isNum).map(v=>+v).filter(v=>BY_Z[v]))];
+    out.wrongZ=[...new Set(out.wrongZ.filter(isNum).map(v=>+v)
+      .filter(v=>Number.isSafeInteger(v)&&BY_Z[v]))];
     // ...stessa sanitizzazione un livello più giù (membri annidati esplicitamente null o non numerici)
     if(!isObj(out.write.solved)) out.write.solved={};
     // caselle scritte: solo elementi reali e valori numerici ("boh"/true o chiavi
     // fantasma svelerebbero la risposta e gonfierebbero il contatore x/118)
     out.write.solved=Object.fromEntries(Object.entries(out.write.solved)
-      .filter(([k,v])=>BY_Z[+k] && isNum(v)).map(([k])=>[k,1]));
+      .filter(([k,v])=>isElementKey(k)&&isNum(v)).map(([k])=>[k,1]));
     // isNum accetta le stringhe numeriche, ma qui vanno proprio convertite:
     // correct+wrong nelle statistiche diventerebbe "5"+"3" = "53" domande
     out.write.seqBest = isNum(out.write.seqBest) ? Math.min(ELEMENTS.length, uint(out.write.seqBest)) : 0;
@@ -648,24 +691,173 @@ function load(){
     // storico: interi plausibili, timestamp entro un giorno di tolleranza
     // (altrimenti "Invalid Date" e punteggi impossibili finiscono in Progressi)
     out.quiz.history=out.quiz.history.filter(isObj).map(h=>{
-      const total=isNum(h.total)?uint(h.total):0;
+      const total=isNum(h.total)?Math.min(ELEMENTS.length,uint(h.total)):0;
       const o={d:0, score:0, total, wrong:[]};
-      if(isNum(h.d) && +h.d>=0 && +h.d<=Date.now()+DAY) o.d=+h.d;
+      if(isNum(h.d)&&Number.isSafeInteger(+h.d)&&+h.d>=0&&+h.d<=Date.now()+DAY) o.d=+h.d;
       o.score=Math.min(isNum(h.score)?uint(h.score):0, total*10);
       // solo Z reali: un fantasma gonfierebbe "· N errori" nello storico
-      o.wrong=Array.isArray(h.wrong)?h.wrong.filter(isNum).map(v=>+v).filter(v=>BY_Z[v]):[];
+      o.wrong=Array.isArray(h.wrong)?[...new Set(h.wrong.filter(isNum).map(v=>+v)
+        .filter(v=>Number.isSafeInteger(v)&&BY_Z[v]))].slice(0,total):[];
       if(isNum(h.answered)) o.answered=Math.min(total,uint(h.answered));
       return o;
-    }).slice(0,10);
+    }).filter(h=>h.total>0).slice(0,10);
     // valori non numerici nelle mappe: scartati (evita "NaN%" nelle statistiche)
-    ["mastery","leitner","due"].forEach(k=>{ out[k]=numMap(out[k]); });
+    ["mastery","leitner","due"].forEach(k=>{ out[k]=elementMap(out[k]); });
+    const maxDue=Date.now()+Math.max(...BOX_DAYS)*DAY+DAY;
+    out.due=Object.fromEntries(Object.entries(out.due)
+      .filter(([,v])=>Number.isSafeInteger(v)&&v>=0&&v<=maxDue));
     // padroneggio entro 0..100: addMastery clampa solo al primo utilizzo,
     // un valore fuori scala resterebbe nelle statistiche e nelle barre
     Object.keys(out.mastery).forEach(k=>{ out.mastery[k]=Math.max(0,Math.min(100,out.mastery[k])); });
     return out;
-  }catch(e){ return defaultState(); }
+  }catch(e){
+    storageLoadIssue="I dati locali erano danneggiati e sono stati ignorati.";
+    return defaultState();
+  }
 }
-function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){} }
+function showStorageWarning(kind,message){
+  const box=document.getElementById("storageWarning");
+  box.dataset.kind=kind;
+  document.getElementById("storageWarningText").textContent=message;
+  document.getElementById("storageExport").hidden=kind!=="conflict"&&kind!=="error";
+  document.getElementById("storageReload").hidden=kind!=="conflict";
+  box.hidden=false;
+}
+function hideStorageWarning(){ document.getElementById("storageWarning").hidden=true; }
+function storageWriteError(){
+  storageDirty=true;
+  showStorageWarning("error",
+    "Impossibile salvare i progressi nel browser. Esporta una copia prima di chiudere la pagina.");
+}
+function saveNow(){
+  try{
+    const disk=localStorage.getItem(STORE_KEY);
+    if(!storageBaselineKnown){ storageBaseline=disk; storageBaselineKnown=true; }
+    if(disk!==storageBaseline){
+      // Un'altra scheda ha scritto dopo l'ultimo salvataggio noto: non la sovrascriviamo.
+      storageDirty=true;
+      storageConflict=true;
+      showStorageWarning("conflict",
+        "I progressi sono cambiati in un’altra scheda. Questa scheda non ha sovrascritto nulla: esporta la copia o ricarica da disco.");
+      return false;
+    }
+    const raw=JSON.stringify(state);
+    localStorage.setItem(STORE_KEY,raw);
+    storageBaseline=raw;
+    storageBaselineKnown=true;
+    storageDirty=false;
+    storageConflict=false;
+    storageLoadIssue="";
+    hideStorageWarning();
+    return true;
+  }catch(e){
+    storageWriteError();
+    return false;
+  }
+}
+async function saveWithLock(epoch,locks){
+  try{
+    return await locks.request(`${STORE_KEY}:write`,()=>epoch===storageEpoch?saveNow():false);
+  }catch(e){
+    if(epoch===storageEpoch) storageWriteError();
+    return false;
+  }finally{
+    storageSavePending=Math.max(0,storageSavePending-1);
+  }
+}
+function save(){
+  storageDirty=true;
+  const epoch=storageEpoch;
+  const locks=globalThis.navigator&&globalThis.navigator.locks;
+  // Web Locks serializza get+set tra tutte le schede della stessa origin.
+  // In browser senza supporto resta il controllo conservativo sul baseline.
+  if(locks&&typeof locks.request==="function"){
+    storageSavePending++;
+    return saveWithLock(epoch,locks);
+  }
+  const saved=epoch===storageEpoch?saveNow():false;
+  return saved;
+}
+function exportProgress(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url;
+  a.download=`chemmaster-4000-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+}
+function hasPendingTransientState(){
+  return !document.getElementById("cardsStage").classList.contains("hidden") ||
+    !document.getElementById("cardsDone").classList.contains("hidden") ||
+    !document.getElementById("quizStage").classList.contains("hidden") ||
+    !document.getElementById("quizDone").classList.contains("hidden") ||
+    seq.i>0 || document.getElementById("seqInput").value.trim()!=="" ||
+    wSel!==null || document.getElementById("wCellInput").value.trim()!=="";
+}
+function resetTransientUI(){
+  cards={queue:[],dir:null,total:0,done:0,ok:0,flipped:false};
+  resetCardsUI();
+  quiz={list:[],i:0,score:0,streak:0,best:0,wrong:[],answered:false};
+  document.getElementById("quizStage").classList.add("hidden");
+  document.getElementById("quizDone").classList.add("hidden");
+  document.getElementById("quizSetup").classList.remove("hidden");
+  refreshQuizScopes();
+  seq={i:0,ok:0,bad:0,marks:[],last:""};
+  document.getElementById("seqInput").value="";
+  wMsg("","");
+  seqRender();
+}
+function renderPersistedState(){
+  const focused=document.activeElement;
+  const focusedCell=focused&&focused.closest?focused.closest(".cell"):null;
+  const focusHost=focusedCell?focusedCell.closest("#ptable,#wtable")?.id:null;
+  const focusZ=focusedCell?focusedCell.dataset.z:null;
+  resetTransientUI(); clearCellSelection();
+  buildGrid(document.getElementById("ptable"),{});
+  initWriteGrid();
+  renderDetail(detailZ);
+  applyFilter(); updateHead(); refreshCardScopes(); refreshQuizScopes(); renderStats();
+  if(focusHost&&focusZ){
+    const next=document.getElementById(focusHost)?.querySelector(`.cell[data-z="${focusZ}"]`);
+    if(next) next.focus({preventScroll:true});
+  }
+}
+function reloadFromDisk(){
+  if(storageConflict&&!confirm("Ricaricare da disco chiuderà la sessione aperta e scarterà eventuali cambiamenti non salvati. Continuare?")) return;
+  storageEpoch++;
+  state=load(); storageDirty=false; storageConflict=false;
+  renderPersistedState();
+  if(storageLoadIssue) showStorageWarning("load",storageLoadIssue);
+  else hideStorageWarning();
+  const h=document.querySelector("section.view.active h2");
+  if(h){ h.setAttribute("tabindex","-1"); h.focus({preventScroll:true}); }
+}
+document.getElementById("storageExport").onclick=exportProgress;
+document.getElementById("storageReload").onclick=reloadFromDisk;
+globalThis.addEventListener("storage",e=>{
+  if(e.key!==STORE_KEY&&e.key!==null) return;
+  if(e.newValue===storageBaseline) return;
+  if(storageDirty){
+    storageConflict=true;
+    showStorageWarning("conflict",
+      "Un’altra scheda ha aggiornato i progressi. Esporta questa copia o ricarica da disco.");
+    return;
+  }
+  if(hasPendingTransientState()){
+    storageConflict=true;
+    showStorageWarning("conflict",
+      "Un’altra scheda ha aggiornato i progressi mentre una sessione era aperta. Ricarica da disco per continuare senza mescolare stati.");
+    return;
+  }
+  state=load(); storageDirty=false; storageConflict=false;
+  renderPersistedState();
+  if(storageLoadIssue) showStorageWarning("load",storageLoadIssue);
+  else hideStorageWarning();
+});
+globalThis.addEventListener("beforeunload",e=>{
+  if(!storageDirty&&!storageSavePending) return;
+  e.preventDefault(); e.returnValue="";
+});
 function mastery(z){ const v=+state.mastery[z]; return Number.isFinite(v)?Math.round(v):0; }
 function addMastery(z,d){
   const v=Math.max(0,Math.min(100,mastery(z)+d));
@@ -712,11 +904,18 @@ function updateHead(){
 
 /* ========================= TAVOLA ========================= */
 const activeCats=new Set(CAT_DEF.map(c=>c.id));
+let placeholderTimer=null;
 // evidenziazione "biorilevanti": come i filtri di categoria, non persistita
 let bioOn=false;
 function cellHTML(e){
   return `<span class="n">${e.z}</span><span class="s">${e.sym}</span><span class="nm">${e.name}</span>`+
          `<span class="mbar" style="width:${mastery(e.z)}%"></span>`;
+}
+function setCellA11y(cell,e,kind){
+  const status=kind==="solved"?"casella completata, ":
+    kind==="table"?`categoria ${CAT_LABEL[e.cat]}, `:"";
+  cell.setAttribute("aria-label",
+    `${status}${e.name}, simbolo ${e.sym}, numero atomico ${e.z}, padroneggiamento ${mastery(e.z)}%`);
 }
 function buildGrid(host, opts){
   opts=opts||{};
@@ -738,6 +937,8 @@ function buildGrid(host, opts){
     b.type="button"; b.className="cell cat-"+e.cat;
     if(opts.blank && !state.write.solved[e.z]) b.classList.add("blank");
     if(opts.blank && state.write.solved[e.z]) b.classList.add("solved");
+    if(opts.blank) b.setAttribute("aria-pressed","false");
+    else if(e.z===detailZ){ b.setAttribute("aria-current","true"); b.classList.add("sel"); }
     b.dataset.z=e.z;
     b.style.gridColumn=e.x+1; b.style.gridRow=e.y+1;
     b.innerHTML=cellHTML(e);
@@ -747,6 +948,7 @@ function buildGrid(host, opts){
         `Casella vuota, periodo ${e.period}`+(e.group?`, gruppo ${e.group}`:", elementi f"));
     }else{
       b.title=`${e.name} (${e.sym}) — Z=${e.z}`;
+      setCellA11y(b,e,opts.blank?"solved":"table");
     }
     host.appendChild(b);
   });
@@ -756,13 +958,14 @@ function buildGrid(host, opts){
       d.type="button"; d.className="ph"; d.textContent=label;
       d.style.gridColumn=4; d.style.gridRow=y+1;
       d.onclick=()=>{
+        clearTimeout(placeholderTimer);
         for(let z=firstZ;z<=firstZ+14;z++){
           const c=host.querySelector(`[data-z="${z}"]`);
           if(c) c.classList.add("match");
         }
         // dopo l'evidenziazione si torna allo stato deciso dalla ricerca attiva,
         // così la sottolineatura di una query in corso non viene persa
-        setTimeout(applyFilter,1600);
+        placeholderTimer=setTimeout(applyFilter,1600);
       };
       host.appendChild(d);
     });
@@ -807,10 +1010,12 @@ function renderLegend(){
   const host=document.getElementById("legend"); host.innerHTML="";
   CAT_DEF.forEach(c=>{
     const b=document.createElement("button");
-    b.type="button"; b.className="chip on"; b.dataset.cat=c.id;
+    b.type="button"; b.className="chip on"; b.dataset.cat=c.id; b.setAttribute("aria-pressed","true");
     b.innerHTML=`<i style="background:var(--${c.v})"></i>${c.label}`;
     b.onclick=()=>{ activeCats.has(c.id)?activeCats.delete(c.id):activeCats.add(c.id);
-      b.classList.toggle("on",activeCats.has(c.id)); b.classList.toggle("off",!activeCats.has(c.id)); applyFilter(); };
+      const on=activeCats.has(c.id);
+      b.classList.toggle("on",on); b.classList.toggle("off",!on);
+      b.setAttribute("aria-pressed",String(on)); applyFilter(); };
     host.appendChild(b);
   });
 }
@@ -833,18 +1038,19 @@ function renderDetail(z){
       <dt>Massa atomica</dt><dd>${e.mass} u</dd>
       <dt>Posizione</dt><dd>${posTxt}</dd>
       <dt>Padroneggio</dt><dd>${mastery(e.z)}%</dd>
-      <dt>Mazzo flashcard</dt><dd>${box?box+"° mazzo":"— (nuovo)"}</dd>
+      <dt>Mazzo flashcard</dt><dd>${box===null?"— (nuovo)":box+"° mazzo · "+(box===0?"oggi":BOX_DAYS[box]+(BOX_DAYS[box]===1?" giorno":" giorni"))}</dd>
     </dl>
     <div class="cfg">${prettyCfg(e.cfg)}</div>
     <div class="shells">${e.shells.map((s,i)=>`<span>n${i+1}: ${s}</span>`).join("")}</div>
     <p class="legend-note">Configurazione elettronica e gusci (modello a gusci).</p>
     <div class="row" style="margin-top:12px">
-      <button class="btn sm" data-goto="cards">Studia con le flashcard</button>
+      <button type="button" class="btn sm" data-goto="cards">Studia con le flashcard</button>
     </div>`;
 }
 function refreshCellMastery(z){
   document.querySelectorAll(`.cell[data-z="${z}"]`).forEach(c=>{
     const bar=c.querySelector(".mbar"); if(bar) bar.style.width=mastery(z)+"%";
+    if(!c.classList.contains("blank")) setCellA11y(c,BY_Z[z],c.closest("#wtable")?"solved":"table");
   });
   // se il pannello dettagli mostra questo elemento, anche % e mazzo devono aggiornarsi
   if(detailZ===z) renderDetail(z);
@@ -873,15 +1079,15 @@ function scopeOptions(sel){
   add("weak",`Non padroneggiati (< ${MASTERY_THRESHOLD}%)`);
   CAT_DEF.forEach(c=>add("cat:"+c.id,c.label));
 }
-const BOX_DAYS=[0,1,3,7,21];
 // ultimo mazzetto, derivato dalle scadenze: aggiungere/togliere una scadenza
 // in BOX_DAYS deve bastare (i vecchi clamp sul 5° mazzo bloccavano le carte
 // e in Progressi facevano apparire "undefined" nell'etichetta)
 const MAX_BOX=BOX_DAYS.length-1;
-// mazzo validato: difende da valori corrotti in localStorage (es. 99 -> ultimo mazzo)
+// null = carta mai assegnata; 0 = box reale, da ripassare oggi
 function boxOf(z){
-  const v=Math.floor(Number(state.leitner[z]||0));
-  return Number.isFinite(v)?Math.min(MAX_BOX,Math.max(0,v)):0;
+  if(!Object.prototype.hasOwnProperty.call(state.leitner,String(z))) return null;
+  const v=Math.floor(Number(state.leitner[z]));
+  return Number.isFinite(v)?Math.min(MAX_BOX,Math.max(0,v)):null;
 }
 function dueNow(z){ const d=state.due[z]; return !d || d<=Date.now(); }
 function scopePool(scope){
@@ -921,7 +1127,7 @@ function startCards(){
   // (shuffle preliminare + sort stabile), così le nuove carte non sono sempre le stesse
   pool=shuffle(pool);
   pool.sort((a,b)=>{
-    const ba=boxOf(a.z), bb=boxOf(b.z);
+    const ba=boxOf(a.z)??0, bb=boxOf(b.z)??0;
     if(ba!==bb) return ba-bb;
     const da=state.due[a.z]||0, db=state.due[b.z]||0;
     if(da!==db) return da-db;
@@ -935,6 +1141,17 @@ function startCards(){
   document.getElementById("cardsStage").classList.remove("hidden");
   showCard();
 }
+function cardBackHTML(e,dir){
+  return `<div class="big">${fieldValue(e,dir.to)}</div>
+    <div class="meta">${e.z} · ${e.sym} · ${e.name} · ${CAT_LABEL[e.cat]}</div>`;
+}
+function setCardA11y(e,dir,flipped){
+  const answer=flipped?`, risposta ${fieldValue(e,dir.to)}`:"";
+  const action=flipped?"Usa i pulsanti o i tasti 1, 2 e 3 per giudicarla.":
+    "Premi Spazio o Invio per girarla.";
+  document.getElementById("card").setAttribute("aria-label",
+    `Carta ${cards.done+1} di ${cards.total}. ${fieldLabel(dir.from)}: ${fieldValue(e,dir.from)}${answer}. ${action}`);
+}
 function showCard(){
   if(!cards.queue.length){ finishCards(); return; }
   cards.flipped=false;
@@ -944,31 +1161,35 @@ function showCard(){
   document.getElementById("cardFront").textContent=fieldValue(e,dir.from);
   document.getElementById("cardFront").className="front"+(dir.from==="name"?" small":"");
   const back=document.getElementById("cardBack");
-  back.classList.add("hidden");
-  back.innerHTML=`<div class="big">${fieldValue(e,dir.to)}</div>
-    <div class="meta">${e.z} · ${e.sym} · ${e.name} · ${CAT_LABEL[e.cat]}</div>`;
+  back.classList.add("hidden"); back.innerHTML="";
   document.getElementById("cardGrade").classList.add("hidden");
   document.getElementById("cardTap").classList.remove("hidden");
   document.getElementById("cardLeft").textContent=`Rimaste: ${cards.queue.length-1}`;
   const box=boxOf(e.z);
-  document.getElementById("cardBox").textContent= box?`${box}° mazzo · ${BOX_DAYS[box]} gg`:"Nuovo";
+  document.getElementById("cardBox").textContent=box===null?"Nuova":
+    `${box}° mazzo · ${BOX_DAYS[box]} ${BOX_DAYS[box]===1?"giorno":"giorni"}`;
   document.getElementById("cardMeter").style.width=(cards.done/cards.total*100)+"%";
+  setCardA11y(e,dir,false);
+  document.getElementById("card").focus({preventScroll:true});
 }
 function flipCard(){
   if(cards.flipped) return;
   cards.flipped=true;
-  document.getElementById("cardBack").classList.remove("hidden");
+  const e=cards.queue[0], dir=cards.dir, back=document.getElementById("cardBack");
+  back.classList.remove("hidden"); back.innerHTML=cardBackHTML(e,dir);
   document.getElementById("cardGrade").classList.remove("hidden");
   document.getElementById("cardTap").classList.add("hidden");
+  setCardA11y(e,dir,true);
 }
 function gradeCard(g){
   if(!cards.flipped) return;
   const e=cards.queue.shift();
   cards.done++;
-  let box=boxOf(e.z);
+  const currentBox=boxOf(e.z)??0;
+  let box;
   if(g===0){ box=0; addMastery(e.z,-15); }
-  else if(g===1){ box=Math.min(MAX_BOX,box+1); addMastery(e.z,12); cards.ok++; }
-  else { box=Math.min(MAX_BOX,box+2); addMastery(e.z,20); cards.ok++; }
+  else if(g===1){ box=Math.min(MAX_BOX,currentBox+1); addMastery(e.z,12); cards.ok++; }
+  else { box=Math.min(MAX_BOX,currentBox+2); addMastery(e.z,20); cards.ok++; }
   state.leitner[e.z]=box;
   state.due[e.z]=Date.now()+BOX_DAYS[box]*DAY;
   save(); updateHead(); refreshCellMastery(e.z);
@@ -983,6 +1204,7 @@ function finishCards(){
   document.getElementById("cardsScore").textContent=pct+"%";
   document.getElementById("cardsSummary").textContent=
     `Hai rivisto ${cards.done} elementi, ${cards.ok} conosciuti al primo colpo. Le carte sbagliate tornano prima.`;
+  document.getElementById("cardsScore").focus({preventScroll:true});
 }
 function resetCardsUI(){
   document.getElementById("cardsStage").classList.add("hidden");
@@ -998,9 +1220,9 @@ document.getElementById("cardGrade").addEventListener("click",e=>{
   const b=e.target.closest("button[data-g]"); if(b) gradeCard(+b.dataset.g);
 });
 document.addEventListener("keydown",e=>{
-  // scorciatoie solo senza tasti modificatori: Ctrl/Cmd+Spazio (o Ctrl/Cmd+1..3
-  // dove il browser non li riserva) non deve girare la carta o giudicarla
-  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  // scorciatoie solo senza tasti modificatori: Ctrl/Cmd/Alt/Shift+Spazio
+  // (o gli stessi tasti + 1..3) non deve girare la carta o giudicarla
+  if(e.ctrlKey||e.metaKey||e.altKey||e.shiftKey) return;
   if(!document.getElementById("view-cards").classList.contains("active")) return;
   if(document.getElementById("cardsStage").classList.contains("hidden")) return;
   // con il focus su un bottone o un campo (es. "Termina sessione", i giudizi)
@@ -1086,6 +1308,7 @@ function renderQuestion(){
   // "Termina" è sempre lì: un quiz si deve poter abbandonare anche
   // senza aver risposto alla prima domanda
   document.getElementById("qEnd").classList.remove("hidden");
+  document.getElementById("qText").focus({preventScroll:true});
 }
 function answerQuiz(v){
   if(quiz.answered) return;
@@ -1120,6 +1343,7 @@ function answerQuiz(v){
   const nx=document.getElementById("qNext");
   nx.classList.remove("hidden");
   nx.textContent = quiz.i+1<quiz.list.length ? "Prossima →" : "Risultati →";
+  nx.focus({preventScroll:true});
   document.getElementById("qEnd").classList.remove("hidden");
 }
 function nextQuestion(){
@@ -1145,6 +1369,7 @@ function finishQuiz(){
       :(answered?" · nessun errore, ottimo!":""));
   document.getElementById("quizFix").classList.toggle("hidden",quiz.wrong.length===0);
   document.getElementById("wrongCount").textContent=state.wrongZ.length;
+  document.getElementById("quizScoreBig").focus({preventScroll:true});
 }
 document.getElementById("startQuiz").onclick=()=>startQuiz(false);
 document.getElementById("quizWrongBtn").onclick=()=>{
@@ -1162,8 +1387,8 @@ document.getElementById("quizAgain").onclick=()=>{
   document.getElementById("quizSetup").classList.remove("hidden");
 };
 document.addEventListener("keydown",e=>{
-  // come nelle flashcard: Ctrl/Cmd+1..5 non deve rispondere al posto nostro
-  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  // come nelle flashcard: Ctrl/Cmd/Alt/Shift+1..5 non deve rispondere al posto nostro
+  if(e.ctrlKey||e.metaKey||e.altKey||e.shiftKey) return;
   if(!document.getElementById("view-quiz").classList.contains("active")) return;
   if(document.getElementById("quizStage").classList.contains("hidden")) return;
   if(!quiz.answered && ["1","2","3","4","5"].includes(e.key)){
@@ -1184,8 +1409,10 @@ function initWriteGrid(){
   writeGridBound=true;
   document.getElementById("wtable").addEventListener("click",e=>{
     const c=e.target.closest(".cell"); if(!c) return;
-    document.querySelectorAll("#wtable .cell.sel").forEach(x=>x.classList.remove("sel"));
-    c.classList.add("sel"); wSel=+c.dataset.z;
+    document.querySelectorAll("#wtable .cell.sel").forEach(x=>{
+      x.classList.remove("sel"); x.setAttribute("aria-pressed","false");
+    });
+    c.classList.add("sel"); c.setAttribute("aria-pressed","true"); wSel=+c.dataset.z;
     const inp=document.getElementById("wCellInput");
     inp.disabled=false; inp.value=""; inp.focus();
     const el=BY_Z[wSel];
@@ -1198,7 +1425,9 @@ function updateWFilled(){
   document.getElementById("wFilled").textContent=n;
 }
 function clearCellSelection(){
-  document.querySelectorAll("#wtable .cell.sel").forEach(x=>x.classList.remove("sel"));
+  document.querySelectorAll("#wtable .cell.sel").forEach(x=>{
+    x.classList.remove("sel"); x.setAttribute("aria-pressed","false");
+  });
   wSel=null;
   const inp=document.getElementById("wCellInput"); inp.value=""; inp.disabled=true;
 }
@@ -1222,7 +1451,7 @@ function checkCell(){
       cell.classList.remove("blank","hinted","wrong"); cell.classList.add("solved");
       cell.innerHTML=cellHTML(el);
       cell.title=`${el.name} (${el.sym}) — Z=${el.z}`;
-      cell.removeAttribute("aria-label");   // altrimenti resterebbe "Casella vuota" per gli screen reader
+      setCellA11y(cell,el,"solved");
       save(); updateHead(); refreshCellMastery(wSel); updateWFilled();
       wMsg(`Corretto! ${el.name} → ${el.sym}`,"ok");
     }else{
@@ -1245,7 +1474,9 @@ function checkCell(){
   }
 }
 document.getElementById("wCellInput").addEventListener("keydown",e=>{
-  if(e.key==="Enter") checkCell();
+  if(e.key!=="Enter") return;
+  e.preventDefault();
+  if(!e.repeat) checkCell();
 });
 document.getElementById("wHint").onclick=()=>{
   if(!wSel){ wMsg("Seleziona prima una casella.",""); return; }
@@ -1326,7 +1557,9 @@ function seqCheck(){
   inp.focus();
 }
 document.getElementById("seqInput").addEventListener("keydown",e=>{
-  if(e.key==="Enter"){ e.preventDefault(); seqCheck(); }
+  if(e.key!=="Enter") return;
+  e.preventDefault();
+  if(!e.repeat) seqCheck();
 });
 document.getElementById("seqRestart").onclick=()=>{
   seq={i:0,ok:0,bad:0,marks:[],last:""};
@@ -1340,7 +1573,10 @@ document.getElementById("seqShowName").addEventListener("change",e=>{
 });
 document.getElementById("writeMode").addEventListener("click",e=>{
   const b=e.target.closest("button[data-mode]"); if(!b) return;
-  document.querySelectorAll("#writeMode button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll("#writeMode button").forEach(x=>{
+    const on=x===b;
+    x.classList.toggle("on",on); x.setAttribute("aria-pressed",String(on));
+  });
   const grid=b.dataset.mode==="grid";
   document.getElementById("wGridMode").classList.toggle("hidden",!grid);
   document.getElementById("wSeqMode").classList.toggle("hidden",grid);
@@ -1351,11 +1587,11 @@ document.getElementById("writeMode").addEventListener("click",e=>{
 function renderStats(){
   const avg=avgMastery(), m=masteredCount();
   const q=state.quiz, qtot=q.correct+q.wrong;
-  // solo chiavi riferite a elementi reali: una chiave anomala in localStorage
-  // non deve far superare 118 la somma dei mazzi
-  const leitnerEntries=Object.entries(state.leitner).filter(([k])=>BY_Z[k]);
+  // solo chiavi canoniche riferite a elementi reali: una chiave anomala in
+  // localStorage non deve far superare 118 la somma dei mazzi
+  const leitnerEntries=Object.entries(state.leitner).filter(([k])=>isElementKey(k));
   const cards5=leitnerEntries.length;
-  const boxes=Array(BOX_DAYS.length).fill(0);   // una riga per mazzo + "Non assegnato", come i nomi
+  const boxes=Array(BOX_DAYS.length).fill(0);   // una riga per ogni box reale 0..MAX_BOX
   leitnerEntries.forEach(([,v])=>{
     const b=Math.min(MAX_BOX,Math.max(0,Math.floor(+v)||0));   // difende da valori corrotti in localStorage
     boxes[b]++;
@@ -1377,8 +1613,8 @@ function renderStats(){
     cs.appendChild(d);
   });
   const bs=document.getElementById("boxStats"); bs.innerHTML="";
-  const names=["Non assegnato"].concat(
-    BOX_DAYS.slice(1).map((n,i)=>`${i+1} · ${n} ${n===1?"giorno":"giorni"}`));
+  const names=BOX_DAYS.map((n,i)=>i===0?"0 · oggi":
+    `${i} · ${n} ${n===1?"giorno":"giorni"}`);
   boxes.forEach((n,i)=>{
     // proporzionale alle carte effettivamente assegnate: con pochi mazzetti
     // attivi usare 118 come denominatore lascerebbe tutte le barre quasi vuote
@@ -1398,34 +1634,34 @@ document.getElementById("resetAll").onclick=()=>{
   if(!confirm("Cancellare tutti i progressi? L’azione non è reversibile.")) return;
   state=defaultState(); save(); updateHead();
   clearCellSelection();
+  renderDetail(1);   // prima della griglia: aria-current deve tornare su H
   buildGrid(document.getElementById("ptable"),{});
-  initWriteGrid(); wMsg("","");   // via anche il messaggio sotto la tavola vuota
-  renderDetail(1); applyFilter(); renderStats(); resetCardsUI();
-  // anche un quiz aperto va chiuso: altrimenti continuerebbe con i contatori azzerati
-  quiz={list:[],i:0,score:0,streak:0,best:0,wrong:[],answered:false};
-  document.getElementById("quizStage").classList.add("hidden");
-  document.getElementById("quizDone").classList.add("hidden");
-  document.getElementById("quizSetup").classList.remove("hidden");
-  refreshQuizScopes();
-  seq={i:0,ok:0,bad:0,marks:[],last:""};
-  document.getElementById("seqInput").value=""; seqRender();
+  initWriteGrid();
+  applyFilter(); renderStats();
+  resetTransientUI();   // chiude carte, quiz e sequenza anche durante il reset
 };
 
 /* ========================= INIT ========================= */
+if(storageLoadIssue) showStorageWarning("load",storageLoadIssue);
 document.getElementById("searchEl").addEventListener("input",applyFilter);
 // il conteggio viene dai dati: non può divergere da BIO_SYMS
 document.getElementById("bioToggle").textContent=`🧬 Biorilevanti (${BIO_SYMS.length})`;
 document.getElementById("bioToggle").onclick=()=>setBio(!bioOn);
 document.getElementById("clearFilter").onclick=()=>{
+  clearTimeout(placeholderTimer);
   document.getElementById("searchEl").value="";
   activeCats.clear(); CAT_DEF.forEach(c=>activeCats.add(c.id));
-  document.querySelectorAll("#legend .chip").forEach(c=>{c.classList.add("on");c.classList.remove("off");});
+  document.querySelectorAll("#legend .chip").forEach(c=>{
+    c.classList.add("on"); c.classList.remove("off"); c.setAttribute("aria-pressed","true");
+  });
   setBio(false);   // "Mostra tutti" ripristina la tavola anche dal chip biorilevanti
 };
 document.getElementById("ptable").addEventListener("click",e=>{
   const c=e.target.closest(".cell"); if(!c) return;
-  document.querySelectorAll("#ptable .cell.sel").forEach(x=>x.classList.remove("sel"));
-  c.classList.add("sel"); renderDetail(+c.dataset.z);
+  document.querySelectorAll("#ptable .cell.sel").forEach(x=>{
+    x.classList.remove("sel"); x.removeAttribute("aria-current");
+  });
+  c.classList.add("sel"); c.setAttribute("aria-current","true"); renderDetail(+c.dataset.z);
 });
 
 buildQuizTypes();

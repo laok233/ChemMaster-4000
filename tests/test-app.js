@@ -19,17 +19,19 @@ function ok(cond, msg, extra) {
 }
 function section(t) { console.log("== " + t + " =="); }
 
-function makeApp(seed) {
+function makeApp(seed, pageUrl = "http://localhost/tavola.html") {
   const errors = [];
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
-    url: "http://localhost/tavola.html",
+    url: pageUrl,
     beforeParse(w) {
       w.scrollTo = () => {};
       w.alert = m => { w.__lastAlert = m; };
       w.confirm = () => true;
-      // jsdom+Bun: focus() lancia "FocusEvent: member view is not of type Window"
-      w.HTMLElement.prototype.focus = function () {};
+      // jsdom+Bun: focus() lancia sull'EventTarget Window. Teniamo traccia della
+      // richiesta senza renderizzarla davvero, così i test possono verificare il focus.
+      w.__lastFocus = null;
+      w.HTMLElement.prototype.focus = function () { w.__lastFocus = this; };
       if (seed) { try { w.localStorage.setItem(KEY, seed); } catch (e) {} }
     }
   });
@@ -68,11 +70,19 @@ ok(win.getComputedStyle(d.getElementById("wtable")).minWidth === "960px",
 ok(d.querySelectorAll("#legend .chip").length === 10, "10 voci in legenda");
 ok([...d.querySelectorAll("#legend .chip")].every(c => c.tagName === "BUTTON" && c.type === "button"),
   "chip legenda come <button>: raggiungibili da tastiera");
+ok([...d.querySelectorAll("#legend .chip")].every(c => c.getAttribute("aria-pressed") === "true"),
+  "filtri legenda inizialmente premuti");
 ok(d.querySelectorAll("#quizTypes input").length === 6, "6 tipi di domanda");
 ok(d.querySelectorAll("#ptable .ph").length === 2, "2 placeholder (57-71 / 89-103)");
 ok(d.getElementById("headPctTxt").textContent === "0/118 padroneggiati", "barra iniziale", d.getElementById("headPctTxt").textContent);
 ok(d.querySelector("#detail .detail-sym b").textContent === "H", "dettaglio iniziale = H");
 ok(d.getElementById("searchEl").hasAttribute("aria-label"), "input ricerca con aria-label");
+ok(d.getElementById("storageWarning").hidden &&
+   win.getComputedStyle(d.getElementById("storageWarning")).display === "none",
+  "nessun avviso persistenza quando localStorage è disponibile");
+ok(d.querySelector('#ptable .cell[data-z="1"]').getAttribute("aria-current") === "true" &&
+   d.querySelector('#ptable .cell[data-z="1"]').classList.contains("sel"),
+  "tavola iniziale: elemento del dettaglio marcato e selezionato");
 
 /* ================= LEGENDA (variabili CSS) ================= */
 section("Legenda colori");
@@ -90,6 +100,8 @@ click(win, d.querySelector('#ptable .cell[data-z="26"]'));
 ok(/Ferro/.test(d.getElementById("detail").textContent), "clic su Z=26 mostra Ferro");
 ok(/Gruppo 8/.test(d.getElementById("detail").textContent), "Ferro gruppo 8");
 ok(/Periodo 4/.test(d.getElementById("detail").textContent), "Ferro periodo 4");
+ok(d.querySelector('#ptable .cell[data-z="26"]').getAttribute("aria-current") === "true",
+  "cella selezionata esposta con aria-current");
 
 click(win, d.querySelector('#ptable .cell[data-z="60"]'));
 ok(/Periodo 6/.test(d.getElementById("detail").textContent) && /Lantanoidi/.test(d.getElementById("detail").textContent),
@@ -116,11 +128,16 @@ search("26");
 ok(JSON.stringify(matchedSyms()) === JSON.stringify(["Fe"]), "ricerca per numero atomico", matchedSyms().join(","));
 click(win, d.getElementById("clearFilter"));
 ok(d.querySelectorAll("#ptable .cell.dim").length === 0, "Mostra tutti azzera il filtro");
+ok([...d.querySelectorAll("#legend .chip")].every(c => c.getAttribute("aria-pressed") === "true"),
+  "Mostra tutti riattiva semanticamente tutti i filtri");
 
-click(win, d.querySelector("#legend .chip"));
+const firstCategory = d.querySelector("#legend .chip");
+click(win, firstCategory);
 ok(d.querySelector('#ptable .cell[data-z="3"]').classList.contains("dim"), "toggle categoria nasconde Li");
-click(win, d.querySelector("#legend .chip"));
+ok(firstCategory.getAttribute("aria-pressed") === "false", "filtro categoria spenti esposto con aria-pressed");
+click(win, firstCategory);
 ok(!d.querySelector('#ptable .cell[data-z="3"]').classList.contains("dim"), "re-toggle riporta Li");
+ok(firstCategory.getAttribute("aria-pressed") === "true", "filtro categoria riattivato esposto con aria-pressed");
 
 click(win, d.querySelectorAll("#ptable .ph")[0]);
 const phMatch = [...d.querySelectorAll("#ptable .cell.match")].map(c => +c.dataset.z);
@@ -202,10 +219,14 @@ ok(d.getElementById("view-cards").classList.contains("active"), "navigazione a f
 ok(d.querySelectorAll("#cardScope option").length === 13, "13 ambiti", d.querySelectorAll("#cardScope option").length);
 ok(d.querySelectorAll("#cardDir option").length === 6, "6 direzioni");
 ok(d.getElementById("card").hasAttribute("tabindex"), "flashcard focusabile da tastiera");
+ok(d.getElementById("card").getAttribute("role") === "button", "flashcard esposta come pulsante");
 
-d.getElementById("cardCount").value = "5";
+d.getElementById("cardCount").value = "10";
 click(win, d.getElementById("startCards"));
 ok(!d.getElementById("cardsStage").classList.contains("hidden"), "sessione avviata");
+ok(win.__lastFocus === d.getElementById("card"), "all'avvio delle flashcard il focus passa alla carta");
+ok(/Carta 1 di 10\./.test(d.getElementById("card").getAttribute("aria-label") || ""),
+  "nome accessibile della carta dinamico", d.getElementById("card").getAttribute("aria-label"));
 const z1 = ev(win, "cards.queue[0].z");
 ok(d.getElementById("cardFront").textContent === ev(win, "ELEMENTS.find(e=>e.z===" + z1 + ").name"),
   "fronte = nome (direzione n2s)", d.getElementById("cardFront").textContent);
@@ -213,6 +234,8 @@ ok(d.getElementById("cardBack").classList.contains("hidden"), "retro nascosto al
 
 click(win, d.getElementById("card"));
 ok(!d.getElementById("cardBack").classList.contains("hidden"), "clic gira la carta");
+ok(/risposta .*1, 2 e 3/.test(d.getElementById("card").getAttribute("aria-label") || ""),
+  "la carta girata annuncia risposta e controlli di giudizio");
 ok(!d.getElementById("cardGrade").classList.contains("hidden"), "bottoni giudizio visibili");
 
 const before = ev(win, "mastery(" + z1 + ")");
@@ -226,6 +249,8 @@ ev(win, "state.leitner[cards.queue[0].z]=99; showCard()");
 ok(!/undefined|NaN/.test(d.getElementById("cardBox").textContent),
   "mazzo corrotto: etichetta carta senza undefined", d.getElementById("cardBox").textContent);
 ev(win, "state.leitner[cards.queue[0].z]=0; showCard()");
+ok(/0° mazzo/.test(d.getElementById("cardBox").textContent),
+  "box 0 reale non viene più mostrato come carta nuova", d.getElementById("cardBox").textContent);
 
 /* scorciatoie con tasti modificatori ignorate: Ctrl/Cmd/Alt+Spazio o +1..3
    (Ctrl+Spazio è il caso tipico) non devono girare né giudicare la carta */
@@ -233,6 +258,8 @@ key(win, { code: "Space", key: " ", ctrlKey: true });
 ok(ev(win, "cards.flipped") === false, "Ctrl+Spazio non gira la carta", "flipped=" + ev(win, "cards.flipped"));
 key(win, { code: "Space", key: " ", metaKey: true });
 ok(ev(win, "cards.flipped") === false, "Cmd+Spazio non gira la carta", "flipped=" + ev(win, "cards.flipped"));
+key(win, { code: "Space", key: " ", shiftKey: true });
+ok(ev(win, "cards.flipped") === false, "Shift+Spazio non gira la carta", "flipped=" + ev(win, "cards.flipped"));
 key(win, { key: "1", code: "Digit1", ctrlKey: true });
 ok(ev(win, "cards.done") === 1, "Ctrl+1 non giudica la carta", "done=" + ev(win, "cards.done"));
 
@@ -254,7 +281,8 @@ ok(kEnterCard.defaultPrevented && !d.getElementById("cardBack").classList.contai
 
 click(win, d.getElementById("stopCards"));
 ok(!d.getElementById("cardsDone").classList.contains("hidden"), "riepilogo sessione");
-// 2 carte svolte su 5 pianificate, 1 giusta: la % è sulle svolte (50%), non sulle pianificate
+ok(win.__lastFocus === d.getElementById("cardsScore"), "il focus passa al riepilogo flashcard");
+// 2 carte svolte su 10 pianificate, 1 giusta: la % è sulle svolte (50%), non sulle pianificate
 ok(d.getElementById("cardsScore").textContent === "50%",
   "sessione interrotta: % calcolata sulle carte svolte", d.getElementById("cardsScore").textContent);
 
@@ -269,6 +297,7 @@ click(win, view(win, "quiz"));
 d.getElementById("quizLen").value = "10";
 click(win, d.getElementById("startQuiz"));
 ok(!d.getElementById("quizStage").classList.contains("hidden"), "quiz avviato");
+ok(win.__lastFocus === d.getElementById("qText"), "il focus passa al testo della prima domanda");
 ok(d.querySelectorAll("#qOptions .opt").length === 5, "4 opzioni + 'Non so'");
 
 /* scorciatoie con modificatore: Ctrl/Cmd+1..5 non devono rispondere */
@@ -285,12 +314,16 @@ ok(ev(win, "quiz.score") === 10, "risposta giusta = 10 punti");
 ok(ev(win, "quiz.streak") === 1, "serie incrementata");
 ok(ev(win, "mastery(" + zQ1 + ")") === mBefore + 8, "quiz giusto +8");
 ok(ev(win, "state.quiz.correct") === 1, "contatore corretti salvato");
+ok(win.__lastFocus === d.getElementById("qNext"), "dopo la risposta il focus passa a Prossima");
 
 /* focus su "Prossima": Enter deve attivare il bottone, non essere intercettato */
+key(win, { key: " ", code: "Space", shiftKey: true });
+ok(ev(win, "quiz.i") === 0, "Shift+Spazio non avanza nel quiz");
 const kEnterNext = keyOn(win, d.getElementById("qNext"), { key: "Enter", code: "Enter" });
 ok(!kEnterNext.defaultPrevented, "Enter su 'Prossima' non intercettato", "defaultPrevented=" + kEnterNext.defaultPrevented);
 
 click(win, d.getElementById("qNext"));
+ok(win.__lastFocus === d.getElementById("qText"), "il focus torna sul testo dopo Prossima");
 const ans2 = ev(win, "quiz.list[1].answer");
 const opts2 = [...d.querySelectorAll("#qOptions .opt")].map(b => b.dataset.v);
 const wrongIdx = opts2.findIndex(v => v !== ans2);
@@ -303,6 +336,7 @@ key(win, { key: "Enter" });
 ok(ev(win, "quiz.i") === 2, "Invio va alla domanda successiva");
 
 click(win, d.getElementById("qEnd"));
+ok(win.__lastFocus === d.getElementById("quizScoreBig"), "il focus passa al riepilogo quiz");
 const summary = d.getElementById("quizSummary").textContent;
 ok(/^50% di risposte giuste/.test(summary), "percentuale calcolata sulle date (2 risposte, 1 giusta)", summary);
 ok(/risposte 2\/10/.test(summary), "indicate le risposte date rispetto al totale", summary);
@@ -360,6 +394,10 @@ click(win, d.getElementById("quizAgain"));
 /* ================= SCRIVI: griglia ================= */
 section("Scrivi la tavola (griglia)");
 click(win, view(win, "write"));
+const writeModeButtons = [...d.querySelectorAll("#writeMode button")];
+ok(writeModeButtons[0].getAttribute("aria-pressed") === "true" &&
+   writeModeButtons[1].getAttribute("aria-pressed") === "false",
+  "modalità scrittura iniziale esposta con aria-pressed");
 
 /* i segnaposto 57-71 / 89-103 servono anche qui: senza resterebbero due buchi
    nel gruppo 3 (periodi 6 e 7), ma non sono interattivi (applyFilter gira su #ptable) */
@@ -381,6 +419,7 @@ ok(/^Casella vuota/.test(cell1.getAttribute("aria-label") || ""), "casella vuota
   cell1.getAttribute("aria-label"));
 click(win, cell1);
 ok(cell1.classList.contains("sel"), "casella selezionata");
+ok(cell1.getAttribute("aria-pressed") === "true", "casella selezionata esposta con aria-pressed");
 ok(d.getElementById("wCellInput").disabled === false, "input abilitato");
 
 type(win, d.getElementById("wCellInput"), "h");
@@ -389,7 +428,9 @@ ok(cell1.classList.contains("solved"), "simbolo minuscolo accettato");
 ok(/Idrogeno \(H\) — Z=1/.test(cell1.getAttribute("title") || ""), "casella risolta con tooltip completo",
   cell1.getAttribute("title"));
 ok(d.getElementById("wFilled").textContent === "1", "contatore 1/118");
-ok(!cell1.hasAttribute("aria-label"), "casella risolta: via l'aria-label 'Casella vuota'",
+ok(cell1.getAttribute("aria-pressed") === "false", "casella risolta: selezione azzerata");
+ok(/casella completata.*Idrogeno/.test(cell1.getAttribute("aria-label") || ""),
+  "casella risolta: aria-label aggiornato senza svelarla inizialmente",
   cell1.getAttribute("aria-label"));
 ok(ev(win, "state.write.cellOk") === undefined, "rimosso il contatore cellOk mai mostrato");
 ok(ev(win, "mastery(1)") === mCell1Before + 12, "griglia giusta +12",
@@ -403,6 +444,10 @@ ok(d.getElementById("wMsg").classList.contains("no"), "feedback negativo");
 ok(/No: He è il simbolo di Elio/.test(d.getElementById("wMsg").textContent), "correzione immediata", d.getElementById("wMsg").textContent);
 ok(ev(win, "state.write.cellBad") === undefined, "rimosso il contatore cellBad mai mostrato");
 const mCell2AfterWrong = ev(win, "mastery(2)");   // quota dopo il tentativo sbagliato
+const repeatedEnter = keyOn(win, d.getElementById("wCellInput"), { key: "Enter", repeat: true });
+ok(repeatedEnter.defaultPrevented, "Invio ripetuto viene prevenuto");
+ok(ev(win, "mastery(2)") === mCell2AfterWrong,
+  "tenere premuto Invio non applica penalità multiple", mCell2AfterWrong + "->" + ev(win, "mastery(2)"));
 
 type(win, d.getElementById("wCellInput"), "Elio");
 keyOn(win, d.getElementById("wCellInput"), { key: "Enter" });
@@ -461,6 +506,9 @@ ok(d.getElementById("wCellInput").disabled === true,
 section("Scrivi la tavola (sequenza)");
 click(win, [...d.querySelectorAll('#writeMode button')].find(b => b.dataset.mode === "seq"));
 ok(!d.getElementById("wSeqMode").classList.contains("hidden"), "modalità sequenza attiva");
+ok(writeModeButtons[0].getAttribute("aria-pressed") === "false" &&
+   writeModeButtons[1].getAttribute("aria-pressed") === "true",
+  "cambio modalità aggiorna aria-pressed");
 type(win, d.getElementById("seqInput"), "H");
 keyOn(win, d.getElementById("seqInput"), { key: "Enter" });
 ok(ev(win, "seq.i") === 1 && ev(win, "seq.ok") === 1, "H corretto");
@@ -537,6 +585,7 @@ ok(d.querySelectorAll("#statCards .stat").length === 6, "6 card statistiche");
 ok(d.querySelectorAll("#catStats .catbar").length === 10, "10 barre categoria");
 const boxRows = [...d.querySelectorAll("#boxStats .catbar")].map(r => r.querySelector("span").textContent);
 ok(boxRows.length === 5, "5 righe mazzi", boxRows.length);
+ok(boxRows[0] === "0 · oggi", "box 0 mostrato come box reale, non come 'Non assegnato'", boxRows[0]);
 const days = ev(win, "JSON.stringify(BOX_DAYS)");
 const boxDays = JSON.parse(days);
 const labelBad = [];
@@ -563,7 +612,81 @@ const raw = win.localStorage.getItem(KEY);
 ok(!!raw, "stato salvato in localStorage");
 const parsed = JSON.parse(raw);
 ok(typeof parsed.mastery === "object" && typeof parsed.leitner === "object", "chiavi principali presenti");
+ok(parsed.version === 1, "schema dello stato versionato");
 ok(Array.isArray(parsed.quiz.history), "storico quiz salvato");
+
+/* conflitto multi-tab: uno snapshot obsoleto non deve sovrascrivere il disco */
+const conflictSeed = JSON.stringify({
+  version:1, mastery:{1:10}, leitner:{}, due:{},
+  quiz:{correct:0,wrong:0,history:[]}, write:{seqBest:0,solved:{}}, wrongZ:[]
+});
+const remoteState = JSON.parse(conflictSeed); remoteState.mastery[1]=80;
+const winConflict = makeApp(conflictSeed);
+winConflict.localStorage.setItem(KEY, JSON.stringify(remoteState));
+const rejectedSave = ev(winConflict, "addMastery(1,5); save()");
+ok(rejectedSave === false, "salvataggio respinto quando un'altra scheda ha scritto");
+ok(winConflict.localStorage.getItem(KEY) === JSON.stringify(remoteState),
+  "il conflitto non sovrascrive i progressi remoti");
+ok(ev(winConflict, "storageDirty") === true && ev(winConflict, "storageConflict") === true,
+  "conflitto conservato come dirty per non perdere la copia locale");
+const conflictWarning = winConflict.document.getElementById("storageWarning");
+ok(!conflictWarning.hidden && !winConflict.document.getElementById("storageExport").hidden &&
+   !winConflict.document.getElementById("storageReload").hidden,
+  "avviso conflitto con export e ricarica");
+click(winConflict, winConflict.document.getElementById("storageReload"));
+ok(ev(winConflict, "mastery(1)") === 80 && conflictWarning.hidden,
+  "ricarica esplicita risolve il conflitto dal disco");
+
+/* aggiornamento ricevuto da un'altra scheda senza conflicti locali */
+const winRemoteEvent = makeApp(conflictSeed);
+const remoteRaw = JSON.stringify(remoteState);
+winRemoteEvent.localStorage.setItem(KEY, remoteRaw);
+ev(winRemoteEvent, `globalThis.dispatchEvent(new StorageEvent("storage",{key:${JSON.stringify(KEY)},newValue:${JSON.stringify(remoteRaw)},storageArea:localStorage}))`);
+ok(ev(winRemoteEvent, "mastery(1)") === 80,
+  "evento storage aggiorna una tab che non ha modifiche locali");
+ok(winRemoteEvent.document.getElementById("storageWarning").hidden,
+  "aggiornamento remoto silenzioso senza warning di conflitto");
+
+/* un aggiornamento remoto non deve mescolarsi a una sessione ancora aperta */
+const winPendingEvent = makeApp(conflictSeed);
+click(winPendingEvent, view(winPendingEvent, "cards"));
+click(winPendingEvent, winPendingEvent.document.getElementById("startCards"));
+winPendingEvent.localStorage.setItem(KEY, remoteRaw);
+ev(winPendingEvent, `globalThis.dispatchEvent(new StorageEvent("storage",{key:${JSON.stringify(KEY)},newValue:${JSON.stringify(remoteRaw)},storageArea:localStorage}))`);
+ok(ev(winPendingEvent, "mastery(1)") === 10 &&
+   !winPendingEvent.document.getElementById("cardsStage").classList.contains("hidden"),
+  "sessione aperta: aggiornamento remoto rimane in attesa");
+ok(winPendingEvent.document.getElementById("storageWarning").dataset.kind === "conflict",
+  "sessione aperta: l'evento storage segnala un conflitto");
+click(winPendingEvent, winPendingEvent.document.getElementById("storageReload"));
+ok(ev(winPendingEvent, "mastery(1)") === 80 &&
+   winPendingEvent.document.getElementById("cardsStage").classList.contains("hidden") &&
+   ev(winPendingEvent, "cards.queue.length") === 0,
+  "ricarica remota chiude la sessione e carica uno stato coerente");
+
+/* storage non disponibile: avviso e possibilità di esportare */
+const winNoStorage = makeApp(null, "file:///tavola.html");
+const failedSave = ev(winNoStorage, "addMastery(2,5); save()");
+ok(failedSave === false && ev(winNoStorage, "storageDirty") === true,
+  "errore di scrittura segnalato e stato marcato dirty");
+ok(!winNoStorage.document.getElementById("storageWarning").hidden &&
+   !winNoStorage.document.getElementById("storageExport").hidden,
+  "errore storage mostra l'esportazione della copia");
+
+/* export: click, nome file e contenuto JSON */
+const winExport = makeApp();
+ev(winExport, `(()=>{
+  const NativeBlob=globalThis.Blob;
+  globalThis.Blob=function(parts,options){globalThis.__exportParts=parts;return new NativeBlob(parts,options);};
+  globalThis.URL.createObjectURL=()=> "blob:test";
+  globalThis.URL.revokeObjectURL=()=> {};
+  globalThis.HTMLAnchorElement.prototype.click=function(){globalThis.__exportName=this.download;};
+})()`);
+click(winExport, winExport.document.getElementById("storageExport"));
+ok(/^chemmaster-4000-\d{4}-\d{2}-\d{2}\.json$/.test(ev(winExport, "__exportName") || ""),
+  "export avvia il download con nome file datato", ev(winExport, "__exportName"));
+ok(JSON.parse(ev(winExport, "__exportParts[0]")).version === 1,
+  "export contiene lo stato versionato come JSON");
 
 /* "Cancella tutto" con una casella selezionata non deve lasciare l'input attivo */
 click(win, view(win, "write"));
@@ -572,6 +695,9 @@ click(win, view(win, "stats"));
 click(win, d.getElementById("resetAll"));
 ok(d.getElementById("wCellInput").disabled === true, "dopo 'Cancella tutto' l'input è disabilitato");
 ok(d.querySelectorAll("#wtable .cell.sel").length === 0, "nessuna selezione residua");
+ok(d.querySelector('#ptable .cell[data-z="1"]').getAttribute("aria-current") === "true" &&
+   !d.querySelector('#ptable .cell[data-z="5"]').hasAttribute("aria-current"),
+  "dopo il reset aria-current torna all'elemento iniziale");
 ok(d.getElementById("wMsg").textContent === "", "dopo 'Cancella tutto' via il messaggio sotto la tavola vuota",
   d.getElementById("wMsg").textContent);
 
@@ -605,6 +731,32 @@ ok(boxCounts8.reduce((a, b) => a + b, 0) === 1,
 ok(win8.document.querySelectorAll("#statCards .stat")[4].querySelector(".v").textContent === "1",
   "'Elementi nelle flashcard' conta solo chiavi di elementi reali",
   win8.document.querySelectorAll("#statCards .stat")[4].querySelector(".v").textContent);
+
+/* chiavi non canoniche/proprietà ereditate e numeri troppo grandi */
+const winEdges = makeApp(JSON.stringify({
+  mastery:{toString:50, "01":100}, leitner:{toString:3, "01":2, 1:1},
+  due:{toString:1, "01":2, 1:3, 9:Number.MAX_SAFE_INTEGER},
+  quiz:{correct:1e308, wrong:1e308, history:[
+    {d:Date.now(),score:0,total:0,wrong:[]},
+    {d:Date.now(),score:1180,total:Number.MAX_SAFE_INTEGER,wrong:[]},
+    {d:Date.now(),score:0,total:1,wrong:[26,26,27]}
+  ]},
+  write:{seqBest:0, solved:{}}, wrongZ:[]
+}));
+ok(ev(winEdges, "JSON.stringify(state.leitner)") === '{"1":1}',
+  "mappe sanitizzate: solo chiavi canoniche di elementi reali",
+  ev(winEdges, "JSON.stringify(state.leitner)"));
+ok(ev(winEdges, "JSON.stringify(state.due)") === '{"1":3}',
+  "scadenze oltre il massimo configurabile scartate",
+  ev(winEdges, "JSON.stringify(state.due)"));
+ok(ev(winEdges, "JSON.stringify([state.quiz.correct,state.quiz.wrong,state.quiz.history.length,state.quiz.history[0].total])") === "[0,0,2,118]",
+  "contatori enormi scartati, quiz vuoti rimossi e totali clampati a 118");
+ok(ev(winEdges, "JSON.stringify(state.quiz.history[1].wrong)") === "[26]",
+  "errori storici deduplicati e limitati al numero di domande",
+  ev(winEdges, "JSON.stringify(state.quiz.history[1].wrong)"));
+click(winEdges, view(winEdges, "stats"));
+ok(!/Infinity|NaN/.test(winEdges.document.getElementById("statCards").textContent),
+  "nessun totale impossibile nelle statistiche");
 
 /* membri null in localStorage: l'app deve avviarsi lo stesso */
 const win5 = makeApp(JSON.stringify({ mastery: null, leitner: null, due: null, quiz: null, write: null, wrongZ: null }));
@@ -716,6 +868,10 @@ ok(!/Invalid Date/.test(clampStats) && !/1000000000/.test(clampStats) && !/\(-\d
 const win3 = makeApp("{non-json");
 ok(win3.__errors.length === 0, "nessun crash con JSON malformato", win3.__errors.join("|"));
 ok(ev(win3, "state.quiz.correct") === 0, "stato di default ripristinato");
+ok(!win3.document.getElementById("storageWarning").hidden,
+  "JSON malformato non viene più ignorato silenziosamente");
+ok(ev(win3, "save()") === true && win3.document.getElementById("storageWarning").hidden,
+  "il primo salvataggio valido sostituisce lo stato corrotto e chiude l'avviso");
 
 /* wrongZ con Z inesistente: scartato al caricamento, così il contatore
    "Ripassa gli errori (n)" non promette errori che poi non ci sono */
@@ -746,6 +902,10 @@ ev(win, "addMastery(26,7); refreshCellMastery(26)");
 ok(new RegExp("Padroneggio\\s*" + (mDetailBefore + 7) + "%").test(d.getElementById("detail").textContent),
   "pannello dettagli aggiornato dopo un cambio di padroneggio",
   d.querySelector("#detail .kv").textContent.replace(/\s+/g, " "));
+ok(new RegExp("padroneggiamento " + (mDetailBefore + 7) + "%")
+  .test(d.querySelector('#ptable .cell[data-z="26"]').getAttribute("aria-label") || ""),
+  "aria-label della cella aggiornato insieme al padroneggio",
+  d.querySelector('#ptable .cell[data-z="26"]').getAttribute("aria-label"));
 
 /* booleani in localStorage: scartati (mastery {1:true} e wrongZ [true,26]) */
 const win11 = makeApp(JSON.stringify({ mastery: { "1": true }, wrongZ: [true, 26] }));

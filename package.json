@@ -5,16 +5,22 @@
   "description": "ChemMaster 4000 — tavola periodica interattiva per memorizzazione (app in un singolo file HTML)",
   "scripts": {
     "lint": "eslint .",
-    "test": "eslint . && node tests/check-data.js && node tests/test-app.js && node tests/test-menu.js",
+    "validate": "html-validate index.html tavola.html",
+    "test": "eslint . && html-validate index.html tavola.html && node tests/check-data.js && node tests/test-app.js && node tests/test-menu.js && node tests/test-storage-lock.js",
     "test:app": "node tests/test-app.js",
     "test:data": "node tests/check-data.js",
-    "test:menu": "node tests/test-menu.js"
+    "test:menu": "node tests/test-menu.js",
+    "test:storage": "node tests/test-storage-lock.js"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9",
     "eslint": "^9",
     "eslint-plugin-html": "^8.2.0",
     "globals": "^17.12.0",
+    "html-validate": "10.9.0",
     "jsdom": "^30.1.1"
   }
 }
