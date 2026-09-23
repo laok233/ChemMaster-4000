@@ -12,18 +12,25 @@ function ok(cond, msg, extra) {
 }
 function section(t) { console.log("== " + t + " =="); }
 
-const MENU = path.join(__dirname, "..", "index.html");
+const ROOT = path.join(__dirname, "..");
+const MENU = path.join(ROOT, "index.html");
 const html = fs.readFileSync(MENU, "utf8");
-const d = new JSDOM(html, { url: "http://localhost/index.html" }).window.document;
+const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
+const testHtml = html.replace('<link rel="stylesheet" href="style.css">', `<style>${css}</style>`);
+const menuWindow = new JSDOM(testHtml, { url: "http://localhost/index.html" }).window;
+const d = menuWindow.document;
 
 /* ================= STRUTTURA ================= */
 section("Menu: struttura");
 ok(/ChemMaster 4000/.test(d.title), "titolo della pagina menu", d.title);
 ok(html.includes('lang="it"'), "pagina dichiara lang=it");
-const stylesheet = d.querySelector('link[rel="stylesheet"]');
-ok(!!stylesheet && stylesheet.getAttribute("href") === "style.css",
-  "menu collega il CSS esterno", stylesheet && stylesheet.getAttribute("href"));
-ok(fs.existsSync(path.join(__dirname, "..", "style.css")), "file style.css presente");
+ok(html.includes('<link rel="stylesheet" href="style.css">'),
+  "menu collega il CSS esterno");
+ok(fs.existsSync(path.join(ROOT, "style.css")), "file style.css presente");
+ok(menuWindow.getComputedStyle(d.body).display === "flex", "layout flex limitato alla pagina menu");
+ok(menuWindow.getComputedStyle(d.querySelector(".menu-grid")).display === "grid", "griglia menu dal CSS esterno");
+ok(menuWindow.getComputedStyle(d.querySelector("main h2")).fontSize === "22px",
+  "tipografia menu non sovrascritta dagli stili della tavola");
 const h1 = d.querySelector("header h1");
 ok(!!h1 && /ChemMaster\s*4000/.test(h1.textContent.replace(/\s+/g, " ")),
   "h1 con il nome del progetto", h1 && h1.textContent);

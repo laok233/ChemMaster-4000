@@ -4,10 +4,14 @@ const fs = require("fs");
 const vm = require("vm");
 const path = require("path");
 
-const html = fs.readFileSync(path.join(__dirname, "..", "tavola.html"), "utf8");
-const css = fs.readFileSync(path.join(__dirname, "..", "style.css"), "utf8");
-const code = html.slice(html.indexOf("<script>") + 8, html.indexOf("</scr" + "ipt>"));
-const data = code.slice(0, code.indexOf("// END DATA"));
+const root = path.join(__dirname, "..");
+const html = fs.readFileSync(path.join(root, "tavola.html"), "utf8");
+const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const dataCode = fs.readFileSync(path.join(root, "data.js"), "utf8");
+const storageCode = fs.readFileSync(path.join(root, "storage.js"), "utf8");
+const appCode = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const code = [dataCode, storageCode, appCode].join("\n");
+const data = dataCode.slice(0, dataCode.indexOf("// END DATA"));
 
 const sandbox = { console };
 vm.createContext(sandbox);
@@ -21,6 +25,9 @@ let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.log("FAIL: " + msg); fails++; } };
 ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
   "CSS esterno collegato e nessun blocco inline residuo");
+ok(["data.js", "storage.js", "app.js"].every(f=>html.includes(`<script src="${f}" defer></script>`)) &&
+   !html.includes("<script>"),
+  "script esterni separati e nessun blocco inline residuo");
 
 /* --- struttura --- */
 ok(o.SYMBOLS.length === 118, "118 simboli (ottenuti " + o.SYMBOLS.length + ")");

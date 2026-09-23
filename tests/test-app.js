@@ -4,11 +4,13 @@ const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
 
-const html = fs.readFileSync(path.join(__dirname, "..", "tavola.html"), "utf8");
-const css = fs.readFileSync(path.join(__dirname, "..", "style.css"), "utf8");
+const root = path.join(__dirname, "..");
+const html = fs.readFileSync(path.join(root, "tavola.html"), "utf8");
+const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const readScript = name => fs.readFileSync(path.join(root, name), "utf8");
 const KEY = "chemmaster-4000-v1";
-const PAGE_CODE = html.slice(html.indexOf("<script>") + 8, html.indexOf("</scr" + "ipt>"));
-// JSDOM non carica i stylesheet esterni senza un server: li inseriamo solo nel DOM di test.
+const PAGE_CODE = ["data.js", "storage.js", "app.js"].map(readScript).join("\n");
+// JSDOM non carica gli asset esterni senza un server: li inseriamo/valutiamo nel test.
 const TEST_HTML = html.replace('<link rel="stylesheet" href="style.css">', `<style>${css}</style>`);
 // il codice della pagina è strict-mode: le let/const restano private all'eval.
 // L'hook riesegue espressioni nello stesso scope lessicale per l'ispezione.
@@ -62,6 +64,11 @@ const d = win.document;
 ok(win.__errors.length === 0, "nessun errore JS al caricamento", win.__errors.join(" | "));
 ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
   "tavola usa il CSS esterno senza stili inline");
+ok(["data.js", "storage.js", "app.js"].every(f=>html.includes(`<script src="${f}" defer></script>`)) &&
+   !html.includes("<script>"),
+  "tavola carica i tre script esterni senza codice inline");
+ok(win.getComputedStyle(d.body).display !== "flex",
+  "stili del menu non invadono il layout della tavola", win.getComputedStyle(d.body).display);
 ok(d.querySelectorAll("#ptable .cell").length === 118, "118 celle nella tavola");
 ok(d.querySelectorAll("#wtable .cell").length === 118, "118 celle nella tavola vuota");
 ok(d.querySelectorAll("#wtable .cell.blank").length === 118, "tutte le celle di scrittura vuote");

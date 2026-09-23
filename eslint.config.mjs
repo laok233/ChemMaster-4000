@@ -2,8 +2,8 @@ import js from "@eslint/js";
 import html from "eslint-plugin-html";
 import globals from "globals";
 
-// L'app vive in <script> dentro gli HTML (nessun build step): eslint-plugin-html
-// estrae e stima quegli script, mentre i test sono CommonJS avviati da Bun.
+// I file dell'app sono script classici separati (nessun build step): vengono
+// analizzati direttamente; i test sono CommonJS avviati da Bun.
 const rules = {
   ...js.configs.recommended.rules,
   // save() e load() hanno catch vuoti di proposito: un localStorage inaccessibile
@@ -25,6 +25,19 @@ export default [
       globals: { ...globals.browser },
     },
     rules,
+  },
+
+  {
+    files: ["data.js", "storage.js", "app.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "script",
+      globals: { ...globals.browser },
+    },
+    // I tre script condividono le dichiarazioni globali lessicali: i riferimenti
+    // cross-file sono intenzionali, quindi i controlli che non hanno un contesto
+    // globale vengono lasciati ai test e al runtime.
+    rules: { ...rules, "no-undef": "off", "no-unused-vars": "off" },
   },
 
   {

@@ -32,27 +32,23 @@ style.css       tema scuro, layout comune e layout a griglia CSS della tavola
                 (18 colonne + colonna periodi)
 tavola.html    funzione «Tavola periodica» (ex index.html)
 ├── <body>    5 sezioni (una vista per modalità)
-└── <script>
-    ├── DATI          simboli, nomi italiani, masse, categorie, posizioni,
+└── <script>  tre script classici, caricati in ordine con defer
+    ├── data.js       simboli, nomi italiani, masse, categorie, posizioni,
     │                 configurazioni elettronica (con le eccezioni note: Cr, Cu, Mo, Au…)
     │                 e BIO_SYMS/BIO_Z (i 26 elementi biorilevanti)
-    ├── STATO         persistenza versionata in localStorage, protezione dai conflitti
+    ├── storage.js    persistenza versionata in localStorage, protezione dai conflitti
     │                 multi-tab, import/export JSON e avviso se lo storage non è disponibile,
     │                 migrazione v0→v1 e rifiuto delle versioni future, sanitizzazione
     │                 dello stato corrotto (anche ai membri annidati), scarto di booleani/
     │                 chiavi non canoniche, storico quiz con invarianti risposte/punteggio,
     │                 caselle `solved` a soli valori/elementi validi, `wrongZ` a soli Z reali
-    ├── TAVOLA        griglia, ricerca, filtri, chip biorilevanti, pannello dettaglio (badge 🧬)
-    ├── FLASHCARD     coda, mazzetti di Leitner, scadenze
-    ├── QUIZ          generazione domande + distrattori
-    ├── SCRIVI        validazione casella e sequenza
-    └── PROGRESSI     statistiche
+    └── app.js        navigazione, TAVOLA, FLASHCARD, QUIZ, SCRIVI e PROGRESSI
 tests/
 ├── check-data.js   verifiche sui dati della tavola (nessuna dipendenza)
 ├── test-app.js          test funzionali sulla tavola, interazioni reali (jsdom)
 ├── test-menu.js         test del menu principale: struttura e link (jsdom)
 └── test-storage-lock.js due tab concorrenti serializzate tramite Web Locks
-├── eslint.config.mjs   lint (ESLint): script inline dentro gli HTML + test
+├── eslint.config.mjs   lint (ESLint): script esterni dell’app + test
 ├── .htmlvalidate.json  regole per la validazione HTML
 └── bun.lock            grafo delle dipendenze riproducibile per Bun/CI
 ```
@@ -78,7 +74,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
 - **`bun run validate`** — validazione HTML delle due pagine con `html-validate`.
-- **`tests/test-app.js`** — 321 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`tests/test-app.js`** — 323 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,
