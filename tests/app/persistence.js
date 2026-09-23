@@ -370,6 +370,13 @@ module.exports = async context => {
   ok(await ev(win3, "save()") === true && win3.document.getElementById("storageWarning").hidden,
     "il primo salvataggio valido sostituisce lo stato corrotto e chiude l'avviso");
 
+  const oversized = "x".repeat(1024*1024+1);
+  const winOversized = await makeApp(oversized);
+  ok(winOversized.__errors.length===0, "un payload locale enorme non blocca l’avvio", winOversized.__errors.join("|"));
+  ok(!winOversized.document.getElementById("storageWarning").hidden &&
+     /troppo grandi/.test(winOversized.document.getElementById("storageWarningText").textContent),
+    "payload locale oltre 1 MB rifiutato prima del parse");
+
   /* wrongZ con Z inesistente: scartato al caricamento, così il contatore
      "Ripassa gli errori (n)" non promette errori che poi non ci sono */
   const win4 = await makeApp(JSON.stringify({ wrongZ: [1234] }));

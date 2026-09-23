@@ -684,9 +684,10 @@ document.getElementById("wHint").onclick=()=>{
 };
 document.getElementById("wReset").onclick=()=>{
   if(!confirm("Azzerare la tavola compilata?")) return;
-  state.write.solved={}; save();
+  state.write.solved={}; const persistence=saveReplacement();
   clearCellSelection();   // la griglia viene ricostruita: niente selezione/input residui
-  initWriteGrid(); wMsg("Tavola azzerata.","");
+  initWriteGrid(); wMsg("Tavola azzerata in questa scheda; eventuali errori di salvataggio sono segnalati sopra.","");
+  persistence.catch(()=>{});
 };
 
 /* ========================= SCRIVI: SEQUENZA ========================= */
@@ -844,14 +845,14 @@ document.getElementById("resetAll").onclick=()=>{
   if(!confirm("Cancellare tutti i progressi? L’azione non è reversibile.")) return;
   // Invalida eventuali callback già in coda: dopo un azzeramento non devono
   // più essere considerati salvataggi correnti né aggiungere scritture obsolete.
-  storageEpoch++;
-  state=defaultState(); storageWriteBlocked=false; save(); updateHead();
+  state=defaultState(); storageWriteBlocked=false; const persistence=saveReplacement(); updateHead();
   clearCellSelection();
   renderDetail(1);   // prima della griglia: aria-current deve tornare su H
   buildGrid(document.getElementById("ptable"),{});
   initWriteGrid();
   applyFilter(); renderStats();
   resetTransientUI();   // chiude carte, quiz e sequenza anche durante il reset
+  persistence.catch(()=>{});
 };
 
 /* ========================= INIT ========================= */

@@ -2,6 +2,8 @@
 /* ========================= STATO ========================= */
 const STORE_KEY="chemmaster-4000-v1";
 const STATE_VERSION=1;
+const MAX_RAW_STATE_LENGTH=1024*1024;
+const MAX_COUNTER=Math.floor(Number.MAX_SAFE_INTEGER/2);
 const DAY=86400000;   // qui, non nelle flashcard: serve per gli intervalli dello storico
 const BOX_DAYS=[0,1,3,7,21];
 const defaultState = ()=>({
@@ -24,7 +26,7 @@ const isSafeNonNegativeInt=v=>{
 const isSolvedFlag=v=>v===1||v==="1";
 const uint=v=>{
   const n=Math.floor(Number(v));
-  return Number.isSafeInteger(n)?Math.max(0,n):0;
+  return Number.isSafeInteger(n)?Math.min(MAX_COUNTER,Math.max(0,n)):0;
 };
 // solo chiavi canoniche 1..118: evita eredità come "toString" e forme come "01"/"1.5"
 const isElementKey=k=>{
@@ -120,11 +122,15 @@ const progressStore=createProgressStore(STORE_KEY);
 let storageBaseline=null, storageBaselineKnown=false;
 let storageDirty=false, storageConflict=false, storageLoadIssue="", storageWriteBlocked=false;
 let storageSavePending=0, storageEpoch=0, storageReadEpoch=0;
+let storageStateRevision=0, storageEventRevision=0, lastSavedStateRevision=0;
 let saveQueue=Promise.resolve();
 let appReady=false, pendingStorageEvent=null;
 
 function decodeStoredState(raw){
   if(!raw) return {state:defaultState(),issue:"",unsupportedVersion:false};
+  if(typeof raw!=="string"||raw.length>MAX_RAW_STATE_LENGTH){
+    return {state:defaultState(),issue:"I dati locali sono troppo grandi o non validi e sono stati ignorati.",unsupportedVersion:false};
+  }
   try{
     const normalized=sanitizeState(JSON.parse(raw));
     return {
@@ -160,6 +166,8 @@ async function initializeStorage(){
   applyLoadedState({raw:loaded.raw,normalized});
   if(storageBackend==="localstorage"&&loaded.localAvailable===false){
     storageLoadIssue="Il browser non ha reso disponibile alcun archivio persistente.";
+  }else if(storageBackend==="localstorage"&&loaded.error&&globalThis.indexedDB){
+    storageLoadIssue="IndexedDB non è disponibile per una lettura sicura: per questa sessione i progressi useranno il fallback localStorage.";
   }
   return state;
 }
@@ -191,13 +199,31 @@ function storageWriteError(){
   showStorageWarning("error",
     "Impossibile salvare i progressi nel browser. Puoi importare o esportare una copia, ma il ripristino automatico non sarà disponibile.");
 }
-async function saveNow(){
+function completeSuccessfulSave(epoch,raw,stateRevision,eventRevision){
+  // Anche una scrittura avviata prima di un reset/import può completarsi dopo:
+  // il suo raw deve diventare il baseline per la task successiva, ma non deve
+  // cancellare dirty/conflict o l'avviso appartenenti allo stato più recente.
+  storageBaseline=raw;
+  storageBaselineKnown=true;
+  lastSavedStateRevision=Math.max(lastSavedStateRevision,stateRevision);
+  if(epoch!==storageEpoch) return;
+  if(stateRevision===storageStateRevision) storageDirty=false;
+  // Un annuncio ricevuto durante la transazione può indicare un conflitto:
+  // solo la stessa revisione di evento autorizza a pulire l'avviso.
+  if(stateRevision===storageStateRevision&&eventRevision===storageEventRevision){
+    storageConflict=false;
+    storageLoadIssue="";
+    hideStorageWarning();
+  }
+}
+async function saveNow(epoch){
   if(storageWriteBlocked){
     storageDirty=true;
     showStorageWarning("version",
       "I dati salvati appartengono a una versione non supportata e non verranno sovrascritti. Importa un backup compatibile oppure azzera i progressi da «Progressi».");
     return false;
   }
+  const eventRevision=storageEventRevision;
   try{
     let expected=storageBaseline;
     if(!storageBaselineKnown){
@@ -205,8 +231,14 @@ async function saveNow(){
       storageBaseline=expected;
       storageBaselineKnown=true;
     }
+    if(epoch!==storageEpoch) return false;
+    // La revisione va acquisita subito prima della serializzazione: se un'altra
+    // azione modifica lo stato mentre la transazione è in volo, il completamento
+    // non potrà più dichiarare pulito quel nuovo stato.
+    const stateRevision=storageStateRevision;
     const raw=JSON.stringify(state);
     const result=await progressStore.compareAndSet(expected,raw);
+    if(epoch!==storageEpoch) return false;
     if(result.error) throw result.error;
     if(!result.ok){
       // Un'altra scheda ha scritto dopo l'ultimo salvataggio noto: non la sovrascriviamo.
@@ -216,33 +248,45 @@ async function saveNow(){
         "I progressi sono cambiati in un’altra scheda. Questa scheda non ha sovrascritto nulla: esporta la copia o ricarica da disco.");
       return false;
     }
-    storageBaseline=raw;
-    storageBaselineKnown=true;
-    storageDirty=false;
-    storageConflict=false;
-    storageLoadIssue="";
-    hideStorageWarning();
+    completeSuccessfulSave(epoch,raw,stateRevision,eventRevision);
     return true;
-  }catch(_){
-    storageWriteError();
-    return false;
-  }
-}
-async function saveWithLock(epoch,locks){
-  try{
-    return await locks.request(`${STORE_KEY}:write`,()=>epoch===storageEpoch?saveNow():false);
   }catch(_){
     if(epoch===storageEpoch) storageWriteError();
     return false;
   }
 }
-function enqueueSave(epoch){
+async function saveWithLock(epoch,locks){
+  try{
+    return await locks.request(`${STORE_KEY}:write`,()=>epoch===storageEpoch?saveNow(epoch):false);
+  }catch(_){
+    if(epoch===storageEpoch) storageWriteError();
+    return false;
+  }
+}
+function enqueueSave(epoch,stateRevision,replace=false){
   storageSavePending++;
-  const task=saveQueue.then(()=>{
+  const task=saveQueue.then(async()=>{
     if(epoch!==storageEpoch) return false;
-    if(storageBackend==="indexeddb") return saveNow();
+    if(replace){
+      try{
+        // Reset/import sono sostituzioni esplicite: se un'altra scheda ha
+        // scritto dopo il baseline, prendiamo il valore corrente e lo
+        // confrontiamo comunque con CAS, senza perdere la conferma utente.
+        const current=await progressStore.read();
+        if(epoch!==storageEpoch) return false;
+        storageBaseline=current;
+        storageBaselineKnown=true;
+      }catch(_){
+        if(epoch===storageEpoch) storageWriteError();
+        return false;
+      }
+    }
+    // Se una task precedente ha già serializzato questa revisione (o una più
+    // recente), la richiesta è soddisfatta: evita transazioni e annunci duplicati.
+    if(stateRevision<=lastSavedStateRevision) return true;
+    if(storageBackend==="indexeddb") return saveNow(epoch);
     const locks=globalThis.navigator&&globalThis.navigator.locks;
-    return locks&&typeof locks.request==="function"?saveWithLock(epoch,locks):saveNow();
+    return locks&&typeof locks.request==="function"?saveWithLock(epoch,locks):saveNow(epoch);
   });
   // La catena deve restare risolvibile anche quando una singola operazione
   // fallisce: le salvataggi successivi devono comunque poter proseguire.
@@ -252,13 +296,24 @@ function enqueueSave(epoch){
 function save(){
   // Un'azione locale invalida eventuali letture remote già in volo.
   storageReadEpoch++;
+  storageStateRevision++;
   storageDirty=true;
   if(storageBackend==="pending") return storageReady.then(()=>save());
   const epoch=storageEpoch;
-  // Anche le scritture rapide della stessa scheda vengono serializzate:
-  // due snapshot altrimenti leggerebbero lo stesso baseline e il secondo
-  // salvataggio finirebbe per essere trattato come un falso conflitto.
-  return enqueueSave(epoch);
+  // Le scritture rapide della stessa scheda sono serializzate. Una task già
+  // inclusa nello snapshot precedente viene risolta senza una seconda scrittura.
+  return enqueueSave(epoch,storageStateRevision);
+}
+function saveReplacement(){
+  // Le sostituzioni esplicite invalidano le task precedenti e usano il
+  // baseline più recente al momento della loro esecuzione.
+  const epoch=++storageEpoch, stateRevision=++storageStateRevision;
+  storageReadEpoch++;
+  storageDirty=true;
+  if(storageBackend==="pending"){
+    return storageReady.then(()=>enqueueSave(epoch,stateRevision,true));
+  }
+  return enqueueSave(epoch,stateRevision,true);
 }
 function exportProgress(){
   let url="";
@@ -297,14 +352,12 @@ async function applyImportedState(raw){
   if(!confirm("Importare questa copia sostituirà i progressi attualmente salvati. Vuoi continuare?")) return false;
 
   // Annulla eventuali salvataggi in volo e ricostruisce tutta la UI sul nuovo stato.
-  storageEpoch++;
   state=normalized.state;
   storageLoadIssue="";
   storageWriteBlocked=false;
   storageConflict=false;
   renderPersistedState();
-  await save();
-  return true;
+  return await saveReplacement();
 }
 async function importProgress(file){
   if(!file) return;
@@ -355,20 +408,22 @@ function renderPersistedState(){
 }
 async function reloadFromDisk(){
   if(storageConflict&&!confirm("Ricaricare da disco chiuderà la sessione aperta e scarterà eventuali cambiamenti non salvati. Continuare?")) return;
-  const epoch=++storageEpoch, readEpoch=++storageReadEpoch;
+  const epoch=++storageEpoch, readEpoch=++storageReadEpoch, eventRevision=storageEventRevision;
   try{
     // Attendi le transazioni già avviate: una scrittura stale che termina dopo
     // la lettura potrebbe rimettere su disco lo snapshot precedente.
     await saveQueue.catch(()=>{});
     if(epoch!==storageEpoch) return;
     const loaded=await readActiveState();
-    if(epoch!==storageEpoch||readEpoch!==storageReadEpoch) return;
+    if(epoch!==storageEpoch||readEpoch!==storageReadEpoch||eventRevision!==storageEventRevision) return;
     applyLoadedState(loaded);
     renderPersistedState();
     showStorageLoadIssue();
     const h=document.querySelector("section.view.active h2");
     if(h){ h.setAttribute("tabindex","-1"); h.focus({preventScroll:true}); }
-  }catch(_){ storageWriteError(); }
+  }catch(_){
+    if(epoch===storageEpoch&&readEpoch===storageReadEpoch&&eventRevision===storageEventRevision) storageWriteError();
+  }
 }
 const openImportDialog=()=>document.getElementById("progressFile").click();
 document.getElementById("storageImport").onclick=openImportDialog;
@@ -392,13 +447,18 @@ function isRelevantStorageEvent(e){
 }
 async function handleProgressEvent(announced){
   if(announced.raw!==undefined&&announced.raw===storageBaseline) return;
+  // Un annuncio rimane rilevante anche se una scrittura locale è ancora in
+  // volo: evita che il suo completamento cancelli il conflitto appena visto.
+  storageEventRevision++;
   if(storageDirty){
+    storageReadEpoch++;
     storageConflict=true;
     showStorageWarning("conflict",
       "Un’altra scheda ha aggiornato i progressi. Esporta questa copia o ricarica da disco.");
     return;
   }
   if(hasPendingTransientState()){
+    storageReadEpoch++;
     storageConflict=true;
     showStorageWarning("conflict",
       "Un’altra scheda ha aggiornato i progressi mentre una sessione era aperta. Ricarica da disco per continuare senza mescolare stati.");
@@ -417,7 +477,9 @@ async function handleProgressEvent(announced){
     applyLoadedState(loaded);
     renderPersistedState();
     showStorageLoadIssue();
-  }catch(_){ storageWriteError(); }
+  }catch(_){
+    if(readEpoch===storageReadEpoch) storageWriteError();
+  }
 }
 function handleStorageEvent(e){
   if(!isRelevantStorageEvent(e)) return;

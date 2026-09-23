@@ -16,11 +16,12 @@ const seed = JSON.stringify({
 });
 
 const values = new Map([[KEY, seed]]);
+let localWrites = 0;
 const storage = {
   get length() { return values.size; },
   key(index) { return [...values.keys()][index] ?? null; },
   getItem(key) { return values.has(String(key)) ? values.get(String(key)) : null; },
-  setItem(key, value) { values.set(String(key), String(value)); },
+  setItem(key, value) { localWrites++; values.set(String(key), String(value)); },
   removeItem(key) { values.delete(String(key)); },
   clear() { values.clear(); }
 };
@@ -75,6 +76,40 @@ async function main(){
   ok(resultB === false, "seconda scheda rifiuta lo snapshot obsoleto");
   ok(disk.mastery["1"] === 10, "la seconda scrittura non annulla la prima");
 
+  const replacement = JSON.stringify({
+    version:1, mastery:{1:77}, leitner:{}, due:{},
+    quiz:{correct:0,wrong:0,history:[]}, write:{seqBest:0,solved:{}}, wrongZ:[]
+  });
+  const imported = await b.window.__run(`applyImportedState(${JSON.stringify(replacement)})`);
+  ok(imported===true, "import esplicito dopo conflitto viene persistito", String(imported));
+  ok(JSON.parse(storage.getItem(KEY)).mastery["1"]===77,
+    "l'import esplicito aggiorna il baseline invece di fallire sul conflitto");
+
+  const reloadWindow = await makeApp();
+  const reloadPromise = reloadWindow.window.__run(`
+    storageDirty=true;
+    globalThis.__reloadReadStarted=new Promise(resolve=>{globalThis.__markReloadRead=resolve});
+    globalThis.__reloadReadGate=new Promise(resolve=>{globalThis.__releaseReloadRead=resolve});
+    progressStore.read=()=>{
+      globalThis.__markReloadRead();
+      return globalThis.__reloadReadGate.then(()=>localStorage.getItem(${JSON.stringify(KEY)}));
+    };
+    reloadFromDisk()
+  `);
+  await reloadWindow.window.__reloadReadStarted;
+  const remoteReload = JSON.stringify({
+    version:1, mastery:{1:88}, leitner:{}, due:{},
+    quiz:{correct:0,wrong:0,history:[]}, write:{seqBest:0,solved:{}}, wrongZ:[]
+  });
+  values.set(KEY, remoteReload);
+  reloadWindow.window.__run(`globalThis.dispatchEvent(new StorageEvent("storage",{key:${JSON.stringify(KEY)},newValue:${JSON.stringify(remoteReload)},storageArea:null}))`);
+  reloadWindow.window.__releaseReloadRead();
+  await reloadPromise;
+  ok(reloadWindow.window.__run("mastery(1)")===77,
+    "reload annullato da un annuncio remoto avvenuto durante la lettura", reloadWindow.window.__run("JSON.stringify(state)"));
+  ok(reloadWindow.window.__run("storageConflict")===true,
+    "l'annuncio durante reload conserva il conflitto invece di applicare uno snapshot stale");
+
   // Un reset avviato mentre un salvataggio è ancora in coda deve invalidare
   // quel lock: il callback pre-reset non deve più essere considerato corrente.
   const c = await makeApp();
@@ -88,6 +123,42 @@ async function main(){
   ok(!Object.hasOwn(disk.mastery, "1") && !Object.hasOwn(disk.mastery, "3"),
     "il salvataggio finale del reset non contiene dati precedenti");
   ok(c.window.__run("storageSavePending") === 0, "nessun lock resta pendente dopo il reset");
+
+  // Un'azione successiva durante una transazione non deve essere dichiarata
+  // pulita dal completamento della vecchia scrittura.
+  const inFlightSave = c.window.__run(`
+    globalThis.__saveGate=new Promise(resolve=>{globalThis.__releaseSave=resolve});
+    globalThis.__saveStarted=new Promise(resolve=>{globalThis.__markSaveStarted=resolve});
+    globalThis.__compareAndSetCalls=0;
+    progressStore.compareAndSet=(expected,raw)=>{
+      globalThis.__compareAndSetCalls++;
+      globalThis.__markSaveStarted();
+      return globalThis.__saveGate.then(()=>({ok:true,current:raw}));
+    };
+    addMastery(4,1); save()
+  `);
+  await c.window.__saveStarted;
+  const newerSave = c.window.__run("addMastery(4,1); save()");
+  ok(c.window.__run("storageDirty") === true,
+    "una modifica avvenuta durante una scrittura resta dirty finché non viene salvata");
+  c.window.__releaseSave();
+  const inFlightResults = await Promise.all([inFlightSave,newerSave]);
+  ok(inFlightResults.every(result=>result===true), "scrittura vecchia e nuova entrambe risolte", JSON.stringify(inFlightResults));
+  ok(c.window.__run("__compareAndSetCalls") === 2,
+    "la modifica successiva esegue una seconda transazione necessaria", c.window.__run("__compareAndSetCalls"));
+  ok(c.window.__run("storageBaseline") === c.window.__run("JSON.stringify(state)") &&
+     c.window.__run("storageDirty") === false,
+    "al termine il baseline riflette lo stato più recente");
+
+  // Due save() sincroni sono già coperti dal primo snapshot: una sola scrittura.
+  const d = await makeApp();
+  const writesBefore = localWrites;
+  const rapidA = d.window.__run("addMastery(5,1); save()");
+  const rapidB = d.window.__run("addMastery(5,1); save()");
+  const rapidResults = await Promise.all([rapidA,rapidB]);
+  ok(rapidResults.every(result=>result===true), "salvataggi rapidi compatibili risolti entrambi", JSON.stringify(rapidResults));
+  ok(localWrites===writesBefore+1, "salvataggi rapidi già inclusi nello snapshot scrivono una sola volta", `${localWrites-writesBefore} scritture`);
+  ok(JSON.parse(storage.getItem(KEY)).mastery["5"]===2, "la scrittura compatta mantiene lo stato finale");
 
   console.log("Storage lock: " + (fail ? fail + " ERRORI" : "OK (" + pass + "/" + pass + ")"));
   process.exit(fail ? 1 : 0);
