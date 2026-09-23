@@ -127,7 +127,7 @@ let saveQueue=Promise.resolve();
 let appReady=false, pendingStorageEvent=null;
 
 function decodeStoredState(raw){
-  if(!raw) return {state:defaultState(),issue:"",unsupportedVersion:false};
+  if(raw===null||raw==="") return {state:defaultState(),issue:"",unsupportedVersion:false};
   if(typeof raw!=="string"||raw.length>MAX_RAW_STATE_LENGTH){
     return {state:defaultState(),issue:"I dati locali sono troppo grandi o non validi e sono stati ignorati.",unsupportedVersion:false};
   }

@@ -56,6 +56,8 @@ async function main() {
   const b = await makeApp(factory);
   ok(b.__errors.length === 0, "seconda finestra IndexedDB inizializzata senza errori", b.__errors.join(" | "));
   ok(b.__run("mastery(1)") === 42, "seconda finestra legge lo stesso database");
+  ok(a.__run("decodeStoredState(0).issue") && a.__run("decodeStoredState(false).issue"),
+    "record IndexedDB con raw falsi vengono rifiutati", JSON.stringify(a.__run("[decodeStoredState(0),decodeStoredState(false)]")));
 
   const saveA = a.__run("addMastery(1,10); save()");
   const saveB = b.__run("addMastery(1,20); save()");
