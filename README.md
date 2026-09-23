@@ -22,6 +22,8 @@ Per ora l'unica funzione è la **tavola periodica** (`tavola.html`), che contien
 
 Tutti i progressi sono salvati in `localStorage` e ripristinati al riavvio.
 
+Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus, i feedback che cambiano in corso d’opera (pannello dettaglio, quiz, scrittura, sequenza, retro-carta) sono regioni `aria-live="polite"`, le scorciatoie tastiera si attivano solo senza tasti modificatori e ogni controllo ha un nome accessibile.
+
 ## Struttura del progetto
 
 ```
@@ -47,16 +49,18 @@ tests/
 ├── check-data.js   verifiche sui dati della tavola (nessuna dipendenza)
 ├── test-app.js     test funzionali sulla tavola, interazioni reali (jsdom)
 └── test-menu.js    test del menu principale: struttura e link (jsdom)
+eslint.config.mjs   lint (ESLint): script inline dentro gli HTML + test
 ```
 
 ## Test
 
 ```bash
-npm install          # (o: bun install) serve solo per i test, l'app non ha dipendenze
-npm test             # (o: bun run test)
+npm install          # (o: bun install) serve solo per test e lint, l'app non ha dipendenze
+npm test             # (o: bun run test)  → lint ESLint + i tre file di test
+npm run lint         # solo il lint
 ```
 
-In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`**, con matrix **Node 22 e 24** (`npm install` + `npm test`, visto che il repo non ha `package-lock.json`) e una job separata con **Bun** (`bun install --frozen-lockfile` + `bun run test`) per validare il `bun.lock` committed. La badge qui sopra riflette l'ultimo run.
+In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`**, con matrix **Node 22 e 24** (`npm install` + `npm test`, visto che il repo non ha `package-lock.json`) e una job separata con **Bun 1.4.2** pinnato (`bun install --frozen-lockfile` + `bun run test`) per validare il `bun.lock` committed. `npm test` include anche il **lint ESLint** (stesso percorso in entrambe le job). La badge qui sopra riflette l'ultimo run.
 
 - **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, posizioni senza collisioni,
   ogni elemento categorizzato (con la regola CSS `.cat-<id>` corrispondente nel foglio di stile),
@@ -64,8 +68,10 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   i 6 bioelementi strutturali presenti, categoria e regola CSS per ciascuno),
   somma degli elettroni di configurazione = numero atomico per tutti gli 118,
   configurazioni tutte scritte **nello stesso ordine di Aufbau** (base ed eccezioni),
-  gusci coerenti, eccezioni di configurazione reali, controlli incrociati noti (Ar>K, Co>Ni, Te>I…).
-- **`tests/test-app.js`** — 219 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+  gusci coerenti, eccezioni di configurazione reali, controlli incrociati noti (Ar>K, Co>Ni, Te>I…),
+  e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
+  con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
+- **`tests/test-app.js`** — 243 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,
@@ -80,7 +86,12 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   `wrongZ` con duplicati/non numerici/booleani, percentuale flashcard calcolata sulle carte svolte,
   pannello dettagli che segue i cambi di padroneggio, barre dei mazzi proporzionali alle carte
   assegnate (non alle 118 caselle),
-  `Enter`/`Spazio` con il focus su un bottone non intercettati dai gestori globali).
+  `Enter`/`Spazio` con il focus su un bottone non intercettati dai gestori globali —,
+  cella già risolta che non si segna in rosso dopo un errore e non viene penalizzata,
+  suggerimento su casella già compilata, contatori e storico quiz fuori scala clamped
+  (niente percentuali su domande negative, «Posizione 1000000000» o «Invalid Date»),
+  `go()` con vista ignota che non lascia la pagina vuota, `aria-current`/`aria-live`
+  e «Termina» già visibile nel quiz prima di rispondere).
 - **`tests/test-menu.js`** — menu principale: titolo/h1, sottotitolo piattaforma, una sola tessera
   («Tavola periodica» → `tavola.html`), e tutti i link `*.html` del menu puntano a file esistenti.
 
@@ -88,6 +99,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
 
 - Colori delle categorie: variabili `--alkali`, `--transition`, … in `:root` (in `CAT_DEF` il campo `v` le collega alle categorie).
 - Elementi biorilevanti: la stringa `BIO_SYMS` in `DATI` (il conteggio nel chip 🧬 e il badge si aggiornano da soli).
-- Durate dei mazzetti: `BOX_DAYS = [0, 1, 3, 7, 21]` (le etichette in *Progressi* si aggiornano da sole).
+- Durate dei mazzetti: `BOX_DAYS = [0, 1, 3, 7, 21]` (le etichette in *Progressi* e l'ultimo mazzo,
+  `MAX_BOX = BOX_DAYS.length - 1`, si aggiornano da sole).
 - Punti per il padroneggio: `addMastery(z, ±n)` nei vari motori (quiz +8/−6, flashcard +12/+20/−15, tavola vuota +12/−3, sequenza +10/−3).
-- Soglia “padroneggiato”: `mastery(e.z) >= 70`.
+- Soglia “padroneggiato”: `MASTERY_THRESHOLD = 70` (una sola definizione, usata da contatore in testa, ambiti flashcard/quiz e statistiche).
