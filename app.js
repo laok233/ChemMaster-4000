@@ -54,20 +54,22 @@ function setCellA11y(cell,e,kind){
   cell.setAttribute("aria-label",
     `${status}${e.name}, simbolo ${e.sym}, numero atomico ${e.z}, padroneggiamento ${mastery(e.z)}%`);
 }
-function buildGrid(host, opts){
-  opts=opts||{};
-  host.innerHTML="";
+function buildGrid(host, opts={}){
+  // Costruisci la griglia fuori dal DOM e sostituiscila in una sola operazione:
+  // 118 celle vengono rigenerate a ogni reset/reload senza provocare una
+  // sequenza di 140+ mutazioni sulla griglia già montata.
+  const fragment=document.createDocumentFragment();
   for(let g=1;g<=18;g++){
     const d=document.createElement("div"); d.className="gnum"; d.textContent=g;
-    d.style.gridColumn=g+1; d.style.gridRow=1; host.appendChild(d);
+    d.style.gridColumn=g+1; d.style.gridRow=1; fragment.appendChild(d);
   }
   for(let p=1;p<=7;p++){
     const d=document.createElement("div"); d.className="pnum"; d.textContent=p;
-    d.style.gridColumn=1; d.style.gridRow=p+1; host.appendChild(d);
+    d.style.gridColumn=1; d.style.gridRow=p+1; fragment.appendChild(d);
   }
   ["6","7"].forEach((t,i)=>{
     const d=document.createElement("div"); d.className="pnum"; d.textContent=t+"*";
-    d.style.gridColumn=1; d.style.gridRow=10+i; host.appendChild(d);
+    d.style.gridColumn=1; d.style.gridRow=10+i; fragment.appendChild(d);
   });
   ELEMENTS.forEach(e=>{
     const b=document.createElement("button");
@@ -87,7 +89,7 @@ function buildGrid(host, opts){
       b.title=`${e.name} (${e.sym}) — Z=${e.z}`;
       setCellA11y(b,e,opts.blank?"solved":"table");
     }
-    host.appendChild(b);
+    fragment.appendChild(b);
   });
   if(!opts.blank){
     [[6,"57–71",57],[7,"89–103",89]].forEach(([y,label,firstZ])=>{
@@ -104,7 +106,7 @@ function buildGrid(host, opts){
         // così la sottolineatura di una query in corso non viene persa
         placeholderTimer=setTimeout(applyFilter,1600);
       };
-      host.appendChild(d);
+      fragment.appendChild(d);
     });
   }else{
     // segnaposto anche nella tavola vuota: altrimenti restano due celle vuote
@@ -114,9 +116,10 @@ function buildGrid(host, opts){
       const d=document.createElement("div");
       d.className="ph static"; d.textContent=label;
       d.style.gridColumn=4; d.style.gridRow=y+1;
-      host.appendChild(d);
+      fragment.appendChild(d);
     });
   }
+  host.replaceChildren(fragment);
 }
 function applyFilter(){
   const q=document.getElementById("searchEl").value.trim().toLowerCase();
@@ -627,7 +630,7 @@ function checkCell(){
     wMsg(`${el.name} è già corretto: qui il simbolo è ${el.sym}.`,"");
     inp.select();
   }else{
-    addMastery(wSel,-3); save(); refreshCellMastery(wSel);
+    addMastery(wSel,-3); save(); updateHead(); refreshCellMastery(wSel);
     cell.classList.remove("wrong"); void cell.offsetWidth; cell.classList.add("wrong");
     wMsg(`No: ${el.sym} è il simbolo di ${el.name}. Riprova.`,"no");
     inp.select();
@@ -740,7 +743,7 @@ document.getElementById("writeMode").addEventListener("click",e=>{
   const grid=b.dataset.mode==="grid";
   document.getElementById("wGridMode").classList.toggle("hidden",!grid);
   document.getElementById("wSeqMode").classList.toggle("hidden",grid);
-  if(!grid) setTimeout(()=>document.getElementById("seqInput").focus(),50);
+  if(!grid) document.getElementById("seqInput").focus({preventScroll:true});
 });
 
 /* ========================= PROGRESSI ========================= */
@@ -794,6 +797,9 @@ function renderStats(){
 }
 document.getElementById("resetAll").onclick=()=>{
   if(!confirm("Cancellare tutti i progressi? L’azione non è reversibile.")) return;
+  // Invalida eventuali callback già in coda: dopo un azzeramento non devono
+  // più essere considerati salvataggi correnti né aggiungere scritture obsolete.
+  storageEpoch++;
   state=defaultState(); storageWriteBlocked=false; save(); updateHead();
   clearCellSelection();
   renderDetail(1);   // prima della griglia: aria-current deve tornare su H

@@ -84,6 +84,8 @@ function sanitizeState(value){
   // multiplo di 10 non superiore alle risposte effettivamente date. Il numero di errori
   // è derivato da answered-score, così un array corrotto non genera statistiche assurde.
   const now=Date.now();
+  // "Ultimi quiz" deve restare ordinato anche se un backup importato ha voci
+  // mescolate: per questo il limite alle 10 record viene applicato dopo d.
   out.quiz.history=out.quiz.history.filter(isObj).flatMap(h=>{
     if(!isNum(h.d)) return [];
     const d=+h.d;
@@ -103,7 +105,7 @@ function sanitizeState(value){
     const wrong=Array.isArray(h.wrong)?[...new Set(h.wrong.filter(isNum).map(v=>+v)
       .filter(v=>Number.isSafeInteger(v)&&BY_Z[v]))].slice(0,wrongCount):[];
     return [{d,score,total,answered,wrong}];
-  }).slice(0,10);
+  }).sort((a,b)=>b.d-a.d).slice(0,10);
 
   // valori non numerici nelle mappe: scartati (evita "NaN%" nelle statistiche)
   ["mastery","leitner","due"].forEach(k=>{ out[k]=elementMap(out[k]); });
@@ -320,6 +322,7 @@ const openImportDialog=()=>document.getElementById("progressFile").click();
 document.getElementById("storageImport").onclick=openImportDialog;
 document.getElementById("importBackup").onclick=openImportDialog;
 document.getElementById("storageExport").onclick=exportProgress;
+document.getElementById("exportBackup").onclick=exportProgress;
 document.getElementById("storageReload").onclick=reloadFromDisk;
 document.getElementById("progressFile").addEventListener("change",e=>{
   const file=e.target.files&&e.target.files[0];

@@ -74,7 +74,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
 - **`bun run validate`** — validazione HTML delle due pagine con `html-validate`.
-- **`tests/test-app.js`** — 335 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`tests/test-app.js`** — 338 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,
@@ -99,8 +99,9 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   `go()` con vista ignota che non lascia la pagina vuota, `aria-current`/`aria-pressed`/`aria-live`,
   navigazione senza animazione con `prefers-reduced-motion`, pannello dettagli non sticky su mobile,
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
-- **`tests/test-storage-lock.js`** — 4 asserzioni: due finestre con storage condiviso e lock
-  concorrenti; la seconda scrittura obsoleta viene rifiutata e non annulla la prima.
+- **`tests/test-storage-lock.js`** — 7 asserzioni: due finestre con storage condiviso e lock
+  concorrenti; la seconda scrittura obsoleta viene rifiutata e non annulla la prima; un reset
+  invalida anche i salvataggi già in coda prima di scrivere lo stato vuoto.
 - **`tests/test-menu.js`** — menu principale: titolo/h1, sottotitolo piattaforma, una sola tessera
   («Tavola periodica» → `tavola.html`), e tutti i link `*.html` del menu puntano a file esistenti.
 

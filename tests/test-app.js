@@ -104,6 +104,8 @@ ok(d.getElementById("storageImport").hidden,
   "import dal banner nascosto quando lo storage è regolare");
 ok(!!d.getElementById("importBackup") && !d.getElementById("importBackup").hidden,
   "import JSON sempre disponibile nella sezione Progressi");
+ok(!!d.getElementById("exportBackup") && !d.getElementById("exportBackup").hidden,
+  "export JSON sempre disponibile nella sezione Progressi");
 ok(d.getElementById("progressFile").accept.includes("application/json"),
   "file picker limitato ai backup JSON");
 ok(d.querySelector('#ptable .cell[data-z="1"]').getAttribute("aria-current") === "true" &&
@@ -509,6 +511,19 @@ type(win, d.getElementById("wCellInput"), "He");
 keyOn(win, d.getElementById("wCellInput"), { key: "Enter" });
 ok(cell2.classList.contains("solved"), "poi il simbolo risolve la casella");
 
+/* un errore nella griglia può far scendere sotto la soglia: anche il
+   contatore globale deve aggiornarsi, non soltanto la cella e il dettaglio */
+const winHead = makeApp();
+const dHead = winHead.document;
+ev(winHead, "state.mastery[2]=72; updateHead()");
+click(winHead, view(winHead, "write"));
+click(winHead, dHead.querySelector('#wtable .cell[data-z="2"]'));
+type(winHead, dHead.getElementById("wCellInput"), "X");
+keyOn(winHead, dHead.getElementById("wCellInput"), { key: "Enter" });
+ok(ev(winHead, "mastery(2)") === 69 && dHead.getElementById("headPctTxt").textContent === "0/118 padroneggiati",
+  "errore nella tavola vuota aggiorna la barra globale quando passa la soglia",
+  `mastery=${ev(winHead, "mastery(2)")} head=${dHead.getElementById("headPctTxt").textContent}`);
+
 /* cella GIA risolta: un errore non deve lasciarla rossa (.wrong sta dopo .solved
    nella CSS) né costare padroneggio su una risposta che gia si vede */
 const mCell1Solved = ev(win, "mastery(1)");
@@ -554,6 +569,8 @@ ok(d.getElementById("wCellInput").disabled === true,
 section("Scrivi la tavola (sequenza)");
 click(win, [...d.querySelectorAll('#writeMode button')].find(b => b.dataset.mode === "seq"));
 ok(!d.getElementById("wSeqMode").classList.contains("hidden"), "modalità sequenza attiva");
+ok(win.__lastFocus === d.getElementById("seqInput"),
+  "il focus entra nell'input sequenza senza timer", String(win.__lastFocus && win.__lastFocus.id));
 ok(writeModeButtons[0].getAttribute("aria-pressed") === "false" &&
    writeModeButtons[1].getAttribute("aria-pressed") === "true",
   "cambio modalità aggiorna aria-pressed");
@@ -731,7 +748,7 @@ ev(winExport, `(()=>{
   globalThis.URL.revokeObjectURL=()=> {};
   globalThis.HTMLAnchorElement.prototype.click=function(){globalThis.__exportName=this.download;};
 })()`);
-click(winExport, winExport.document.getElementById("storageExport"));
+click(winExport, winExport.document.getElementById("exportBackup"));
 ok(/^chemmaster-4000-\d{4}-\d{2}-\d{2}\.json$/.test(ev(winExport, "__exportName") || ""),
   "export avvia il download con nome file datato", ev(winExport, "__exportName"));
 ok(JSON.parse(ev(winExport, "__exportParts[0]")).version === 1,
@@ -988,8 +1005,8 @@ ok(ev(winClamp, "JSON.stringify([state.quiz.correct, state.quiz.wrong])") === "[
 ok(ev(winClamp, "state.write.seqBest") === 118, "seqBest clampato a 118",
   String(ev(winClamp, "state.write.seqBest")));
 ok(ev(winClamp, "JSON.stringify(state.quiz.history.map(h=>[h.d,h.score,h.total,h.answered,h.wrong]))")
-  === JSON.stringify([[TS_OK,100,10,10,[]], [TS_OK+1,10,10,1,[]]]),
-  "storico coerente: data invalida scartata, answered derivato e Z in eccesso rimosso",
+  === JSON.stringify([[TS_OK+1,10,10,1,[]], [TS_OK,100,10,10,[]]]),
+  "storico coerente e ordinato dal più recente: data invalida scartata, answered derivato e Z in eccesso rimosso",
   ev(winClamp, "JSON.stringify(state.quiz.history.map(h=>[h.d,h.score,h.total,h.answered,h.wrong]))"));
 click(winClamp, view(winClamp, "stats"));
 const clampStats = winClamp.document.getElementById("statCards").textContent

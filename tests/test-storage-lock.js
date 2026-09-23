@@ -66,11 +66,25 @@ ok(a.errors.length === 0 && b.errors.length === 0,
 const saveA = a.window.__run("addMastery(1,10); save()");
 const saveB = b.window.__run("addMastery(1,20); save()");
 
-Promise.all([saveA, saveB]).then(([resultA,resultB]) => {
-  const disk = JSON.parse(storage.getItem(KEY));
+Promise.all([saveA, saveB]).then(async ([resultA,resultB]) => {
+  let disk = JSON.parse(storage.getItem(KEY));
   ok(resultA === true, "prima scheda salva sotto il lock");
   ok(resultB === false, "seconda scheda rifiuta lo snapshot obsoleto");
   ok(disk.mastery["1"] === 10, "la seconda scrittura non annulla la prima");
+
+  // Un reset avviato mentre un salvataggio è ancora in coda deve invalidare
+  // quel lock: il callback pre-reset non deve più essere considerato corrente.
+  const c = makeApp();
+  const staleSave = c.window.__run("addMastery(3,10); save()");
+  c.window.__run("document.getElementById('resetAll').onclick()");
+  const staleResult = await staleSave;
+  await lockTail;
+  disk = JSON.parse(storage.getItem(KEY));
+  ok(staleResult === false, "reset invalida il salvataggio già in coda");
+  ok(!Object.hasOwn(disk.mastery, "1") && !Object.hasOwn(disk.mastery, "3"),
+    "il salvataggio finale del reset non contiene dati precedenti");
+  ok(c.window.__run("storageSavePending") === 0, "nessun lock resta pendente dopo il reset");
+
   console.log("Storage lock: " + (fail ? fail + " ERRORI" : "OK (" + pass + "/" + pass + ")"));
   process.exit(fail ? 1 : 0);
 });
