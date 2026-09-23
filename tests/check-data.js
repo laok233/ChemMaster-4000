@@ -25,7 +25,7 @@ let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.log("FAIL: " + msg); fails++; } };
 ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
   "CSS esterno collegato e nessun blocco inline residuo");
-ok(["data.js", "storage.js", "app.js"].every(f=>html.includes(`<script src="${f}" defer></script>`)) &&
+ok(["data.js", "storage-backend.js", "storage.js", "app.js"].every(f=>html.includes(`<script src="${f}" defer></script>`)) &&
    !html.includes("<script>"),
   "script esterni separati e nessun blocco inline residuo");
 ok(!/\.innerHTML\s*=/.test(appCode), "rendering applicativo senza innerHTML");

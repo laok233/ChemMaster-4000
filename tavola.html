@@ -6,6 +6,7 @@
 <title>Tavola Periodica — ChemMaster 4000</title>
 <link rel="stylesheet" href="style.css">
 <script src="data.js" defer></script>
+<script src="storage-backend.js" defer></script>
 <script src="storage.js" defer></script>
 <script src="app.js" defer></script>
 </head>
@@ -224,7 +225,7 @@
   <!-- ============ PROGRESSI ============ -->
   <section class="view" id="view-stats">
     <h2>I tuoi progressi</h2>
-    <p class="sub">Tutto viene salvato automaticamente nel browser (localStorage).</p>
+    <p class="sub">Tutto viene salvato automaticamente nel browser tramite IndexedDB; in assenza di supporto viene usato localStorage.</p>
     <div class="stat-grid" id="statCards" style="margin-bottom:16px"></div>
     <div class="grid2">
       <div class="panel">

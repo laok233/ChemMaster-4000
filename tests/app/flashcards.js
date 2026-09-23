@@ -1,4 +1,4 @@
-module.exports = context => {
+module.exports = async context => {
   const {win, d, ok, section, ev, click, key, keyOn, view, makeApp} = context;
   /* ================= FLASHCARD ================= */
   section("Flashcard");
@@ -86,7 +86,7 @@ module.exports = context => {
   ok(/Elementi nell'ambito: 118/.test(d.getElementById("cardScopeInfo").textContent), "info ambito aggiornata",
     d.getElementById("cardScopeInfo").textContent);
 
-  const winMeter=makeApp();
+  const winMeter=await makeApp();
   ev(winMeter, "cards={queue:[{z:1}],dir:DIRS[0],total:1,done:0,ok:0,flipped:true}; gradeCard(2)");
   ok(winMeter.document.getElementById("cardMeterTrack").getAttribute("aria-valuenow")==="100" &&
      /1 di 1 carte, 100%/.test(winMeter.document.getElementById("cardMeterTrack").getAttribute("aria-valuetext") || ""),

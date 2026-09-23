@@ -7,14 +7,14 @@ const html = fs.readFileSync(path.join(root, "tavola.html"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const readScript = name => fs.readFileSync(path.join(root, name), "utf8");
 const KEY = "chemmaster-4000-v1";
-const PAGE_CODE = ["data.js", "storage.js", "app.js"].map(readScript).join("\n");
+const PAGE_CODE = ["data.js", "storage-backend.js", "storage.js", "app.js"].map(readScript).join("\n");
 // JSDOM non carica gli asset esterni senza un server: li inseriamo/valutiamo nel test.
 const TEST_HTML = html.replace('<link rel="stylesheet" href="style.css">', `<style>${css}</style>`);
 // Il codice della pagina è strict-mode: let/const restano private all'eval.
 // L'hook riesegue espressioni nello stesso scope lessicale per l'ispezione.
 const HOOK = ";globalThis.__t={run:(s)=>eval(s)};";
 
-function createTestApp() {
+async function createTestApp() {
   let pass = 0, fail = 0;
   const failures = [];
   function ok(cond, msg, extra) {
@@ -23,7 +23,7 @@ function createTestApp() {
   }
   function section(title) { console.log("== " + title + " =="); }
 
-  function makeApp(seed, pageUrl = "http://localhost/tavola.html") {
+  async function makeApp(seed, pageUrl = "http://localhost/tavola.html") {
     const errors = [];
     const dom = new JSDOM(TEST_HTML, {
       runScripts: "outside-only",
@@ -40,7 +40,10 @@ function createTestApp() {
       }
     });
     const win = dom.window;
-    try { win.eval(PAGE_CODE + HOOK); } catch (error) {
+    try {
+      win.eval(PAGE_CODE + HOOK);
+      await win.__appReadyPromise;
+    } catch (error) {
       errors.push(String(error && error.stack || error));
     }
     win.__errors = errors;
@@ -62,10 +65,11 @@ function createTestApp() {
   const key = (win, init) => keyOn(win, win.document, init);
   const view = (win, name) => [...win.document.querySelectorAll("#tabs button")]
     .find(button => button.dataset.view === name);
-  const win = makeApp();
+  const win = await makeApp();
 
+  const settle = () => new Promise(resolve => setTimeout(resolve, 0));
   return {
-    KEY, html, css, win, d: win.document, makeApp, ev, click, type, keyOn, key, view,
+    KEY, html, css, win, d: win.document, makeApp, ev, click, type, keyOn, key, view, settle,
     ok, section,
     results: () => ({ pass, fail, failures: [...failures] })
   };

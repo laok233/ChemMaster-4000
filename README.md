@@ -20,7 +20,7 @@ Per ora l'unica funzione è la **tavola periodica** (`tavola.html`), che contien
 | **Scrivi la tavola** | **Tavola vuota**: clicchi una casella e scrivi il **simbolo** (il tooltip non svela la risposta; il nome completo riceve un richiamo senza penalità), con suggerimento e correzione immediata. **Sequenza**: scrivi i 118 simboli in ordine di numero atomico, con feedback e miglior posizione — anche qui il nome completo è ammesso come richiamo, senza penalità. |
 | **Progressi** | Padroneggio medio, % per categoria, mazzetti (etichette derivate da `BOX_DAYS`, quindi sempre allineate alle scadenze, e barre proporzionali alle carte assegnate), storico quiz, importazione/esportazione JSON e azzeramento. |
 
-Tutti i progressi sono salvati in `localStorage` e ripristinati al riavvio; una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Senza Web Locks il confronto del baseline rifiuta la maggior parte degli snapshot obsoleti, ma `localStorage` non offre un confronto-e-scrittura atomico: due salvataggi davvero simultanei possono ancora gareggiare. Lo stato importato attraversa la stessa sanitizzazione dei dati locali e le versioni non supportate vengono rifiutate.
+Tutti i progressi sono salvati principalmente in IndexedDB e ripristinati al riavvio; il vecchio `localStorage` viene migrato automaticamente e resta il fallback quando IndexedDB non è disponibile. Le scritture IndexedDB usano una transazione atomica di confronto-and-scrittura e `BroadcastChannel` per sincronizzare le schede; nel fallback localStorage, quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Lo stato importato attraversa la stessa sanitizzazione dei dati salvati e le versioni non supportate vengono rifiutate.
 
 Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera e il numero di elementi filtrati sono regioni `aria-live="polite"`; le barre di avanzamento espongono il valore tramite `role="progressbar"`; le scorciatoie tastiera sono dichiarate con `aria-keyshortcuts` e si attivano solo senza tasti modificatori; ogni controllo ha un nome accessibile e lo scorrimento programmatico rispetta `prefers-reduced-motion`.
 
@@ -32,16 +32,17 @@ style.css       tema scuro, layout comune e layout a griglia CSS della tavola
                 (18 colonne + colonna periodi)
 tavola.html    funzione «Tavola periodica» (ex index.html)
 ├── <body>    5 sezioni (una vista per modalità)
-└── <script>  tre script classici, caricati in ordine con defer
+└── <script>  quattro script classici, caricati in ordine con defer
     ├── data.js       simboli, nomi italiani, masse, categorie, posizioni,
     │                 configurazioni elettronica (con le eccezioni note: Cr, Cu, Mo, Au…)
     │                 e BIO_SYMS/BIO_Z (i 26 elementi biorilevanti)
-    ├── storage.js    persistenza versionata in localStorage, protezione dai conflitti
-    │                 multi-tab, import/export JSON e avviso se lo storage non è disponibile,
-    │                 migrazione v0→v1 e rifiuto delle versioni future, sanitizzazione
-    │                 dello stato corrotto (anche ai membri annidati), scarto di booleani/
-    │                 chiavi non canoniche, storico quiz con invarianti risposte/punteggio,
-    │                 caselle `solved` con flag canonico 1 ed elementi validi, `wrongZ` a soli Z reali
+    ├── storage-backend.js repository IndexedDB atomico, migrazione e BroadcastChannel
+    ├── storage.js    persistenza versionata, protezione dai conflitti, import/export
+    │                 JSON e avviso se nessun archivio è disponibile, migrazione v0→v1
+    │                 e rifiuto delle versioni future, sanitizzazione dello stato corrotto
+    │                 (anche ai membri annidati), scarto di booleani/chiavi non canoniche,
+    │                 storico quiz con invarianti risposte/punteggio, caselle `solved`
+    │                 con flag canonico 1 ed elementi validi, `wrongZ` a soli Z reali
     └── app.js        navigazione, TAVOLA, FLASHCARD, QUIZ, SCRIVI e PROGRESSI
 tests/
 ├── check-data.js       verifiche sui dati della tavola (nessuna dipendenza)
@@ -58,6 +59,7 @@ tests/
 ├── test-app.js         orchestratore dei test funzionali sulla tavola
 ├── test-browser.js     smoke test Chromium e audit WCAG con axe-core
 ├── test-menu.js        test del menu principale: struttura e link (jsdom)
+├── test-storage-indexeddb.js migrazione e confronto-and-scrittura IndexedDB
 └── test-storage-lock.js due tab concorrenti serializzate tramite Web Locks
 ├── eslint.config.mjs   lint (ESLint): script esterni dell’app + test
 ├── .htmlvalidate.json  regole per la validazione HTML
@@ -69,13 +71,13 @@ tests/
 ```bash
 bun install --frozen-lockfile   # serve solo per test, lint e validazione; l'app non ha dipendenze runtime
 bunx playwright install chromium # una volta, per i test browser (con --with-deps in CI)
-bun run test                    # lint + HTML + JSDOM + lock + Chromium/axe
+bun run test                    # lint + HTML + JSDOM + IndexedDB/fallback + Chromium/axe
 bun run lint                    # solo ESLint
 bun run validate                # solo HTML validate
 bun run test:browser            # solo smoke test Chromium e audit axe-core
 ```
 
-In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`** con **Bun 1.4.2** pinnato (`bun install --frozen-lockfile`, installazione Chromium e `bun run test`): non viene avviato alcun processo Node per la suite. Le Action sono referenziate per SHA; `bun run test` include lint ESLint, validazione HTML, test JSDOM, lock multi-tab e smoke test Chromium con axe-core. La badge qui sopra riflette l'ultimo run.
+In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`** con **Bun 1.4.2** pinnato (`bun install --frozen-lockfile`, installazione Chromium e `bun run test`): non viene avviato alcun processo Node per la suite. Le Action sono referenziate per SHA; `bun run test` include lint ESLint, validazione HTML, test JSDOM, test IndexedDB/fallback e smoke test Chromium con axe-core. La badge qui sopra riflette l'ultimo run.
 
 - **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, masse IUPAC di riferimento
   (inclusa la revisione 2024 di Zr e i numeri di massa radioattivi), posizioni senza collisioni,
@@ -116,6 +118,8 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
 - **`tests/test-browser.js`** — Chromium headless sul menu e su tutte le viste della tavola:
   nessun errore JavaScript e zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili.
+- **`tests/test-storage-indexeddb.js`** — 11 asserzioni: migrazione automatica da localStorage,
+  caricamento condiviso del database e rifiuto di una seconda scrittura con baseline obsoleto.
 - **`tests/test-storage-lock.js`** — 7 asserzioni: due finestre con storage condiviso e lock
   concorrenti; la seconda scrittura obsoleta viene rifiutata e non annulla la prima; un reset
   invalida anche i salvataggi già in coda prima di scrivere lo stato vuoto.

@@ -6,7 +6,7 @@ module.exports = context => {
   ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
     "tavola usa il CSS esterno senza stili inline");
   const scriptSources=[...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map(m=>m[1]);
-  ok(JSON.stringify(scriptSources)===JSON.stringify(["data.js", "storage.js", "app.js"]) &&
+  ok(JSON.stringify(scriptSources)===JSON.stringify(["data.js", "storage-backend.js", "storage.js", "app.js"]) &&
      !html.includes("<script>"),
     "tavola carica i tre script esterni nell'ordine corretto senza codice inline");
   ok(win.getComputedStyle(d.body).display !== "flex",

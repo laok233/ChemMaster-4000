@@ -2,7 +2,7 @@
 /* ========================= STATO ========================= */
 const STORE_KEY="chemmaster-4000-v1";
 const STATE_VERSION=1;
-const DAY=86400000;   // qui, non nelle flashcard: load() serve per gli intervalli dello storico
+const DAY=86400000;   // qui, non nelle flashcard: serve per gli intervalli dello storico
 const BOX_DAYS=[0,1,3,7,21];
 const defaultState = ()=>({
   version:STATE_VERSION,
@@ -12,7 +12,7 @@ const defaultState = ()=>({
   wrongZ:[]
 });
 const isObj=v=>v!==null&&typeof v==="object"&&!Array.isArray(v);
-// numero o stringa numerica (non null/vuoto/booleano: +true===1 farbbe entrare i booleani)
+// numero o stringa numerica (non null/vuoto/booleano: +true===1 farebbe entrare i booleani)
 const isNum=v=>(typeof v==="number"||typeof v==="string")&&String(v).trim()!==""&&Number.isFinite(+v);
 const isSafeNonNegativeInt=v=>{
   if(!isNum(v)) return false;
@@ -34,11 +34,7 @@ const isElementKey=k=>{
 const elementMap=o=>Object.fromEntries(Object.entries(o)
   .filter(([k,v])=>isElementKey(k)&&isNum(v)).map(([k,v])=>[k,+v]));
 
-let storageBaseline=null, storageBaselineKnown=false;
-let storageDirty=false, storageConflict=false, storageLoadIssue="", storageWriteBlocked=false;
-let storageSavePending=0, storageEpoch=0;
-let appReady=false, pendingStorageEvent=null;
-// Funzione unica per localStorage e import: valida la versione, copia soltanto
+// Funzione unica per persistenza e import: valida la versione, copia soltanto
 // campi noti e mantiene coerenti i dati derivati (risposte, punteggio, errori).
 function sanitizeState(value){
   if(!isObj(value)) return {
@@ -117,30 +113,64 @@ function sanitizeState(value){
   return {state:out,issue:"",unsupportedVersion:false};
 }
 
-let state = load();
-function load(){
-  let raw;
-  storageWriteBlocked=false;
+document.documentElement.dataset.storageState="loading";
+let state=defaultState();
+let storageBackend="pending";
+const progressStore=createProgressStore(STORE_KEY);
+let storageBaseline=null, storageBaselineKnown=false;
+let storageDirty=false, storageConflict=false, storageLoadIssue="", storageWriteBlocked=false;
+let storageSavePending=0, storageEpoch=0, storageReadEpoch=0;
+let appReady=false, pendingStorageEvent=null;
+
+function decodeStoredState(raw){
+  if(!raw) return {state:defaultState(),issue:"",unsupportedVersion:false};
   try{
-    raw=localStorage.getItem(STORE_KEY);
-    storageBaseline=raw;
-    storageBaselineKnown=true;
-  }catch(e){
-    storageBaselineKnown=false;
-    storageLoadIssue="Il browser non ha reso disponibile localStorage.";
-    return defaultState();
-  }
-  try{
-    if(!raw){ storageLoadIssue=""; return defaultState(); }
     const normalized=sanitizeState(JSON.parse(raw));
-    storageLoadIssue=normalized.issue;
-    storageWriteBlocked=normalized.unsupportedVersion;
-    return normalized.state;
-  }catch(e){
-    storageLoadIssue="I dati locali erano danneggiati e sono stati ignorati.";
-    return defaultState();
+    return {
+      state:normalized.state,
+      issue:normalized.issue,
+      unsupportedVersion:normalized.unsupportedVersion
+    };
+  }catch(_){
+    return {
+      state:defaultState(),
+      issue:"I dati locali erano danneggiati e sono stati ignorati.",
+      unsupportedVersion:false
+    };
   }
 }
+function applyLoadedState(loaded){
+  storageBaseline=loaded.raw;
+  storageBaselineKnown=true;
+  storageLoadIssue=loaded.normalized.issue;
+  storageWriteBlocked=loaded.normalized.unsupportedVersion;
+  storageDirty=false;
+  storageConflict=false;
+  state=loaded.normalized.state;
+}
+async function readActiveState(){
+  const raw=await progressStore.read();
+  return {raw,normalized:decodeStoredState(raw)};
+}
+async function initializeStorage(){
+  const loaded=await progressStore.init();
+  storageBackend=loaded.backend;
+  const normalized=decodeStoredState(loaded.raw);
+  applyLoadedState({raw:loaded.raw,normalized});
+  if(storageBackend==="localstorage"&&loaded.localAvailable===false){
+    storageLoadIssue="Il browser non ha reso disponibile alcun archivio persistente.";
+  }
+  return state;
+}
+const storageReady=initializeStorage().catch(error=>{
+  storageBackend="localstorage";
+  storageBaseline=null;
+  storageBaselineKnown=true;
+  storageLoadIssue="Il browser non ha reso disponibile alcun archivio persistente.";
+  storageWriteBlocked=false;
+  return state;
+});
+
 function showStorageWarning(kind,message){
   const box=document.getElementById("storageWarning");
   box.dataset.kind=kind;
@@ -160,7 +190,7 @@ function storageWriteError(){
   showStorageWarning("error",
     "Impossibile salvare i progressi nel browser. Puoi importare o esportare una copia, ma il ripristino automatico non sarà disponibile.");
 }
-function saveNow(){
+async function saveNow(){
   if(storageWriteBlocked){
     storageDirty=true;
     showStorageWarning("version",
@@ -168,9 +198,16 @@ function saveNow(){
     return false;
   }
   try{
-    const disk=localStorage.getItem(STORE_KEY);
-    if(!storageBaselineKnown){ storageBaseline=disk; storageBaselineKnown=true; }
-    if(disk!==storageBaseline){
+    let expected=storageBaseline;
+    if(!storageBaselineKnown){
+      expected=await progressStore.read();
+      storageBaseline=expected;
+      storageBaselineKnown=true;
+    }
+    const raw=JSON.stringify(state);
+    const result=await progressStore.compareAndSet(expected,raw);
+    if(result.error) throw result.error;
+    if(!result.ok){
       // Un'altra scheda ha scritto dopo l'ultimo salvataggio noto: non la sovrascriviamo.
       storageDirty=true;
       storageConflict=true;
@@ -178,8 +215,6 @@ function saveNow(){
         "I progressi sono cambiati in un’altra scheda. Questa scheda non ha sovrascritto nulla: esporta la copia o ricarica da disco.");
       return false;
     }
-    const raw=JSON.stringify(state);
-    localStorage.setItem(STORE_KEY,raw);
     storageBaseline=raw;
     storageBaselineKnown=true;
     storageDirty=false;
@@ -187,15 +222,24 @@ function saveNow(){
     storageLoadIssue="";
     hideStorageWarning();
     return true;
-  }catch(e){
+  }catch(_){
     storageWriteError();
     return false;
+  }
+}
+async function saveDirect(epoch){
+  try{ return epoch===storageEpoch?await saveNow():false; }
+  catch(_){
+    if(epoch===storageEpoch) storageWriteError();
+    return false;
+  }finally{
+    storageSavePending=Math.max(0,storageSavePending-1);
   }
 }
 async function saveWithLock(epoch,locks){
   try{
     return await locks.request(`${STORE_KEY}:write`,()=>epoch===storageEpoch?saveNow():false);
-  }catch(e){
+  }catch(_){
     if(epoch===storageEpoch) storageWriteError();
     return false;
   }finally{
@@ -203,18 +247,18 @@ async function saveWithLock(epoch,locks){
   }
 }
 function save(){
+  // Un'azione locale invalida eventuali letture remote già in volo.
+  storageReadEpoch++;
   storageDirty=true;
+  if(storageBackend==="pending") return storageReady.then(()=>save());
   const epoch=storageEpoch;
+  storageSavePending++;
+  // IndexedDB esegue il confronto e la scrittura nella stessa transazione.
+  // Il fallback locale usa Web Locks quando disponibile.
+  if(storageBackend==="indexeddb") return saveDirect(epoch);
   const locks=globalThis.navigator&&globalThis.navigator.locks;
-  // Web Locks serializza get+set tra tutte le schede della stessa origin.
-  // Senza Web Locks il confronto del baseline rileva la maggior parte degli snapshot
-  // obsoleti, ma non è atomico: due scritture simultanee possono comunque gareggiare.
-  if(locks&&typeof locks.request==="function"){
-    storageSavePending++;
-    return saveWithLock(epoch,locks);
-  }
-  const saved=epoch===storageEpoch?saveNow():false;
-  return saved;
+  if(locks&&typeof locks.request==="function") return saveWithLock(epoch,locks);
+  return saveDirect(epoch);
 }
 function exportProgress(){
   let url="";
@@ -233,21 +277,21 @@ function exportProgress(){
     try{ a.click(); } finally { a.remove(); }
     setTimeout(()=>{
       try{ if(typeof globalThis.URL.revokeObjectURL==="function") globalThis.URL.revokeObjectURL(url); }
-      catch(e){ /* il download è già stato avviato */ }
+      catch(_){ /* il download è già stato avviato */ }
     },0);
     return true;
-  }catch(e){
+  }catch(_){
     if(url&&typeof globalThis.URL?.revokeObjectURL==="function"){
-      try{ globalThis.URL.revokeObjectURL(url); }catch(_){ }
+      try{ globalThis.URL.revokeObjectURL(url); }catch(__){ }
     }
     alert("Impossibile esportare una copia dei progressi.");
     return false;
   }
 }
-function applyImportedState(raw){
+async function applyImportedState(raw){
   let value;
   try{ value=JSON.parse(raw); }
-  catch(e){ alert("Il file selezionato non contiene JSON valido."); return false; }
+  catch(_){ alert("Il file selezionato non contiene JSON valido."); return false; }
   const normalized=sanitizeState(value);
   if(normalized.issue){ alert(`Import non riuscito: ${normalized.issue}`); return false; }
   if(!confirm("Importare questa copia sostituirà i progressi attualmente salvati. Vuoi continuare?")) return false;
@@ -259,7 +303,7 @@ function applyImportedState(raw){
   storageWriteBlocked=false;
   storageConflict=false;
   renderPersistedState();
-  save();
+  await save();
   return true;
 }
 async function importProgress(file){
@@ -270,8 +314,8 @@ async function importProgress(file){
     alert("Il file è troppo grande: il backup deve pesare al massimo 1 MB.");
     return;
   }
-  try{ applyImportedState(await file.text()); }
-  catch(e){ alert("Impossibile leggere il file selezionato."); }
+  try{ await applyImportedState(await file.text()); }
+  catch(_){ alert("Impossibile leggere il file selezionato."); }
 }
 function hasPendingTransientState(){
   return !document.getElementById("cardsStage").classList.contains("hidden") ||
@@ -309,21 +353,25 @@ function renderPersistedState(){
     if(next) next.focus({preventScroll:true});
   }
 }
-function reloadFromDisk(){
+async function reloadFromDisk(){
   if(storageConflict&&!confirm("Ricaricare da disco chiuderà la sessione aperta e scarterà eventuali cambiamenti non salvati. Continuare?")) return;
-  storageEpoch++;
-  state=load(); storageDirty=false; storageConflict=false;
-  renderPersistedState();
-  showStorageLoadIssue();
-  const h=document.querySelector("section.view.active h2");
-  if(h){ h.setAttribute("tabindex","-1"); h.focus({preventScroll:true}); }
+  const epoch=++storageEpoch, readEpoch=++storageReadEpoch;
+  try{
+    const loaded=await readActiveState();
+    if(epoch!==storageEpoch||readEpoch!==storageReadEpoch) return;
+    applyLoadedState(loaded);
+    renderPersistedState();
+    showStorageLoadIssue();
+    const h=document.querySelector("section.view.active h2");
+    if(h){ h.setAttribute("tabindex","-1"); h.focus({preventScroll:true}); }
+  }catch(_){ storageWriteError(); }
 }
 const openImportDialog=()=>document.getElementById("progressFile").click();
 document.getElementById("storageImport").onclick=openImportDialog;
 document.getElementById("importBackup").onclick=openImportDialog;
 document.getElementById("storageExport").onclick=exportProgress;
 document.getElementById("exportBackup").onclick=exportProgress;
-document.getElementById("storageReload").onclick=reloadFromDisk;
+document.getElementById("storageReload").onclick=()=>{ reloadFromDisk(); };
 document.getElementById("progressFile").addEventListener("change",e=>{
   const file=e.target.files&&e.target.files[0];
   e.target.value="";
@@ -335,12 +383,11 @@ function isRelevantStorageEvent(e){
   // eventi sintetici; quelli espliciti devono però provenire da localStorage.
   // sessionStorage può infatti emettere un evento con la stessa chiave.
   if(!e.storageArea) return true;
-  try{ return e.storageArea===localStorage; }
+  try{ return e.storageArea===globalThis.localStorage; }
   catch(_){ return false; }
 }
-function handleStorageEvent(e){
-  if(!isRelevantStorageEvent(e)) return;
-  if(e.newValue===storageBaseline) return;
+async function handleProgressEvent(announced){
+  if(announced.raw!==undefined&&announced.raw===storageBaseline) return;
   if(storageDirty){
     storageConflict=true;
     showStorageWarning("conflict",
@@ -353,10 +400,29 @@ function handleStorageEvent(e){
       "Un’altra scheda ha aggiornato i progressi mentre una sessione era aperta. Ricarica da disco per continuare senza mescolare stati.");
     return;
   }
-  state=load(); storageDirty=false; storageConflict=false;
-  renderPersistedState();
-  showStorageLoadIssue();
+  const readEpoch=++storageReadEpoch;
+  try{
+    const loaded=await readActiveState();
+    if(readEpoch!==storageReadEpoch) return;
+    if(storageDirty){
+      storageConflict=true;
+      showStorageWarning("conflict",
+        "Un’altra scheda ha aggiornato i progressi. Esporta questa copia o ricarica da disco.");
+      return;
+    }
+    applyLoadedState(loaded);
+    renderPersistedState();
+    showStorageLoadIssue();
+  }catch(_){ storageWriteError(); }
 }
+function handleStorageEvent(e){
+  if(!isRelevantStorageEvent(e)) return;
+  handleProgressEvent({raw:e.newValue});
+}
+progressStore.subscribe(event=>{
+  if(!appReady){ pendingStorageEvent=event; return; }
+  handleProgressEvent(event);
+});
 globalThis.addEventListener("storage",e=>{
   if(!isRelevantStorageEvent(e)) return;
   // L'evento può arrivare tra storage.js e app.js: conserva l'ultimo senza
@@ -374,7 +440,7 @@ function addMastery(z,d){
   state.mastery[z]=Math.round(v);
 }
 // soglia unica di "padroneggiato": usata dal contatore in testa, dagli ambiti
-// flashcard/quiz e dall'etichetta delle statistiche (prima era replicata in 4 punti)
+// flashcard/quiz e dall'etichetta delle statistiche
 const MASTERY_THRESHOLD=70;
 function masteredCount(){ return ELEMENTS.filter(e=>mastery(e.z)>=MASTERY_THRESHOLD).length; }
 function avgMastery(){ return Math.round(ELEMENTS.reduce((s,e)=>s+mastery(e.z),0)/ELEMENTS.length); }

@@ -6,6 +6,7 @@ const { chromium } = require("@playwright/test");
 const { AxeBuilder } = require("@axe-core/playwright");
 
 const ROOT = path.join(__dirname, "..");
+const KEY = "chemmaster-4000-v1";
 const MIME = {
   ".css":"text/css; charset=utf-8",
   ".html":"text/html; charset=utf-8",
@@ -76,7 +77,16 @@ async function main() {
     await assertA11y(page, "Menu");
 
     await page.goto(`${base}/tavola.html`, { waitUntil: "networkidle" });
+    ok(await page.evaluate(() => eval("storageBackend")) === "indexeddb", "browser: IndexedDB selezionato come backend");
+    ok(await page.evaluate(key => localStorage.getItem(key), KEY) === null, "browser: nessun backup localStorage residuo");
     ok(await page.locator("#ptable .cell").count() === 118, "tavola: 118 celle renderizzate");
+
+    const secondPage = await context.newPage();
+    await secondPage.goto(`${base}/tavola.html`, { waitUntil: "networkidle" });
+    await page.evaluate(() => eval("addMastery(1,10); save()"));
+    await secondPage.waitForFunction(() => eval("mastery(1)") === 10, null, { timeout:5000 });
+    ok(true, "browser: BroadcastChannel sincronizza due schede IndexedDB");
+    await secondPage.close();
     await assertA11y(page, "Tavola");
 
     for (const [label, view] of [

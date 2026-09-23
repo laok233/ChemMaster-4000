@@ -8,7 +8,7 @@ const { JSDOM } = require("jsdom");
 const root = path.join(__dirname, "..");
 const html = fs.readFileSync(path.join(root, "tavola.html"), "utf8");
 const readScript = name => fs.readFileSync(path.join(root, name), "utf8");
-const code = ["data.js", "storage.js", "app.js"].map(readScript).join("\n");
+const code = ["data.js", "storage-backend.js", "storage.js", "app.js"].map(readScript).join("\n");
 const KEY = "chemmaster-4000-v1";
 const seed = JSON.stringify({
   version:1, mastery:{}, leitner:{}, due:{},
@@ -34,7 +34,7 @@ const locks = {
   }
 };
 
-function makeApp() {
+async function makeApp() {
   const errors = [];
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
@@ -48,8 +48,10 @@ function makeApp() {
       w.HTMLElement.prototype.focus = function () {};
     }
   });
-  try { dom.window.eval(code + ";globalThis.__run=s=>eval(s);"); }
-  catch (error) { errors.push(String(error && error.stack || error)); }
+  try {
+    dom.window.eval(code + ";globalThis.__run=s=>eval(s);");
+    await dom.window.__appReadyPromise;
+  } catch (error) { errors.push(String(error && error.stack || error)); }
   return { window:dom.window, errors };
 }
 
@@ -59,14 +61,15 @@ function ok(condition, message) {
   else { fail++; console.log("FAIL: " + message); }
 }
 
-const a = makeApp(), b = makeApp();
-ok(a.errors.length === 0 && b.errors.length === 0,
-  "inizializzazione delle due finestre senza errori");
+async function main(){
+  const a = await makeApp(), b = await makeApp();
+  ok(a.errors.length === 0 && b.errors.length === 0,
+    "inizializzazione delle due finestre senza errori");
 
-const saveA = a.window.__run("addMastery(1,10); save()");
-const saveB = b.window.__run("addMastery(1,20); save()");
+  const saveA = a.window.__run("addMastery(1,10); save()");
+  const saveB = b.window.__run("addMastery(1,20); save()");
 
-Promise.all([saveA, saveB]).then(async ([resultA,resultB]) => {
+  const [resultA,resultB] = await Promise.all([saveA,saveB]);
   let disk = JSON.parse(storage.getItem(KEY));
   ok(resultA === true, "prima scheda salva sotto il lock");
   ok(resultB === false, "seconda scheda rifiuta lo snapshot obsoleto");
@@ -74,11 +77,12 @@ Promise.all([saveA, saveB]).then(async ([resultA,resultB]) => {
 
   // Un reset avviato mentre un salvataggio è ancora in coda deve invalidare
   // quel lock: il callback pre-reset non deve più essere considerato corrente.
-  const c = makeApp();
+  const c = await makeApp();
   const staleSave = c.window.__run("addMastery(3,10); save()");
   c.window.__run("document.getElementById('resetAll').onclick()");
   const staleResult = await staleSave;
   await lockTail;
+  await new Promise(resolve=>setTimeout(resolve,0));
   disk = JSON.parse(storage.getItem(KEY));
   ok(staleResult === false, "reset invalida il salvataggio già in coda");
   ok(!Object.hasOwn(disk.mastery, "1") && !Object.hasOwn(disk.mastery, "3"),
@@ -87,4 +91,6 @@ Promise.all([saveA, saveB]).then(async ([resultA,resultB]) => {
 
   console.log("Storage lock: " + (fail ? fail + " ERRORI" : "OK (" + pass + "/" + pass + ")"));
   process.exit(fail ? 1 : 0);
-});
+}
+
+main().catch(error=>{ console.error(error); process.exit(1); });

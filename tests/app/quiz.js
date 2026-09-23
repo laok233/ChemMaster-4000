@@ -1,4 +1,4 @@
-module.exports = context => {
+module.exports = async context => {
   const {win, d, ok, section, ev, click, key, keyOn, view} = context;
   /* ================= QUIZ ================= */
   section("Quiz");

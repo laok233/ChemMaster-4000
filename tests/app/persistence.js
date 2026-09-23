@@ -1,5 +1,5 @@
-module.exports = context => {
-  const {win, d, KEY, ok, section, ev, click, makeApp, view} = context;
+module.exports = async context => {
+  const {win, d, KEY, ok, section, ev, click, makeApp, view, settle} = context;
   /* ================= PERSISTENZA ================= */
   section("Persistenza e robustezza");
   const raw = win.localStorage.getItem(KEY);
@@ -15,9 +15,9 @@ module.exports = context => {
     quiz:{correct:0,wrong:0,history:[]}, write:{seqBest:0,solved:{}}, wrongZ:[]
   });
   const remoteState = JSON.parse(conflictSeed); remoteState.mastery[1]=80;
-  const winConflict = makeApp(conflictSeed);
+  const winConflict = await makeApp(conflictSeed);
   winConflict.localStorage.setItem(KEY, JSON.stringify(remoteState));
-  const rejectedSave = ev(winConflict, "addMastery(1,5); save()");
+  const rejectedSave = await ev(winConflict, "addMastery(1,5); save()");
   ok(rejectedSave === false, "salvataggio respinto quando un'altra scheda ha scritto");
   ok(winConflict.localStorage.getItem(KEY) === JSON.stringify(remoteState),
     "il conflitto non sovrascrive i progressi remoti");
@@ -28,14 +28,16 @@ module.exports = context => {
      !winConflict.document.getElementById("storageReload").hidden,
     "avviso conflitto con export e ricarica");
   click(winConflict, winConflict.document.getElementById("storageReload"));
+  await settle();
   ok(ev(winConflict, "mastery(1)") === 80 && conflictWarning.hidden,
     "ricarica esplicita risolve il conflitto dal disco");
 
   /* aggiornamento ricevuto da un'altra scheda senza conflicti locali */
-  const winRemoteEvent = makeApp(conflictSeed);
+  const winRemoteEvent = await makeApp(conflictSeed);
   const remoteRaw = JSON.stringify(remoteState);
   winRemoteEvent.localStorage.setItem(KEY, remoteRaw);
   ev(winRemoteEvent, `globalThis.dispatchEvent(new StorageEvent("storage",{key:${JSON.stringify(KEY)},newValue:${JSON.stringify(remoteRaw)},storageArea:localStorage}))`);
+  await settle();
   ok(ev(winRemoteEvent, "mastery(1)") === 80,
     "evento storage aggiorna una tab che non ha modifiche locali");
   ok(winRemoteEvent.document.getElementById("storageWarning").hidden,
@@ -43,7 +45,7 @@ module.exports = context => {
 
   /* sessionStorage emette StorageEvent nello stesso ambito: non deve essere
      confuso con un aggiornamento della persistenza locale */
-  const winSessionEvent = makeApp(conflictSeed);
+  const winSessionEvent = await makeApp(conflictSeed);
   winSessionEvent.localStorage.setItem(KEY, remoteRaw);
   ev(winSessionEvent, `globalThis.dispatchEvent(new StorageEvent("storage",{key:${JSON.stringify(KEY)},newValue:${JSON.stringify(remoteRaw)},storageArea:sessionStorage}))`);
   ok(ev(winSessionEvent, "mastery(1)") === 10 &&
@@ -51,25 +53,27 @@ module.exports = context => {
     "evento sessionStorage ignorato senza falso conflitto");
 
   /* un aggiornamento remoto non deve mescolarsi a una sessione ancora aperta */
-  const winPendingEvent = makeApp(conflictSeed);
+  const winPendingEvent = await makeApp(conflictSeed);
   click(winPendingEvent, view(winPendingEvent, "cards"));
   click(winPendingEvent, winPendingEvent.document.getElementById("startCards"));
   winPendingEvent.localStorage.setItem(KEY, remoteRaw);
   ev(winPendingEvent, `globalThis.dispatchEvent(new StorageEvent("storage",{key:${JSON.stringify(KEY)},newValue:${JSON.stringify(remoteRaw)},storageArea:localStorage}))`);
+  await settle();
   ok(ev(winPendingEvent, "mastery(1)") === 10 &&
      !winPendingEvent.document.getElementById("cardsStage").classList.contains("hidden"),
     "sessione aperta: aggiornamento remoto rimane in attesa");
   ok(winPendingEvent.document.getElementById("storageWarning").dataset.kind === "conflict",
     "sessione aperta: l'evento storage segnala un conflitto");
   click(winPendingEvent, winPendingEvent.document.getElementById("storageReload"));
+  await settle();
   ok(ev(winPendingEvent, "mastery(1)") === 80 &&
      winPendingEvent.document.getElementById("cardsStage").classList.contains("hidden") &&
      ev(winPendingEvent, "cards.queue.length") === 0,
     "ricarica remota chiude la sessione e carica uno stato coerente");
 
   /* storage non disponibile: avviso e possibilità di esportare */
-  const winNoStorage = makeApp(null, "file:///tavola.html");
-  const failedSave = ev(winNoStorage, "addMastery(2,5); save()");
+  const winNoStorage = await makeApp(null, "file:///tavola.html");
+  const failedSave = await ev(winNoStorage, "addMastery(2,5); save()");
   ok(failedSave === false && ev(winNoStorage, "storageDirty") === true,
     "errore di scrittura segnalato e stato marcato dirty");
   ok(!winNoStorage.document.getElementById("storageWarning").hidden &&
@@ -78,7 +82,7 @@ module.exports = context => {
     "errore storage mostra import ed esportazione della copia");
 
   /* export: click, nome file e contenuto JSON */
-  const winExport = makeApp();
+  const winExport = await makeApp();
   ev(winExport, `(()=>{
     const NativeBlob=globalThis.Blob;
     globalThis.Blob=function(parts,options){globalThis.__exportParts=parts;return new NativeBlob(parts,options);};
@@ -92,7 +96,7 @@ module.exports = context => {
   ok(JSON.parse(ev(winExport, "__exportParts[0]")).version === 1,
     "export contiene lo stato versionato come JSON");
 
-  const winExportUnsupported=makeApp();
+  const winExportUnsupported=await makeApp();
   ev(winExportUnsupported, "Object.defineProperty(globalThis.URL,'createObjectURL',{value:undefined, configurable:true})");
   const unsupportedExport=ev(winExportUnsupported, "exportProgress()");
   ok(unsupportedExport===false && /non supporta/.test(winExportUnsupported.__lastAlert||""),
@@ -108,8 +112,8 @@ module.exports = context => {
     ]},
     write:{seqBest:7,solved:{1:1}}, wrongZ:[26], unknown:"scartato"
   });
-  const winImport=makeApp();
-  const imported=ev(winImport, `applyImportedState(${JSON.stringify(backup)})`);
+  const winImport=await makeApp();
+  const imported=await ev(winImport, `applyImportedState(${JSON.stringify(backup)})`);
   ok(imported===true, "backup valido importato dopo conferma");
   ok(ev(winImport, "JSON.stringify([state.mastery[1],state.write.seqBest,state.wrongZ])")==='[42,7,[26]]',
     "stato importato applicato e sanificato", ev(winImport, "JSON.stringify(state)"));
@@ -122,15 +126,15 @@ module.exports = context => {
   ok(winImport.document.getElementById("storageWarning").hidden,
     "import riuscito senza lasciare l'avviso di errore");
 
-  const winImportBad=makeApp();
+  const winImportBad=await makeApp();
   const beforeBad=ev(winImportBad, "JSON.stringify(state)");
-  ok(ev(winImportBad, `applyImportedState(${JSON.stringify(JSON.stringify({version:99,mastery:{1:99}}))})`)===false,
+  ok(await ev(winImportBad, `applyImportedState(${JSON.stringify(JSON.stringify({version:99,mastery:{1:99}}))})`)===false,
     "versione futura rifiutata durante l'import");
   ok(ev(winImportBad, "JSON.stringify(state)")===beforeBad,
     "import rifiutato non modifica lo stato corrente");
   ok(/non supportata/.test(winImportBad.__lastAlert||""),
     "import di versione futura spiega il motivo del rifiuto", winImportBad.__lastAlert);
-  ok(ev(winImportBad, "applyImportedState('{non-json')")===false &&
+  ok(await ev(winImportBad, "applyImportedState('{non-json')")===false &&
      /JSON valido/.test(winImportBad.__lastAlert||""),
     "import JSON malformato rifiutato con messaggio");
 
@@ -139,6 +143,7 @@ module.exports = context => {
   click(win, d.querySelector('#wtable .cell[data-z="5"]'));
   click(win, view(win, "stats"));
   click(win, d.getElementById("resetAll"));
+  await settle();
   ok(d.getElementById("wCellInput").disabled === true, "dopo 'Cancella tutto' l'input è disabilitato");
   ok(d.querySelectorAll("#wtable .cell.sel").length === 0, "nessuna selezione residua");
   ok(d.querySelector('#ptable .cell[data-z="1"]').getAttribute("aria-current") === "true" &&
@@ -153,13 +158,14 @@ module.exports = context => {
   ok(!d.getElementById("quizStage").classList.contains("hidden"), "quiz in corso prima dell'azzeramento");
   click(win, view(win, "stats"));
   click(win, d.getElementById("resetAll"));
+  await settle();
   ok(d.getElementById("quizStage").classList.contains("hidden"), "dopo 'Cancella tutto' il quiz aperto è chiuso");
   ok(!d.getElementById("quizSetup").classList.contains("hidden"), "dopo 'Cancella tutto' torna la schermata di avvio");
   ok(ev(win, "quiz.i") === 0 && ev(win, "quiz.wrong.length") === 0, "sessione quiz azzerata");
   ok(d.getElementById("wrongCount").textContent === "0", "contatore errori azzerato", d.getElementById("wrongCount").textContent);
 
   /* stato corrotto: box fuori scala */
-  const win2 = makeApp(JSON.stringify({ mastery: {}, leitner: { "1": 99 }, due: {}, quiz: { correct: 1, wrong: 1, history: [] }, write: { seqBest: 3, solved: {} }, wrongZ: [999] }));
+  const win2 = await makeApp(JSON.stringify({ mastery: {}, leitner: { "1": 99 }, due: {}, quiz: { correct: 1, wrong: 1, history: [] }, write: { seqBest: 3, solved: {} }, wrongZ: [999] }));
   const d2 = win2.document;
   ok(win2.__errors.length === 0, "nessun crash con box=99", win2.__errors.join("|"));
   click(win2, view(win2, "stats"));
@@ -168,7 +174,7 @@ module.exports = context => {
   ok(!rows2.some(t => /undefined|NaN/.test(t)), "box corrotto: nessuna etichetta undefined/NaN", rows2.join("/"));
 
   /* chiave leitner fantasma (es. 999): non è un elemento, non va contata nei mazzi */
-  const win8 = makeApp(JSON.stringify({ leitner: { 1: 0, 999: 3 } }));
+  const win8 = await makeApp(JSON.stringify({ leitner: { 1: 0, 999: 3 } }));
   click(win8, view(win8, "stats"));
   const boxCounts8 = [...win8.document.querySelectorAll("#boxStats .catbar")]
     .map(r => +r.querySelector(".pct").textContent);
@@ -179,7 +185,7 @@ module.exports = context => {
     win8.document.querySelectorAll("#statCards .stat")[4].querySelector(".v").textContent);
 
   /* chiavi non canoniche/proprietà ereditate e numeri troppo grandi */
-  const winEdges = makeApp(JSON.stringify({
+  const winEdges = await makeApp(JSON.stringify({
     mastery:{toString:50, "01":100}, leitner:{toString:3, "01":2, 1:1},
     due:{toString:1, "01":2, 1:3, 9:Number.MAX_SAFE_INTEGER},
     quiz:{correct:1e308, wrong:1e308, history:[
@@ -206,7 +212,7 @@ module.exports = context => {
     "nessun totale impossibile nelle statistiche");
 
   /* lo storico deve rispettare gli invarianti interi, anche su dati importati */
-  const winStrictHistory = makeApp(JSON.stringify({
+  const winStrictHistory = await makeApp(JSON.stringify({
     quiz:{history:[
       {d:Date.now(),score:20,total:4,answered:4,wrong:[26]},
       {d:Date.now(),score:10.5,total:4,answered:4,wrong:[]},
@@ -219,7 +225,7 @@ module.exports = context => {
     ev(winStrictHistory, "JSON.stringify(state.quiz.history)"));
 
   /* versioni non supportate: avviso, stato predefinito e possibilità di importare */
-  const winFuture=makeApp(JSON.stringify({version:99,mastery:{1:99},extra:"futuro"}));
+  const winFuture=await makeApp(JSON.stringify({version:99,mastery:{1:99},extra:"futuro"}));
   const futureWarning=winFuture.document.getElementById("storageWarning");
   ok(winFuture.__errors.length===0, "stato con versione futura avviato senza crash", winFuture.__errors.join("|"));
   ok(ev(winFuture, "JSON.stringify([state.version,mastery(1),state.unknown])")==='[1,0,null]',
@@ -232,7 +238,7 @@ module.exports = context => {
   ok(!winFuture.document.getElementById("storageImport").hidden,
     "avviso versione futura offre l'import di un backup compatibile");
   const futureRaw=winFuture.localStorage.getItem(KEY);
-  ok(ev(winFuture, "addMastery(1,10); save()")===false,
+  ok(await ev(winFuture, "addMastery(1,10); save()")===false,
     "salvataggio automatico bloccato per uno stato con versione futura");
   ok(winFuture.localStorage.getItem(KEY)===futureRaw,
     "stato con versione futura non viene sovrascritto da un'azione dell'app");
@@ -240,13 +246,14 @@ module.exports = context => {
     "tentativo di salvataggio spiega come sbloccare il ripristino", futureWarning.textContent);
   click(winFuture, view(winFuture, "stats"));
   click(winFuture, winFuture.document.getElementById("resetAll"));
+  await settle();
   ok(ev(winFuture, "storageWriteBlocked")===false && futureWarning.hidden,
     "azzeramento esplicito sblocca e chiude lo stato non supportato");
   ok(JSON.parse(winFuture.localStorage.getItem(KEY)).version===1,
     "azzeramento sostituisce lo stato futuro solo dopo conferma");
 
   /* membri null in localStorage: l'app deve avviarsi lo stesso */
-  const win5 = makeApp(JSON.stringify({ mastery: null, leitner: null, due: null, quiz: null, write: null, wrongZ: null }));
+  const win5 = await makeApp(JSON.stringify({ mastery: null, leitner: null, due: null, quiz: null, write: null, wrongZ: null }));
   ok(win5.__errors.length === 0, "nessun crash con membri null in localStorage", win5.__errors.join("|"));
   ok(ev(win5, "JSON.stringify([typeof state.mastery, typeof state.leitner, typeof state.due, Array.isArray(state.wrongZ), typeof state.write.solved])")
       === '["object","object","object",true,"object"]',
@@ -258,7 +265,7 @@ module.exports = context => {
 
   /* write.solved corrotto: solo il flag canonico 1 viene accettato; valori
      numerici non validi, booleani e chiavi fantasma non devono svelare risposte */
-  const winSolved = makeApp(JSON.stringify({ write:{seqBest:0, solved:{"1":0,"2":-1,"3":0.5,"4":"1","5":"01", "999":1}} }));
+  const winSolved = await makeApp(JSON.stringify({ write:{seqBest:0, solved:{"1":0,"2":-1,"3":0.5,"4":"1","5":"01", "999":1}} }));
   ok(ev(winSolved, "JSON.stringify(state.write.solved)") === '{"4":1}',
     "solved corrotto ripulito (solo flag 1 di elementi reali)",
     ev(winSolved, "JSON.stringify(state.write.solved)"));
@@ -272,7 +279,7 @@ module.exports = context => {
     "solved corrotto: contatore basato solo sulle caselle valide",
     winSolved.document.getElementById("wFilled").textContent);
 
-  /* membri ANNIDATI null: la sanitizzazione deve scendere di un livello */const win6 = makeApp(JSON.stringify({
+  /* membri ANNIDATI null: la sanitizzazione deve scendere di un livello */const win6 = await makeApp(JSON.stringify({
     write:{seqBest:3, solved:null},
     quiz:{correct:1, wrong:1, history:null},
     mastery:{1:"abc"}, leitner:{1:"abc"}
@@ -289,7 +296,7 @@ module.exports = context => {
     [...win6.document.querySelectorAll("#boxStats .catbar")].map(r => r.textContent).join("/"));
 
   /* padroneggio fuori scala in localStorage: clamp a 0..100 già al caricamento */
-  const win10 = makeApp(JSON.stringify({ mastery: { "1": 500, "2": -80, "3": "9999" } }));
+  const win10 = await makeApp(JSON.stringify({ mastery: { "1": 500, "2": -80, "3": "9999" } }));
   ok(win10.__errors.length === 0, "nessun crash con mastery fuori scala", win10.__errors.join("|"));
   ok(ev(win10, "JSON.stringify([mastery(1),mastery(2),mastery(3)])") === "[100,0,100]",
     "mastery fuori scala clamped a 0..100 al caricamento",
@@ -302,7 +309,7 @@ module.exports = context => {
 
   /* contatori salvati come stringhe numeriche: isNum le considera valide, ma vanno
      convertite — altrimenti correct+wrong nelle statistiche fa "5"+"3" = "53" domande */
-  const winNum = makeApp(JSON.stringify({
+  const winNum = await makeApp(JSON.stringify({
     quiz: { correct: "5", wrong: "3", history: [] },
     write: { seqBest: "42", solved: {} }
   }));
@@ -320,7 +327,7 @@ module.exports = context => {
     "miglior posizione sequenza renderizzata come numero", statTexts.join(" | "));
 
   /* storico con una voce priva del campo "wrong" */
-  const win7 = makeApp(JSON.stringify({ quiz:{correct:1, wrong:0, history:[{d:Date.now(), score:10, total:10}]} }));
+  const win7 = await makeApp(JSON.stringify({ quiz:{correct:1, wrong:0, history:[{d:Date.now(), score:10, total:10}]} }));
   click(win7, view(win7, "stats"));
   ok(/1\/10/.test(win7.document.getElementById("quizHist").textContent),
     "storico senza 'wrong' renderizzato", win7.document.getElementById("quizHist").textContent.replace(/\s+/g, " "));
@@ -328,7 +335,7 @@ module.exports = context => {
   /* contatori e storico fuori scala: clampati a valori plausibili, altrimenti
      le statistiche mostrano "67% su -15 domande", "Posizione 1000000000" e "Invalid Date" */
   const TS_OK = 1700000000000;   // timestamp fisso: Date.now() nel seed e nell'attesa divergerebbero
-  const winClamp = makeApp(JSON.stringify({
+  const winClamp = await makeApp(JSON.stringify({
     mastery: {}, leitner: {}, due: {},
     quiz: { correct: -10, wrong: -5, history: [
       { d: 1e30, score: 7, total: 3, wrong: [999, 26], answered: 99 },
@@ -353,19 +360,19 @@ module.exports = context => {
     "nessun valore impossibile renderizzato nelle statistiche", clampStats.replace(/\s+/g, " "));
 
   /* JSON malformato */
-  const win3 = makeApp("{non-json");
+  const win3 = await makeApp("{non-json");
   ok(win3.__errors.length === 0, "nessun crash con JSON malformato", win3.__errors.join("|"));
   ok(ev(win3, "state.quiz.correct") === 0, "stato di default ripristinato");
   ok(!win3.document.getElementById("storageWarning").hidden,
     "JSON malformato non viene più ignorato silenziosamente");
   ok(!win3.document.getElementById("storageImport").hidden,
     "stato malformato: avviso con import del backup compatibile");
-  ok(ev(win3, "save()") === true && win3.document.getElementById("storageWarning").hidden,
+  ok(await ev(win3, "save()") === true && win3.document.getElementById("storageWarning").hidden,
     "il primo salvataggio valido sostituisce lo stato corrotto e chiude l'avviso");
 
   /* wrongZ con Z inesistente: scartato al caricamento, così il contatore
      "Ripassa gli errori (n)" non promette errori che poi non ci sono */
-  const win4 = makeApp(JSON.stringify({ wrongZ: [1234] }));
+  const win4 = await makeApp(JSON.stringify({ wrongZ: [1234] }));
   click(win4, view(win4, "quiz"));
   ok(ev(win4, "JSON.stringify(state.wrongZ)") === "[]", "wrongZ fantasma scartato al caricamento",
     ev(win4, "JSON.stringify(state.wrongZ)"));
@@ -376,7 +383,7 @@ module.exports = context => {
     "wrongZ con Z inesistente gestito senza crash", win4.__lastAlert);
 
   /* wrongZ con duplicati o voci non numeriche: deduplicato e ripulito al caricamento */
-  const win9 = makeApp(JSON.stringify({ wrongZ: [26, 26, "27", null, "abc"] }));
+  const win9 = await makeApp(JSON.stringify({ wrongZ: [26, 26, "27", null, "abc"] }));
   ok(ev(win9, "JSON.stringify(state.wrongZ)") === "[26,27]",
     "wrongZ ripulito (duplicati e non numerici tolti)", ev(win9, "JSON.stringify(state.wrongZ)"));
   click(win9, view(win9, "quiz"));

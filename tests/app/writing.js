@@ -1,4 +1,4 @@
-module.exports = context => {
+module.exports = async context => {
   const {win, d, ok, section, ev, click, type, keyOn, view, makeApp} = context;
   /* ================= SCRIVI: griglia ================= */
   section("Scrivi la tavola (griglia)");
@@ -72,7 +72,7 @@ module.exports = context => {
 
   /* un errore nella griglia può far scendere sotto la soglia: anche il
      contatore globale deve aggiornarsi, non soltanto la cella e il dettaglio */
-  const winHead = makeApp();
+  const winHead = await makeApp();
   const dHead = winHead.document;
   ev(winHead, "state.mastery[2]=72; updateHead()");
   click(winHead, view(winHead, "write"));

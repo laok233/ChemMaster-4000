@@ -1,4 +1,4 @@
-module.exports = context => {
+module.exports = async context => {
   const {win, d, html, css, ok, section, ev, click, view, makeApp} = context;
   /* ================= VARI ================= */
   section("Vari");
@@ -15,7 +15,7 @@ module.exports = context => {
     d.querySelector('#ptable .cell[data-z="26"]').getAttribute("aria-label"));
 
   /* booleani in localStorage: scartati (mastery {1:true} e wrongZ [true,26]) */
-  const win11 = makeApp(JSON.stringify({ mastery: { "1": true }, wrongZ: [true, 26] }));
+  const win11 = await makeApp(JSON.stringify({ mastery: { "1": true }, wrongZ: [true, 26] }));
   ok(ev(win11, "mastery(1)") === 0, "mastery booleano scartato", String(ev(win11, "mastery(1)")));
   ok(ev(win11, "JSON.stringify(state.wrongZ)") === "[26]", "wrongZ booleano scartato",
     ev(win11, "JSON.stringify(state.wrongZ)"));
