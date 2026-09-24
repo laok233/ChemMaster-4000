@@ -21,9 +21,13 @@ Le funzioni disponibili sono la **tavola periodica** (`pages/tavola.html`), con 
 | **Scrivi la tavola** | **Tavola vuota**: clicchi una casella e scrivi il **simbolo** (il tooltip non svela la risposta; il nome completo riceve un richiamo senza penalità), con suggerimento e correzione immediata. **Sequenza**: scrivi i 118 simboli in ordine di numero atomico, con feedback e miglior posizione — anche qui il nome completo è ammesso come richiamo, senza penalità. |
 | **Progressi** | Padroneggio medio, % per categoria, mazzetti (etichette derivate da `BOX_DAYS`, quindi sempre allineate alle scadenze, e barre proporzionali alle carte assegnate), storico quiz, importazione/esportazione JSON e azzeramento. |
 
-Tutti i progressi sono salvati principalmente in IndexedDB e ripristinati al riavvio; il vecchio `localStorage` viene migrato automaticamente e resta il fallback quando IndexedDB non è disponibile o non completa l'inizializzazione entro 5 secondi. Una lettura remota che termina durante una sessione aperta non può applicare lo snapshot e cancellarla. Le scritture IndexedDB usano una transazione atomica di confronto-and-scrittura e `BroadcastChannel` per sincronizzare le schede; nel fallback localStorage, quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Le richieste di salvataggio già incluse nello snapshot precedente vengono compatte, mentre una modifica avvenuta durante una transazione non viene considerata salvata finché non viene persistita. Reset e import espliciti ricaricano il baseline corrente prima del CAS, così non falliscono silenziosamente dopo un conflitto. Una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Lo stato importato attraversa la stessa sanitizzazione dei dati salvati, i payload locali sono limitati a 1 MB e le versioni non supportate vengono rifiutate.
+Tutti i progressi sono salvati principalmente in IndexedDB e ripristinati al riavvio; il vecchio `localStorage` viene migrato con CAS e resta il fallback quando IndexedDB non è disponibile o non completa l'inizializzazione entro 5 secondi. Una lettura remota che termina durante una sessione aperta non può applicare lo snapshot e cancellarla. Le scritture IndexedDB usano una transazione atomica di confronto-and-scrittura, timeout operativi e `BroadcastChannel` per sincronizzare le schede; nel fallback localStorage, quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Se IndexedDB e localStorage contengono copie diverse, l’app blocca la scrittura automatica e chiede una scelta esplicita. Le richieste di salvataggio già incluse nello snapshot precedente vengono compatte, mentre una modifica avvenuta durante una transazione non viene considerata salvata finché non viene persistita. Reset e import espliciti ricaricano il baseline corrente prima del CAS, così non falliscono silenziosamente dopo un conflitto. Una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Lo stato importato attraversa la stessa sanitizzazione dei dati salvati, i payload locali sono limitati a 1 MB e le versioni non supportate vengono rifiutate.
 
-Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; anche le schede Guida/Quiz della nomenclatura indicano lo stato attivo. Filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera e il numero di elementi filtrati sono regioni `aria-live="polite"`; le barre di avanzamento espongono il valore tramite `role="progressbar"`; le scorciatoie tastiera sono dichiarate con `aria-keyshortcuts` e si attivano solo senza tasti modificatori; ogni controllo ha un nome accessibile e `prefers-reduced-motion` disattiva sia animazioni sia trasformazioni immediate dell’hover. La guida di nomenclatura usa controlli nativi, schede `<details>` e un indice navigabile; il quiz mantiene il focus tra domanda, risposta e riepilogo, dichiara le scorciatoie `1`–`5` e annuncia correzione e avanzamento. Su viewport stretti la tavola scorre dentro il proprio contenitore senza allargare la pagina.
+Accessibilità: tutte le pagine espongono un skip link come primo controllo accessibile per saltare header e navigazione; la vista attiva è marcata con `aria-current` e riceve il focus, anche nelle schede Guida/Quiz della nomenclatura. Filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera e il numero di elementi filtrati sono regioni `aria-live="polite"`; le barre di avanzamento espongono il valore tramite `role="progressbar"`; le scorciatoie tastiera sono dichiarate con `aria-keyshortcuts` e si attivano solo senza tasti modificatori; ogni controllo ha un nome accessibile e `prefers-reduced-motion` disattiva sia animazioni sia trasformazioni immediate dell’hover. La guida di nomenclatura usa controlli nativi, schede `<details>` e un indice navigabile; il quiz mantiene il focus tra domanda, risposta e riepilogo, dichiara le scorciatoie `1`–`5` e annuncia correzione e avanzamento. Su viewport stretti la tavola scorre dentro il proprio contenitore senza allargare la pagina.
+
+### Supporto browser
+
+Essendo un’app HTML senza build, il codice usa le API standard dei browser evergreen (`replaceChildren`, `normalize`, `globalThis`, `queueMicrotask` e Web Locks quando disponibile) senza polyfill. La CI copre Chromium; per ambienti legacy è consigliato un browser aggiornato. Il fallback `localStorage` mantiene la compatibilità, ma la serializzazione multi-tab è garantita solo quando Web Locks è disponibile: senza lock, usare una singola scheda per evitare scritture concorrenti.
 
 ## Struttura del progetto
 
@@ -52,6 +56,8 @@ scripts/
     └── app.js                  navigazione Guida/Quiz, rendering e motore quiz
 tests/
 ├── check-data.js               verifiche sui dati della tavola
+├── check-nomenclature-data.js  schema, alias, fasi e scope dei dati di nomenclatura
+├── fixtures/                   riferimento IUPAC indipendente per le 118 masse
 ├── helpers/                    harness JSDOM e ordine canonico degli script
 ├── app/                        test funzionali per area della tavola
 ├── test-app.js                 orchestratore dei test funzionali sulla tavola
@@ -73,6 +79,8 @@ bun.lock                        grafo delle dipendenze riproducibile per Bun/CI
 bun install --frozen-lockfile   # serve solo per test, lint e validazione; l'app non ha dipendenze runtime
 bunx playwright install chromium # una volta, per i test browser (con --with-deps in CI)
 bun run test                    # lint + HTML + JSDOM + IndexedDB/fallback + Chromium/axe
+bun run test:unit               # dati + test JSDOM, senza browser
+bun run test:storage            # concorrenza IndexedDB e fallback localStorage
 bun run lint                    # solo ESLint
 bun run validate                # solo HTML validate
 bun run test:browser            # solo smoke test Chromium e audit axe-core
@@ -81,8 +89,9 @@ bun run test:nomenclature        # solo test JSDOM della guida di nomenclatura
 
 In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`** con **Bun 1.4.2** pinnato (`bun install --frozen-lockfile`, installazione Chromium e `bun run test`): non viene avviato alcun processo Node per la suite. Le Action sono referenziate per SHA; `bun run test` include lint ESLint, validazione HTML, test JSDOM, test IndexedDB/fallback e smoke test Chromium con axe-core. La badge qui sopra riflette l'ultimo run.
 
-- **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, masse IUPAC di riferimento
-  (inclusa la revisione 2024 di Zr e i numeri di massa radioattivi), posizioni senza collisioni,
+- **`tests/check-data.js`** — 118 simboli/nomi/masse allineati e univoci, confronto completo
+  con il riferimento IUPAC abbrigiato 2024 (comprese le revisioni Gd/Lu/Zr e i numeri di massa
+  degli isotopi radioattivi), posizioni senza collisioni,
   ogni elemento categorizzato (con la regola CSS `.cat-<id>` corrispondente nel foglio di stile),
   elenco biorilevante senza simboli fantasmi né duplicati (26 voci, `BIO_Z` coerente,
   i 6 bioelementi strutturali presenti, categoria e regola CSS per ciascuno),
@@ -91,8 +100,11 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   gusci coerenti, eccezioni di configurazione reali, controlli incrociati noti (Ar>K, Co>Ni, Te>I…),
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
+- **`tests/check-nomenclature-data.js`** — schema delle 14 schede, tabelle allineate, filtri derivati,
+  quattro scope con pool canonici, alias e fasi degli esempi; il controllo blocca anche regressioni
+  come `HCl`/`HCl(aq)` e acido etanoico/acetico.
 - **`bun run validate`** — validazione HTML delle tre pagine con `html-validate`.
-- **`tests/test-app.js`** — 350 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`tests/test-app.js`** — 362 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,
@@ -119,26 +131,26 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   `go()` con vista ignota che non lascia la pagina vuota, `aria-current`/`aria-pressed`/`aria-live`,
   navigazione senza animazione con `prefers-reduced-motion`, pannello dettagli non sticky su mobile,
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
-- **`tests/test-browser.js`** — 41 asserzioni: Chromium headless sul menu, sui nuovi percorsi delle pagine, sulla guida e sul quiz di nomenclatura e su tutte le viste della
-  tavola, nessun errore JavaScript, zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili,
-  viewport a 320 px senza overflow della pagina, hover neutro con motion ridotto e avvio `file://` di tavola e nomenclatura senza server.
-- **`tests/test-storage-indexeddb.js`** — 16 asserzioni: migrazione automatica da localStorage,
+- **`tests/test-browser.js`** — 46 asserzioni: Chromium headless sul menu, sui nuovi percorsi delle pagine, sulla guida e sul quiz di nomenclatura e su tutte le viste della
+  tavola, skip link e focus dell’indice, tabelle orizzontali a 320 px, nessun errore JavaScript,
+  zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili, hover neutro con motion ridotto e avvio `file://` di tavola e nomenclatura senza server.
+- **`tests/test-storage-indexeddb.js`** — 21 asserzioni: migrazione atomica da localStorage, conservazione dei payload oversized,
   caricamento condiviso del database, rifiuto di una seconda scrittura con baseline obsoleto,
   serializzazione dei salvataggi rapidi, rifiuto dei record falsi corrotti, timeout del bootstrap
-  e chiusura di un database aperto tardivamente.
-- **`tests/test-storage-lock.js`** — 21 asserzioni: due finestre con storage condiviso e lock
+  e delle operazioni successive, chiusura di un database aperto tardivamente e riconciliazione esplicita tra copie divergenti.
+- **`tests/test-storage-lock.js`** — 22 asserzioni: due finestre con storage condiviso e lock
   concorrenti; la seconda scrittura obsoleta viene rifiutata e non annulla la prima; un reset
   invalida anche i salvataggi già in coda prima di scrivere lo stato vuoto; una modifica effettuata
   durante una transazione resta `dirty` finché non viene salvata; import esplicito dopo conflitto
   e reload con annuncio remoto vengono gestiti senza perdere lo snapshot; il reset della sola griglia
   non sovrascrive il mastery remoto; due richieste già incluse nello snapshot precedente producono
   una sola scrittura.
-- **`tests/test-menu.js`** — menu principale: titolo/h1, sottotitolo piattaforma, due tessere
+- **`tests/test-menu.js`** — 18 asserzioni: menu principale, titolo/h1, sottotitolo piattaforma, due tessere
   («Tavola periodica» → `pages/tavola.html` e «Nomenclatura» → `pages/nomenclatura.html`), e tutti i link `*.html` del menu puntano a file esistenti.
-- **`tests/test-nomenclature.js`** — 73 asserzioni: struttura della pagina, 14 schede, nomi tradizionali
-  inorganici e organici, ricerca normalizzata su regole/note/esempi (incluse formule come `N2O4` per `N₂O₄`),
-  filtri tradizionali/inorganica/organica, indice sincronizzato e tabelle accessibili, oltre alla navigazione
-  Guida/Quiz e al quiz: ambiti, alternative, scorciatoie, risposta corretta/errata, “Non so”, riepilogo parziale
+- **`tests/test-nomenclature.js`** — 87 asserzioni: struttura della pagina, 14 schede, nomi tradizionali
+  inorganici e organici, ricerca normalizzata AND su regole/note/esempi/area (incluse formule come `N2O4` per `N₂O₄`),
+  filtri tradizionali/inorganica/organica, indice sincronizzato, tabelle accessibili e focalizzabili, oltre alla navigazione
+  Guida/Quiz e al quiz: ambiti, alias canonici, fasi, alternative, scorciatoie, risposta corretta/errata, “Non so”, riepilogo parziale
   ed errori da ripassare.
 
 ## Personalizzazione rapida

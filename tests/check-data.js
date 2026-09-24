@@ -4,6 +4,7 @@ const fs = require("fs");
 const vm = require("vm");
 const path = require("path");
 const { APP_SCRIPTS } = require("./helpers/app-scripts");
+const { IUPAC_MASSES } = require("./fixtures/iupac-masses");
 
 const root = path.join(__dirname, "..");
 const html = fs.readFileSync(path.join(root, "pages/tavola.html"), "utf8");
@@ -115,13 +116,15 @@ o.ELEMENTS.forEach(e => {
 
 /* --- masse: solo cifre o [numero] --- */
 o.MASSES.forEach((m, i) => ok(/^\[\d+\]$|^\d+(\.\d+)?$/.test(m), "formato massa: " + o.SYMBOLS[i] + " " + m));
-// Valori abridgiati IUPAC: tabella 2021 e revisione 2024 di Zr. I numeri tra
-// parentesi quadre sono quelli scelti dalla tavola per gli elementi radioattivi.
-const EXPECTED_MASSES = { 18:"39.95", 40:"91.222", 43:"[97]", 103:"[262]", 109:"[277]", 114:"[290]" };
-Object.entries(EXPECTED_MASSES).forEach(([z,mass]) => {
-  ok(o.MASSES[Number(z)-1] === mass,
-    `massa IUPAC Z=${z}: atteso ${mass}, trovato ${o.MASSES[Number(z)-1]}`);
-});
+// Valori abridgiati IUPAC 2024. Il riferimento completo vive in un fixture
+// separato: un errore di copertura o di allineamento deve interrompere la suite.
+ok(IUPAC_MASSES.length === 118,
+  "riferimento IUPAC completo: 118 masse", "ottenute " + IUPAC_MASSES.length);
+const firstMassMismatch=o.MASSES.findIndex((mass,index)=>mass!==IUPAC_MASSES[index]);
+ok(firstMassMismatch===-1, "tutte le 118 masse corrispondono al riferimento IUPAC 2024",
+  firstMassMismatch>=0 ?
+    `Z=${firstMassMismatch + 1} ${o.SYMBOLS[firstMassMismatch]}: attesa ${IUPAC_MASSES[firstMassMismatch]}, trovata ${o.MASSES[firstMassMismatch]}` :
+    "");
 
 /* --- controlli incrociati noti (errori tipici delle tavole) --- */
 const byS = Object.fromEntries(o.ELEMENTS.map(e => [e.sym, e]));

@@ -35,6 +35,9 @@ const h1 = d.querySelector("header h1");
 ok(!!h1 && /ChemMaster\s*4000/.test(h1.textContent.replace(/\s+/g, " ")),
   "h1 con il nome del progetto", h1 && h1.textContent);
 ok(/Piattaforma di studio della chimica/.test(d.body.textContent), "sottotitolo piattaforma");
+const skipLink=d.querySelector('body > a.skip-link[href="#main-content"]');
+ok(!!skipLink && d.body.firstElementChild===skipLink && !!d.getElementById("main-content"),
+  "primo focus della pagina sul skip link verso il contenuto");
 
 /* ================= TESSERE ================= */
 section("Menu: tessere");

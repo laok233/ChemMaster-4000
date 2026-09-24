@@ -57,8 +57,29 @@ async function main() {
   const b = await makeApp(factory);
   ok(b.__errors.length === 0, "seconda finestra IndexedDB inizializzata senza errori", b.__errors.join(" | "));
   ok(b.__run("mastery(1)") === 42, "seconda finestra legge lo stesso database");
+  const divergent=JSON.stringify({
+    version:1, mastery:{1:99}, leitner:{}, due:{},
+    quiz:{correct:0,wrong:0,history:[]}, write:{seqBest:0,solved:{}}, wrongZ:[]
+  });
+  const divergentWindow=await makeApp(factory, divergent);
+  ok(divergentWindow.__run("storageBackend") === "indexeddb" &&
+     divergentWindow.__run("storageReconcileRequired") === true &&
+     divergentWindow.__run("mastery(1)") === 42,
+  "copie IndexedDB/localStorage divergenti non vengono scelte silenziosamente");
+  ok(divergentWindow.document.getElementById("storageWarning").dataset.kind === "conflict" &&
+     await divergentWindow.__run("addMastery(1,1); save()") === false,
+  "la riconciliazione blocca la scrittura automatica fino a una scelta esplicita");
+  ok(await divergentWindow.__run(`applyImportedState(${JSON.stringify(seed)})`) === true &&
+     divergentWindow.__run("storageReconcileRequired") === false &&
+     divergentWindow.localStorage.getItem(KEY) === null,
+  "import esplicito risolve la divergenza e rimuove il fallback obsoleto");
   ok(a.__run("decodeStoredState(0).issue") && a.__run("decodeStoredState(false).issue"),
     "record IndexedDB con raw falsi vengono rifiutati", JSON.stringify(a.__run("[decodeStoredState(0),decodeStoredState(false)]")));
+
+  const oversizedWindow=await makeApp(new IDBFactory(), "x".repeat(1024*1024+1));
+  ok(oversizedWindow.localStorage.getItem(KEY) !== null &&
+     /troppo grandi/.test(oversizedWindow.document.getElementById("storageWarningText").textContent),
+  "migrazione di payload oversized conserva il backup locale per recovery");
 
   const saveA = a.__run("addMastery(1,10); save()");
   const saveB = b.__run("addMastery(1,20); save()");
@@ -110,6 +131,30 @@ async function main() {
   await new Promise(resolve => setTimeout(resolve,60));
   ok(lateCloses===1,
     "init: il database aperto dopo il timeout viene chiuso", String(lateCloses));
+
+  /* anche le letture operative hanno un deadline: una transazione sospesa
+     non deve lasciare la pagina in stato di caricamento per sempre */
+  const hangingDb={
+    close(){},
+    transaction(){
+      return {
+        objectStore(){ return { get(){ return {}; } }; },
+        abort(){}
+      };
+    }
+  };
+  Object.defineProperty(a, "indexedDB", {
+    configurable:true,
+    value:{ open(){
+      const request={};
+      setTimeout(()=>{ request.result=hangingDb; request.onsuccess?.(); },0);
+      return request;
+    }}
+  });
+  const timedRead=await a.__run(
+    'createProgressStore("read-timeout-test",{dbName:"read-timeout-db",initTimeoutMs:100,operationTimeoutMs:20}).init()');
+  ok(timedRead.backend==="localstorage" && /Lettura IndexedDB scaduta/.test(timedRead.error.message),
+    "operazioni IndexedDB successive rispettano il timeout", timedRead.error?.message);
 
   console.log(`IndexedDB: ${fail ? "ERRORI" : "OK"} (${pass}/${pass + failures.length})`);
   failures.forEach(failure => console.log("FAIL: " + failure));

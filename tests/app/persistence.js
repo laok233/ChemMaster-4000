@@ -52,6 +52,14 @@ module.exports = async context => {
      winSessionEvent.document.getElementById("storageWarning").hidden,
     "evento sessionStorage ignorato senza falso conflitto");
 
+  /* un reset remoto che riporta la chiave a null è un evento, non un duplicato */
+  const winNullReset = await makeApp();
+  ev(winNullReset, "addMastery(7,5); storageDirty=true");
+  ev(winNullReset, `globalThis.dispatchEvent(new StorageEvent("storage",{key:${JSON.stringify(KEY)},newValue:null,storageArea:localStorage}))`);
+  ok(ev(winNullReset, "storageConflict") === true &&
+     winNullReset.document.getElementById("storageWarning").dataset.kind === "conflict",
+    "remote removeItem con baseline null non viene ignorato");
+
   /* un aggiornamento remoto non deve mescolarsi a una sessione ancora aperta */
   const winPendingEvent = await makeApp(conflictSeed);
   click(winPendingEvent, view(winPendingEvent, "cards"));
@@ -112,6 +120,28 @@ module.exports = async context => {
   ok(ev(winReloadRace, "storageConflict") === true,
     "reload con sessione iniziata durante la lettura richiede una conferma esplicita");
 
+  /* un flip non persiste niente, ma cambia la sessione: il reload non deve
+     chiuderla silenziosamente mentre la lettura è in volo */
+  const winFlipRace=await makeApp(conflictSeed);
+  click(winFlipRace, view(winFlipRace, "cards"));
+  click(winFlipRace, winFlipRace.document.getElementById("startCards"));
+  let releaseFlipRead;
+  const flipReadGate=new Promise(resolve=>{ releaseFlipRead=resolve; });
+  let markFlipRead;
+  const flipReadStarted=new Promise(resolve=>{ markFlipRead=resolve; });
+  winFlipRace.__flipReadGate=flipReadGate;
+  winFlipRace.__markFlipRead=markFlipRead;
+  ev(winFlipRace,
+    `progressStore.read=()=>{globalThis.__markFlipRead();return globalThis.__flipReadGate.then(()=>localStorage.getItem(${JSON.stringify(KEY)}));}`);
+  const flipReload=ev(winFlipRace, "reloadFromDisk()");
+  await flipReadStarted;
+  ev(winFlipRace, "flipCard()");
+  releaseFlipRead();
+  await flipReload;
+  ok(ev(winFlipRace, "storageConflict") === true &&
+     ev(winFlipRace, "cards.queue.length") > 0,
+    "flip durante reload conserva la sessione e segnala il conflitto");
+
   /* storage non disponibile: avviso e possibilità di esportare */
   const winNoStorage = await makeApp(null, "file:///pages/tavola.html");
   const failedSave = await ev(winNoStorage, "addMastery(2,5); save()");
@@ -121,6 +151,14 @@ module.exports = async context => {
      !winNoStorage.document.getElementById("storageExport").hidden &&
      !winNoStorage.document.getElementById("storageImport").hidden,
     "errore storage mostra import ed esportazione della copia");
+
+  const winReadError=await makeApp();
+  ev(winReadError, "progressStore.read=()=>Promise.reject(new Error('read')); reloadFromDisk()");
+  await settle();
+  ok(ev(winReadError, "storageDirty") === false &&
+     winReadError.document.getElementById("storageWarning").dataset.kind === "read" &&
+     !winReadError.document.getElementById("storageReload").hidden,
+    "errore di sola lettura non marca come dirty e offre un retry");
 
   /* export: click, nome file e contenuto JSON */
   const winExport = await makeApp();

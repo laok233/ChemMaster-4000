@@ -39,6 +39,18 @@ function normalizeNomenclatureText(value){
     .replace(/\s+/g," ");
 }
 
+// Chiave stabile per riconoscere la stessa coppia chimica anche quando cambia
+// la grafia del legame. La fase resta significativa: HCl(g) e HCl(aq) non
+// vengono confusi. Gli alias tradizionali condividono invece questa chiave.
+function nomenclatureFormulaKey(value){
+  return nomenclatureText(value)
+    .replace(/[₀-₉]/g,char=>String(char.charCodeAt(0)-0x2080))
+    .replace(/[⁰-⁹]/g,char=>String(char.charCodeAt(0)-0x2070))
+    .replace(/[–—−]/g,"-")
+    .replace(/\s+/g,"")
+    .toLowerCase();
+}
+
 function nomenclatureSearchText(card){
   const examples=Array.isArray(card.examples)?card.examples:[];
   const exampleText=examples.flatMap(example=>[example.formula,example.name,example.note]);
@@ -47,17 +59,18 @@ function nomenclatureSearchText(card){
     ...card.table.rows.flat()
   ] : [];
   return normalizeNomenclatureText([
-    card.title,card.topic,card.summary,card.rule,
+    card.title,card.topic,card.summary,card.rule,nomenclatureAreaLabel(card.area),
     ...(card.steps||[]),...exampleText,...(card.notes||[]),...tableText
   ]);
 }
 
 function nomenclatureMatches(record,query){
-  if(!query || record.searchText.includes(query)) return true;
-  // Il nome dell'area ("organica") è confrontato per parole: un semplice
-  // includes lo renderebbe parte di "inorganica" e falserebbe i risultati.
+  if(!query) return true;
+  // AND tra parole: un termine può provenire dal contenuto e un altro
+  // dall'area. Il confronto per prefisso evita che "organica" trovi
+  // "inorganica", mantenendo utili le ricerche parziali come "clor".
   return query.split(" ").every(term=>
-    record.areaWords.some(word=>word.startsWith(term)));
+    record.searchWords.some(word=>word.startsWith(term)));
 }
 
 function nomenclatureAreaLabel(area){
@@ -79,11 +92,19 @@ function nomenclatureCardIdFromHash(){
     elementId.slice(4) : null;
 }
 
+function focusNomenclatureHashTarget(){
+  const id=nomenclatureCardIdFromHash();
+  if(!id) return;
+  const node=document.getElementById(`nom-${id}`);
+  if(node) node.focus({preventScroll:true});
+}
+
 function buildNomenclatureCard(card){
   const titleId=`nom-title-${card.id}`;
   const article=makeNomenclatureElement("article",{
     id:`nom-${card.id}`,
     class:"nomenclature-card",
+    tabindex:"-1",
     "aria-labelledby":titleId,
     dataset:{area:card.area,traditional:String(card.traditional===true)}
   });
@@ -136,12 +157,17 @@ function buildNomenclatureCard(card){
   }
 
   if(card.table){
-    const tableWrap=makeNomenclatureElement("div",{class:"nomenclature-table-wrap"});
+    const tableWrap=makeNomenclatureElement("div",{
+      class:"nomenclature-table-wrap",
+      role:"region",
+      tabindex:"0",
+      "aria-label":`Tabella: ${card.table.caption}`
+    });
     const table=makeNomenclatureElement("table");
     table.append(
       makeNomenclatureElement("caption",{text:card.table.caption}),
       makeNomenclatureElement("thead",{},makeNomenclatureElement("tr",{},
-        ...card.table.headers.map((header,index)=>makeNomenclatureElement("th",{
+        ...card.table.headers.map(header=>makeNomenclatureElement("th",{
           scope:"col",text:header
         }))
       )),
@@ -229,12 +255,17 @@ function updateNomenclatureIndex(){
   nomenclatureIndexNodes.forEach((item,id)=>{
     item.hidden=!visibleIds.has(id);
     const link=item.querySelector("a");
-    if(id===currentId) link.setAttribute("aria-current","location");
+    if(id===currentId && visibleIds.has(id)) link.setAttribute("aria-current","location");
     else link.removeAttribute("aria-current");
   });
   nomenclatureIndexGroups.forEach((group,area)=>{
     group.hidden=!visibleAreas.has(area);
   });
+}
+
+function nomenclatureNoun(count,singular,plural){ return count===1?singular:plural; }
+function nomenclatureCountPhrase(count,singular,plural){
+  return `${count} ${nomenclatureNoun(count,singular,plural)}`;
 }
 
 function updateNomenclatureFilter(){
@@ -252,9 +283,9 @@ function updateNomenclatureFilter(){
   const total=NOMENCLATURE_CARDS.length;
   const status=document.getElementById("nomenclatureStatus");
   status.textContent=count===0?
-    "Nessuna scheda corrisponde alla ricerca o al filtro selezionato.":
+    "Nessuna scheda corrisponde alla ricerca o al filtro selenzionato.":
     count===total?`Tutte le ${total} schede sono mostrate.`:
-      `${count} schede mostrate su ${total}.`;
+      `${nomenclatureCountPhrase(count,"scheda mostrata","schede mostrate")} su ${total}.`;
   status.dataset.empty=String(count===0);
   document.getElementById("clearNomenclature").disabled=
     nomenclatureState.filter==="all" && !nomenclatureState.query.trim();
@@ -302,7 +333,8 @@ function showNomenclatureView(view){
 }
 
 const NOMENCLATURE_NOT_KNOWN="__nomenclature_not_known__";
-const nomenclatureQuiz={questions:[],index:0,correct:0,answered:0,wrong:[],answeredCurrent:false};
+const nomenclatureQuiz={questions:[],index:0,correct:0,answered:0,wrong:[],answeredCurrent:false,finished:false};
+let nomenclatureQuizEventsBound=false;
 
 function nomenclatureShuffle(values){
   const result=values.slice();
@@ -314,40 +346,56 @@ function nomenclatureShuffle(values){
 }
 
 function buildNomenclatureQuizPool(scope){
-  return NOMENCLATURE_CARDS.flatMap(card=>{
+  const grouped=new Map();
+  NOMENCLATURE_CARDS.forEach(card=>{
     const inScope=scope==="all" || (scope==="traditional"?card.traditional===true:card.area===scope);
-    if(!inScope) return [];
-    return (card.examples||[]).map((example,index)=>({
-      id:`${card.id}:${index}`,
-      cardId:card.id,
-      area:card.area,
-      traditional:card.traditional===true,
-      topic:card.topic,
-      formula:example.formula,
-      name:example.name,
-      note:example.note||""
-    }));
+    if(!inScope) return;
+    (card.examples||[]).forEach((example,index)=>{
+      const canonicalId=`formula:${nomenclatureFormulaKey(example.formula)}`;
+      let entry=grouped.get(canonicalId);
+      if(!entry){
+        entry={
+          id:`${card.id}:${index}`,
+          canonicalId,
+          cardId:card.id,
+          area:card.area,
+          traditional:card.traditional===true,
+          topic:card.topic,
+          formula:example.formula,
+          name:example.name,
+          note:example.note||"",
+          acceptedNames:[]
+        };
+        grouped.set(canonicalId,entry);
+      }
+      if(!entry.acceptedNames.includes(example.name)) entry.acceptedNames.push(example.name);
+    });
   });
+  return [...grouped.values()];
 }
 
 function makeNomenclatureQuizQuestion(entry,pool,index){
   const direction=index%2===0?"formulaToName":"nameToFormula";
   const answerField=direction==="formulaToName"?"name":"formula";
   const answer=entry[answerField];
+  const acceptedAnswers=direction==="formulaToName" ?
+    (entry.acceptedNames.length?entry.acceptedNames:[entry.name]) : [entry.formula];
   const optionSet=new Set([answer]);
-  let sources=pool;
-  if(sources.length<4) sources=buildNomenclatureQuizPool("all");
+  let sources=pool.filter(candidate=>candidate.canonicalId!==entry.canonicalId);
+  if(sources.length<3) sources=buildNomenclatureQuizPool("all")
+    .filter(candidate=>candidate.canonicalId!==entry.canonicalId);
   sources.forEach(candidate=>{
     const value=candidate[answerField];
     if(optionSet.size<4 && value!==answer) optionSet.add(value);
   });
   if(optionSet.size<4){
     buildNomenclatureQuizPool("all").forEach(candidate=>{
+      if(candidate.canonicalId===entry.canonicalId) return;
       const value=candidate[answerField];
       if(optionSet.size<4 && value!==answer) optionSet.add(value);
     });
   }
-  return {...entry,direction,answer,options:nomenclatureShuffle([...optionSet])};
+  return {...entry,direction,answer,acceptedAnswers,options:nomenclatureShuffle([...optionSet])};
 }
 
 function nomenclatureQuizPrompt(question){
@@ -368,11 +416,26 @@ function updateNomenclatureQuizSetup(){
   const scope=document.getElementById("nomenclatureQuizScope").value;
   const length=document.getElementById("nomenclatureQuizLength");
   const pool=buildNomenclatureQuizPool(scope);
+  length.querySelectorAll("option[data-dynamic]").forEach(option=>option.remove());
+  const fixedLengths=[...length.options].map(option=>Number(option.value)).filter(Number.isFinite);
+  const smallestFixedLength=Math.min(...fixedLengths);
+  if(pool.length>0 && pool.length<smallestFixedLength &&
+     !fixedLengths.includes(pool.length)){
+    const exact=makeNomenclatureElement("option",{
+      value:String(pool.length),text:`${pool.length} domande`,dataset:{dynamic:"true"}
+    });
+    length.prepend(exact);
+  }
   [...length.options].forEach(option=>{ option.disabled=Number(option.value)>pool.length; });
-  if(Number(length.value)>pool.length) length.value=String(Math.min(10,pool.length));
-  document.getElementById("nomenclatureQuizPoolCount").textContent=`${pool.length} esempi`;
+  length.disabled=pool.length===0;
+  if(length.disabled) length.value="";
+  else if(![...length.options].some(option=>option.value===length.value && !option.disabled)){
+    length.value=[...length.options].find(option=>!option.disabled)?.value||"";
+  }
+  document.getElementById("nomenclatureQuizPoolCount").textContent=
+    nomenclatureCountPhrase(pool.length,"esempio","esempi");
   document.getElementById("nomenclatureQuizHint").textContent=pool.length?
-    `${pool.length} coppie formula–nome disponibili in questo ambito.`:
+    `${nomenclatureCountPhrase(pool.length,"coppia formula–nome disponibile","coppie formula–nome disponibili")} in questo ambito.`:
     "Non ci sono esempi disponibili per questo ambito.";
   document.getElementById("nomenclatureQuizStart").disabled=pool.length===0;
 }
@@ -384,7 +447,7 @@ function startNomenclatureQuiz(){
   const count=Math.max(1,Math.min(requested,pool.length));
   const questions=nomenclatureShuffle(pool).slice(0,count)
     .map((entry,index)=>makeNomenclatureQuizQuestion(entry,pool,index));
-  Object.assign(nomenclatureQuiz,{questions,index:0,correct:0,answered:0,wrong:[],answeredCurrent:false});
+  Object.assign(nomenclatureQuiz,{questions,index:0,correct:0,answered:0,wrong:[],answeredCurrent:false,finished:false});
   document.getElementById("nomenclatureQuizSetup").classList.add("hidden");
   document.getElementById("nomenclatureQuizDone").classList.add("hidden");
   document.getElementById("nomenclatureQuizStage").classList.remove("hidden");
@@ -398,8 +461,11 @@ function renderNomenclatureQuizQuestion(){
   document.getElementById("nomenclatureQuizProgress").textContent=
     `Domanda ${nomenclatureQuiz.index+1}/${nomenclatureQuiz.questions.length}`;
   document.getElementById("nomenclatureQuizScore").textContent=`Corrette: ${nomenclatureQuiz.correct}`;
-  document.getElementById("nomenclatureQuizMeter").style.width=
-    `${(nomenclatureQuiz.index+1)/nomenclatureQuiz.questions.length*100}%`;
+  const meterPct=Math.round((nomenclatureQuiz.index+1)/nomenclatureQuiz.questions.length*100);
+  const meterTrack=document.getElementById("nomenclatureQuizMeterTrack");
+  meterTrack.setAttribute("aria-valuenow",String(meterPct));
+  meterTrack.setAttribute("aria-valuetext",`${nomenclatureQuiz.index+1} di ${nomenclatureQuiz.questions.length} domande, ${meterPct}%`);
+  document.getElementById("nomenclatureQuizMeter").style.width=meterPct+"%";
   document.getElementById("nomenclatureQuizQuestion").replaceChildren(...nomenclatureQuizPrompt(question));
   const options=document.getElementById("nomenclatureQuizOptions");
   options.replaceChildren();
@@ -435,14 +501,15 @@ function answerNomenclatureQuiz(answer){
   nomenclatureQuiz.answeredCurrent=true;
   nomenclatureQuiz.answered++;
   const skipped=answer===NOMENCLATURE_NOT_KNOWN;
-  const correct=!skipped && answer===question.answer;
+  const acceptedAnswers=Array.isArray(question.acceptedAnswers)?question.acceptedAnswers:[question.answer];
+  const correct=!skipped && acceptedAnswers.includes(answer);
   if(correct) nomenclatureQuiz.correct++;
   else nomenclatureQuiz.wrong.push(question);
 
   document.querySelectorAll("#nomenclatureQuizOptions .opt").forEach(button=>{
     button.disabled=true;
     button.removeAttribute("aria-keyshortcuts");
-    if(button.dataset.answer===question.answer) button.classList.add("correct");
+    if(acceptedAnswers.includes(button.dataset.answer)) button.classList.add("correct");
     else if(skipped && button.classList.contains("skip")) button.classList.add("chosen");
     else if(button.dataset.answer===answer) button.classList.add("wrong");
   });
@@ -470,8 +537,10 @@ function nextNomenclatureQuizQuestion(){
 }
 
 function finishNomenclatureQuiz(){
+  if(nomenclatureQuiz.finished) return;
   const total=nomenclatureQuiz.questions.length;
   if(!total) return;
+  nomenclatureQuiz.finished=true;
   const percentage=nomenclatureQuiz.answered?
     Math.round(nomenclatureQuiz.correct/nomenclatureQuiz.answered*100):0;
   document.getElementById("nomenclatureQuizStage").classList.add("hidden");
@@ -506,6 +575,11 @@ function resetNomenclatureQuiz(){
 }
 
 function initNomenclatureQuiz(){
+  if(nomenclatureQuizEventsBound){ updateNomenclatureQuizSetup(); return; }
+  nomenclatureQuizEventsBound=true;
+  const scopeSelect=document.getElementById("nomenclatureQuizScope");
+  scopeSelect.replaceChildren(...NOMENCLATURE_FILTERS.map(filter=>
+    makeNomenclatureElement("option",{value:filter.id,text:filter.quizLabel||filter.label})));
   document.body.addEventListener("click",event=>{
     const control=event.target.closest("[data-nomenclature-view]");
     if(control) showNomenclatureView(control.dataset.nomenclatureView);
@@ -546,12 +620,8 @@ function initNomenclature(){
   nomenclatureCardRecords.length=0;
   NOMENCLATURE_CARDS.forEach(card=>{
     const node=buildNomenclatureCard(card);
-    const record={
-      card,
-      node,
-      searchText:nomenclatureSearchText(card),
-      areaWords:normalizeNomenclatureText(nomenclatureAreaLabel(card.area)).split(" ")
-    };
+    const searchText=nomenclatureSearchText(card);
+    const record={card,node,searchText,searchWords:searchText.split(" ")};
     nomenclatureCardRecords.push(record);
     content.append(node);
   });
@@ -571,9 +641,16 @@ function initNomenclature(){
     });
     document.getElementById("clearNomenclature").addEventListener("click",clearNomenclature);
     document.getElementById("nomenclatureIndex").addEventListener("click",event=>{
-      if(event.target.closest('a[href^="#nom-"]')) queueMicrotask(updateNomenclatureIndex);
+      if(!event.target.closest('a[href^="#nom-"]')) return;
+      queueMicrotask(()=>{
+        updateNomenclatureIndex();
+        focusNomenclatureHashTarget();
+      });
     });
-    globalThis.addEventListener("hashchange",updateNomenclatureIndex);
+    globalThis.addEventListener("hashchange",()=>{
+      updateNomenclatureIndex();
+      focusNomenclatureHashTarget();
+    });
     nomenclatureEventsBound=true;
   }
   updateNomenclatureFilter();
@@ -581,4 +658,5 @@ function initNomenclature(){
 
 initNomenclature();
 initNomenclatureQuiz();
+document.getElementById("nomenclatureBootstrap").hidden=true;
 globalThis.__nomenclatureReady=true;

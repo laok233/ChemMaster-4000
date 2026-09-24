@@ -6,14 +6,16 @@
   "scripts": {
     "lint": "bun ./node_modules/eslint/bin/eslint.js .",
     "validate": "bun ./node_modules/html-validate/bin/html-validate.mjs index.html pages/tavola.html pages/nomenclatura.html",
-    "test": "bun ./node_modules/eslint/bin/eslint.js . && bun ./node_modules/html-validate/bin/html-validate.mjs index.html pages/tavola.html pages/nomenclatura.html && bun tests/check-data.js && bun tests/test-app.js && bun tests/test-menu.js && bun tests/test-nomenclature.js && bun tests/test-storage-lock.js && bun tests/test-storage-indexeddb.js && bun tests/test-browser.js",
+    "test": "bun run lint && bun run validate && bun run test:unit && bun run test:storage && bun run test:browser",
+    "test:unit": "bun run test:data && bun tests/test-app.js && bun tests/test-menu.js && bun tests/test-nomenclature.js",
     "test:app": "bun tests/test-app.js",
     "test:browser": "bun tests/test-browser.js",
     "test:nomenclature": "bun tests/test-nomenclature.js",
+    "test:storage": "bun run test:storage-lock && bun run test:storage-idb",
+    "test:storage-lock": "bun tests/test-storage-lock.js",
     "test:storage-idb": "bun tests/test-storage-indexeddb.js",
-    "test:data": "bun tests/check-data.js",
-    "test:menu": "bun tests/test-menu.js",
-    "test:storage": "bun tests/test-storage-lock.js"
+    "test:data": "bun tests/check-data.js && bun tests/check-nomenclature-data.js",
+    "test:menu": "bun tests/test-menu.js"
   },
   "engines": {
     "bun": ">=1.4.2"

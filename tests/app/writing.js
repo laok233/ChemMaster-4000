@@ -37,7 +37,9 @@ module.exports = async context => {
   ok(/Idrogeno \(H\) — Z=1/.test(cell1.getAttribute("title") || ""), "casella risolta con tooltip completo",
     cell1.getAttribute("title"));
   ok(d.getElementById("wFilled").textContent === "1", "contatore 1/118");
-  ok(cell1.getAttribute("aria-pressed") === "false", "casella risolta: selezione azzerata");
+  ok(cell1.getAttribute("aria-pressed") === "false" &&
+     win.__lastFocus === d.querySelector('#wtable .cell[data-z="2"]'),
+    "dopo una risposta corretta il focus passa alla prossima casella vuota");
   ok(/casella completata.*Idrogeno/.test(cell1.getAttribute("aria-label") || ""),
     "casella risolta: aria-label aggiornato senza svelarla inizialmente",
     cell1.getAttribute("aria-label"));
@@ -151,6 +153,11 @@ module.exports = async context => {
   d.getElementById("seqShowName").dispatchEvent(new win.Event("change", { bubbles: true }));
   click(win, d.getElementById("seqRestart"));
   ok(ev(win, "seq.i") === 0, "riavvio sequenza");
+
+  const seqDone=await makeApp();
+  ev(seqDone, "seq={i:117,ok:117,bad:0,marks:Array(117).fill('ok'),last:''};document.getElementById('seqInput').value='Og';seqCheck()");
+  ok(seqDone.__lastFocus === seqDone.document.getElementById("seqRestart"),
+    "completamento sequenza: il focus non resta su un input disabilitato");
 
   /* nome completo: stesso richiamo della tavola vuota, senza penalità */
   const seqMasteryBefore = ev(win, "mastery(1)");

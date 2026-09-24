@@ -21,10 +21,14 @@ function buildQuizTypes(){
 let quizScopeBuilt=false;
 function refreshQuizScopes(){
   if(!quizScopeBuilt){ scopeOptions(document.getElementById("quizScope")); quizScopeBuilt=true; }
+  const scope=document.getElementById("quizScope").value;
+  const allOption=[...document.getElementById("quizLen").options].find(option=>option.value==="999");
+  if(allOption) allOption.textContent=`Tutte (${scopePool(scope).length})`;
   document.getElementById("wrongCount").textContent=state.wrongZ.length;
 }
+document.getElementById("quizScope").addEventListener("change",refreshQuizScopes);
 
-let quiz={list:[],i:0,score:0,streak:0,best:0,wrong:[],answered:false};
+let quiz={list:[],i:0,score:0,streak:0,best:0,wrong:[],answered:false,finished:false};
 // valore sentinella della quinta opzione: non può collidere con simboli, nomi o numeri
 const NON_SO="__nons__";
 function makeQuestion(e,type,pool){
@@ -47,7 +51,7 @@ function startQuiz(onlyWrong){
   if(!pool.length){ alert("Nessun elemento in questo ambito."); return; }
   pool=shuffle(pool);
   const n=Math.max(1,Math.min(+document.getElementById("quizLen").value || pool.length, pool.length));
-  quiz={list:[],i:0,score:0,streak:0,best:0,wrong:[],answered:false};
+  quiz={list:[],i:0,score:0,streak:0,best:0,wrong:[],answered:false,finished:false};
   for(let k=0;k<n;k++) quiz.list.push(makeQuestion(pool[k],types[k%types.length],pool));
   document.getElementById("quizSetup").classList.add("hidden");
   document.getElementById("quizDone").classList.add("hidden");
@@ -119,16 +123,21 @@ function answerQuiz(v){
   document.getElementById("qEnd").classList.remove("hidden");
 }
 function nextQuestion(){
+  if(!quiz.answered || quiz.finished) return;
   if(quiz.i+1<quiz.list.length){ quiz.i++; renderQuestion(); }
   else finishQuiz();
 }
 function finishQuiz(){
+  // Il pulsante può ricevere eventi duplicati (doppio click, richiamo da una
+  // scorciatoia): la fine sessione è una transizione terminale idempotente.
+  if(quiz.finished || !quiz.list.length) return;
+  quiz.finished=true;
   const answered=quiz.score/10+quiz.wrong.length;   // domande effettivamente risposte
   if(answered>0){
     state.quiz.history.unshift({d:Date.now(),score:quiz.score,total:quiz.list.length,answered,wrong:quiz.wrong});
     state.quiz.history=state.quiz.history.slice(0,10);
+    save();
   }
-  save();
   document.getElementById("quizStage").classList.add("hidden");
   const d=document.getElementById("quizDone"); d.classList.remove("hidden");
   document.getElementById("quizScoreBig").textContent=`${quiz.score/10}/${quiz.list.length}`;
@@ -166,7 +175,7 @@ document.addEventListener("keydown",e=>{
   if(document.getElementById("quizStage").classList.contains("hidden")) return;
   if(!quiz.answered && ["1","2","3","4","5"].includes(e.key)){
     const b=document.querySelectorAll("#qOptions .opt")[+e.key-1];
-    if(b && !b.disabled) answerQuiz(b.dataset.v);
+    if(b && !b.disabled){ e.preventDefault(); answerQuiz(b.dataset.v); }
   }
   // focus su "Prossima"/"Termina": Enter/Spazio attivano il bottone, non avanzano in automatico
   const onControl=!!(e.target && e.target.closest && e.target.closest("button,select,input,textarea,a[href]"));

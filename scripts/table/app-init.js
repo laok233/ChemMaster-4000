@@ -42,6 +42,13 @@ function initApp(){
     else handleProgressEvent(event);
   }
 }
-const appReadyPromise=storageReady.then(initApp);
+const appReadyPromise=storageReady.then(initApp).catch(error=>{
+  // Un errore di bootstrap non deve lasciare la pagina invisibile per sempre.
+  // La UI resta comunque accessibile per esportare/importare o ricaricare.
+  document.documentElement.removeAttribute("data-storage-state");
+  showStorageWarning("error","Impossibile inizializzare la tavola. Ricarica la pagina o ripristina una copia dei progressi.");
+  globalThis.__appInitError=String(error&&error.message||error);
+  return null;
+});
 // Espone il bootstrap anche ai test che valutano gli script classici separatamente.
 globalThis.__appReadyPromise=appReadyPromise;

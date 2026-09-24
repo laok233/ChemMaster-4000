@@ -18,8 +18,8 @@ const sharedGlobalNames = [
   // storage.js
   "STORE_KEY", "STATE_VERSION", "DAY", "BOX_DAYS", "defaultState", "isObj", "isNum", "uint",
   "isElementKey", "elementMap", "sanitizeState", "state", "storageBackend", "progressStore", "storageReady",
-  "storageBaseline", "storageBaselineKnown", "storageDirty", "storageConflict", "storageLoadIssue", "storageWriteBlocked",
-  "storageSavePending", "storageEpoch", "storageReadEpoch", "appReady", "pendingStorageEvent",
+  "storageBaseline", "storageBaselineKnown", "storageDirty", "storageConflict", "storageLoadIssue", "storageWriteBlocked", "storageReconcileRequired",
+  "storageSavePending", "storageEpoch", "storageReadEpoch", "storageLegacyNeedsCleanup", "appReady", "pendingStorageEvent",
   "decodeStoredState", "applyLoadedState", "readActiveState", "initializeStorage", "showStorageWarning", "hideStorageWarning",
   "showStorageLoadIssue", "storageWriteError", "saveNow", "saveWithLock", "enqueueSave", "save", "saveReplacement", "exportProgress",
   "applyImportedState", "importProgress", "hasPendingTransientState", "resetTransientUI",

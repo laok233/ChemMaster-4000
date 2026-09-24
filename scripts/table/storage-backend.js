@@ -6,24 +6,25 @@ function createProgressStore(key,options={}){
   const channelName=options.channelName||`${key}:updates`;
   const configuredTimeout=Number(options.initTimeoutMs);
   const initTimeoutMs=Number.isFinite(configuredTimeout)&&configuredTimeout>0?configuredTimeout:5000;
+  const configuredOperationTimeout=Number(options.operationTimeoutMs);
+  const operationTimeoutMs=Number.isFinite(configuredOperationTimeout)&&configuredOperationTimeout>0?
+    configuredOperationTimeout:initTimeoutMs;
   const listeners=new Set();
   let db=null, backend="localstorage", channel=null;
-
-  function withTimeout(promise,timeoutMs,message){
-    let timer;
-    const timeout=new Promise((_,reject)=>{
-      timer=setTimeout(()=>reject(new Error(message)),timeoutMs);
-    });
-    return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
-  }
 
   function readLocal(){
     try{ return {available:true,raw:globalThis.localStorage.getItem(key)}; }
     catch(error){ return {available:false,raw:null,error}; }
   }
-  function removeLocal(){
-    try{ globalThis.localStorage.removeItem(key); }
-    catch(_){ /* IndexedDB è già la copia primaria */ }
+  function removeLocal(expectedRaw){
+    try{
+      // Non cancellare un valore modificato dopo la lettura: un'altra scheda
+      // potrebbe aver scritto un fallback più recente nel frattempo.
+      if(expectedRaw!==undefined && globalThis.localStorage.getItem(key)!==expectedRaw) return false;
+      globalThis.localStorage.removeItem(key);
+      return true;
+    }
+    catch(_){ return false; }
   }
   function openDatabase(timeoutMs){
     return new Promise((resolve,reject)=>{
@@ -51,61 +52,93 @@ function createProgressStore(key,options={}){
         if(settled){ request.result.close(); return; }
         settled=true;
         const opened=request.result;
-        opened.onversionchange=()=>opened.close();
+        opened.onversionchange=()=>{
+          try{ opened.close(); }catch(_){ }
+          if(db===opened){
+            db=null;
+            backend="localstorage";
+            if(channel){ channel.close(); channel=null; }
+            listeners.forEach(listener=>listener({type:"backend-lost"}));
+          }
+        };
         resolve(opened);
       };
       request.onerror=()=>fail(request.error);
       request.onblocked=()=>fail(new Error("Aggiornamento IndexedDB bloccato"));
     });
   }
-  function idbRead(){
+  function idbRead(timeoutMs=operationTimeoutMs){
     return new Promise((resolve,reject)=>{
-      const transaction=db.transaction(storeName,"readonly");
-      const request=transaction.objectStore(storeName).get(key);
-      request.onsuccess=()=>resolve(request.result?request.result.raw:null);
-      request.onerror=()=>reject(request.error);
-      transaction.onabort=()=>reject(transaction.error||new Error("Lettura IndexedDB annullata"));
-    });
-  }
-  function idbPut(raw){
-    return new Promise((resolve,reject)=>{
-      const transaction=db.transaction(storeName,"readwrite");
-      transaction.objectStore(storeName).put({key,raw,updatedAt:Date.now()});
-      transaction.oncomplete=()=>resolve(true);
-      transaction.onabort=()=>reject(transaction.error||new Error("Scrittura IndexedDB annullata"));
-      transaction.onerror=()=>reject(transaction.error||new Error("Scrittura IndexedDB fallita"));
+      let transaction;
+      try{ transaction=db.transaction(storeName,"readonly"); }
+      catch(error){ reject(error); return; }
+      let settled=false, timer;
+      const finish=(callback,value)=>{
+        if(settled) return;
+        settled=true; clearTimeout(timer); callback(value);
+      };
+      const fail=error=>finish(reject,error||new Error("Lettura IndexedDB fallita"));
+      const succeed=value=>finish(resolve,value);
+      timer=setTimeout(()=>{
+        try{ transaction.abort(); }catch(_){ }
+        fail(new Error(`Lettura IndexedDB scaduta dopo ${timeoutMs} ms`));
+      },Math.max(1,timeoutMs));
+      let request;
+      try{ request=transaction.objectStore(storeName).get(key); }
+      catch(error){ try{ transaction.abort(); }catch(_){ } fail(error); return; }
+      request.onsuccess=()=>succeed(request.result?request.result.raw:null);
+      request.onerror=()=>fail(request.error);
+      transaction.onabort=()=>fail(transaction.error||new Error("Lettura IndexedDB annullata"));
+      transaction.onerror=()=>fail(transaction.error||new Error("Lettura IndexedDB fallita"));
     });
   }
   // Una transazione readwrite serializza il get+put: il confronto con il
   // baseline e la scrittura non possono essere separati da un'altra scheda.
-  function idbCompareAndSet(expected,raw){
+  function idbCompareAndSet(expected,raw,timeoutMs=operationTimeoutMs){
     return new Promise((resolve,reject)=>{
-      const transaction=db.transaction(storeName,"readwrite");
+      let transaction;
+      try{ transaction=db.transaction(storeName,"readwrite"); }
+      catch(error){ reject(error); return; }
       const store=transaction.objectStore(storeName);
-      const request=store.get(key);
-      let conflict=false;
+      let request;
+      try{ request=store.get(key); }
+      catch(error){ try{ transaction.abort(); }catch(_){ } reject(error); return; }
+      let conflict=false, settled=false, timer;
+      const finish=(callback,value)=>{
+        if(settled) return;
+        settled=true; clearTimeout(timer); callback(value);
+      };
+      const fail=error=>finish(reject,error||new Error("Confronto IndexedDB fallito"));
+      const succeed=value=>finish(resolve,value);
+      timer=setTimeout(()=>{
+        try{ transaction.abort(); }catch(_){ }
+        fail(new Error(`Confronto IndexedDB scaduto dopo ${timeoutMs} ms`));
+      },Math.max(1,timeoutMs));
       request.onsuccess=()=>{
+        if(settled) return;
         const current=request.result?request.result.raw:null;
         if(current!==expected){
           conflict=true;
-          transaction.abort();
+          try{ transaction.abort(); }
+          catch(_){ succeed({ok:false,current}); }
           return;
         }
-        store.put({key,raw,updatedAt:Date.now()});
+        try{ store.put({key,raw,updatedAt:Date.now()}); }
+        catch(error){ try{ transaction.abort(); }catch(_){ } fail(error); }
       };
       transaction.oncomplete=()=>{
         if(channel){
           try{ channel.postMessage({type:"updated",raw}); }
           catch(_){ /* il canale è solo una notifica: il CAS resta valido */ }
         }
-        resolve({ok:true,current:raw});
+        succeed({ok:true,current:raw});
       };
       transaction.onabort=()=>{
-        if(conflict) resolve({ok:false,current:request.result?request.result.raw:null});
-        else reject(transaction.error||new Error("Confronto IndexedDB annullato"));
+        if(conflict) succeed({ok:false,current:request.result?request.result.raw:null});
+        else fail(transaction.error||new Error("Confronto IndexedDB annullato"));
       };
       transaction.onerror=()=>{
-        if(!conflict) reject(transaction.error||new Error("Confronto IndexedDB fallito"));
+        if(!conflict) fail(transaction.error||new Error("Confronto IndexedDB fallito"));
       };
     });
   }
@@ -129,20 +162,28 @@ function createProgressStore(key,options={}){
       db=await openDatabase(remaining());
       backend="indexeddb";
       setupChannel();
-      let raw=await withTimeout(idbRead(),remaining(),
-        `Lettura IndexedDB scaduta dopo ${initTimeoutMs} ms`);
+      let raw=await idbRead(remaining());
       let migrated=false;
+      let legacy=readLocal();
       if(raw===null){
-        const legacy=readLocal();
         if(legacy.available&&legacy.raw!==null){
-          await withTimeout(idbPut(legacy.raw),remaining(),
-            `Migrazione IndexedDB scaduta dopo ${initTimeoutMs} ms`);
-          removeLocal();
-          raw=legacy.raw;
-          migrated=true;
+          // La migrazione usa la stessa transazione CAS dei salvataggi: se
+          // un'altra scheda ha già scritto in IndexedDB, non la sovrascriviamo.
+          const result=await idbCompareAndSet(null,legacy.raw,remaining());
+          if(result.error) throw result.error;
+          if(result.ok){
+            raw=legacy.raw;
+            migrated=true;
+            // La validazione e la rimozione del backup sono delegate allo
+            // strato applicativo: un payload corrotto/oversized deve restare
+            // recuperabile invece di essere cancellato prima della sanitizzazione.
+          }else{
+            raw=result.current;
+          }
         }
       }
-      return {backend,raw,migrated};
+      const reconcileRequired=raw!==null && legacy.available && legacy.raw!==null && legacy.raw!==raw;
+      return {backend,raw,migrated,legacyRaw:legacy.raw,reconcileRequired};
     }catch(error){
       closeDatabase();
       backend="localstorage";
@@ -172,7 +213,9 @@ function createProgressStore(key,options={}){
     init,
     read,
     compareAndSet,
+    clearLocal(expectedRaw){ return removeLocal(expectedRaw); },
     subscribe(listener){ listeners.add(listener); },
-    get backend(){ return backend; }
+    get backend(){ return backend; },
+    get operationTimeoutMs(){ return operationTimeoutMs; }
   };
 }

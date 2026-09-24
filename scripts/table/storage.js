@@ -107,11 +107,21 @@ function sanitizeState(value){
 
   // valori non numerici nelle mappe: scartati (evita "NaN%" nelle statistiche)
   ["mastery","leitner","due"].forEach(k=>{ out[k]=elementMap(out[k]); });
+  const maxBox=Math.max(0,BOX_DAYS.length-1);
+  Object.keys(out.leitner).forEach(z=>{
+    out.leitner[z]=Math.min(maxBox,Math.max(0,Math.floor(out.leitner[z])));
+  });
   const maxDue=now+Math.max(...BOX_DAYS)*DAY+DAY;
   out.due=Object.fromEntries(Object.entries(out.due)
     .filter(([,v])=>Number.isSafeInteger(v)&&v>=0&&v<=maxDue));
+  // Una scadenza ha senso solo per una carta già assegnata a un mazzo.
+  Object.keys(out.due).forEach(z=>{
+    if(!Object.prototype.hasOwnProperty.call(out.leitner,z)) delete out.due[z];
+  });
   // padroneggio entro 0..100 già al caricamento, non solo dopo il primo utilizzo.
-  Object.keys(out.mastery).forEach(k=>{ out.mastery[k]=Math.max(0,Math.min(100,out.mastery[k])); });
+  Object.keys(out.mastery).forEach(k=>{
+    out.mastery[k]=Math.max(0,Math.min(100,Math.round(out.mastery[k])));
+  });
   return {state:out,issue:"",unsupportedVersion:false};
 }
 
@@ -121,8 +131,10 @@ let storageBackend="pending";
 const progressStore=createProgressStore(STORE_KEY);
 let storageBaseline=null, storageBaselineKnown=false;
 let storageDirty=false, storageConflict=false, storageLoadIssue="", storageWriteBlocked=false;
+let storageReconcileRequired=false;
 let storageSavePending=0, storageEpoch=0, storageReadEpoch=0;
 let storageStateRevision=0, storageEventRevision=0, lastSavedStateRevision=0;
+let storageLegacyNeedsCleanup=false;
 let saveQueue=Promise.resolve();
 let appReady=false, pendingStorageEvent=null;
 
@@ -164,10 +176,31 @@ async function initializeStorage(){
   storageBackend=loaded.backend;
   const normalized=decodeStoredState(loaded.raw);
   applyLoadedState({raw:loaded.raw,normalized});
+  storageReconcileRequired=!!loaded.reconcileRequired;
+  if(loaded.migrated && !normalized.issue && !storageReconcileRequired){
+    storageLegacyNeedsCleanup=!progressStore.clearLocal(loaded.raw);
+    if(storageLegacyNeedsCleanup){
+      storageReconcileRequired=true;
+      storageConflict=true;
+      storageLoadIssue="Il backup locale è cambiato durante la migrazione. Le copie sono diverse e l’app attende una scelta esplicita prima di scrivere.";
+    }
+  }else if(loaded.migrated && normalized.issue){
+    // Mantiene il payload locale se la migrazione ha copiato dati non
+    // validabili; il primo salvataggio valido lo rimuoverà in sicurezza.
+    storageLegacyNeedsCleanup=true;
+  }
+  if(storageReconcileRequired){
+    storageConflict=true;
+    storageLoadIssue="Sono presenti copie diverse dei progressi in IndexedDB e localStorage. Per evitare perdita dati, l’app non sceglie una copia automaticamente: importa un backup o azzera i progressi.";
+  }
   if(storageBackend==="localstorage"&&loaded.localAvailable===false){
     storageLoadIssue="Il browser non ha reso disponibile alcun archivio persistente.";
   }else if(storageBackend==="localstorage"&&loaded.error&&globalThis.indexedDB){
     storageLoadIssue="IndexedDB non è disponibile per una lettura sicura: per questa sessione i progressi useranno il fallback localStorage.";
+    const locks=globalThis.navigator&&globalThis.navigator.locks;
+    if(!locks||typeof locks.request!=="function"){
+      storageLoadIssue+=" Web Locks non è disponibile: usa una sola scheda per evitare scritture concorrenti.";
+    }
   }
   return state;
 }
@@ -184,14 +217,15 @@ function showStorageWarning(kind,message){
   const box=document.getElementById("storageWarning");
   box.dataset.kind=kind;
   document.getElementById("storageWarningText").textContent=message;
-  document.getElementById("storageImport").hidden=kind!=="load"&&kind!=="conflict"&&kind!=="error"&&kind!=="version";
-  document.getElementById("storageExport").hidden=kind!=="conflict"&&kind!=="error";
-  document.getElementById("storageReload").hidden=kind!=="conflict";
+  document.getElementById("storageImport").hidden=kind!=="load"&&kind!=="conflict"&&kind!=="error"&&kind!=="version"&&kind!=="read";
+  document.getElementById("storageExport").hidden=kind!=="conflict"&&kind!=="error"&&kind!=="read";
+  document.getElementById("storageReload").hidden=kind!=="conflict"&&kind!=="read";
   box.hidden=false;
 }
 function hideStorageWarning(){ document.getElementById("storageWarning").hidden=true; }
 function showStorageLoadIssue(){
-  if(storageLoadIssue) showStorageWarning(storageWriteBlocked?"version":"load",storageLoadIssue);
+  if(storageLoadIssue) showStorageWarning(
+    storageWriteBlocked?"version":storageReconcileRequired?"conflict":"load",storageLoadIssue);
   else hideStorageWarning();
 }
 function storageWriteError(){
@@ -199,10 +233,19 @@ function storageWriteError(){
   showStorageWarning("error",
     "Impossibile salvare i progressi nel browser. Puoi importare o esportare una copia, ma il ripristino automatico non sarà disponibile.");
 }
+function storageReadError(){
+  // Un errore in lettura non deve inventare uno stato locale dirty: avvisa,
+  // ma conserva il flag che riflette soltanto modifiche non persistite.
+  showStorageWarning("read",
+    "Impossibile leggere i progressi dal browser. Puoi esportare la copia corrente e riprovare il caricamento.");
+}
 function completeSuccessfulSave(epoch,raw,stateRevision,eventRevision){
   // Anche una scrittura avviata prima di un reset/import può completarsi dopo:
   // il suo raw deve diventare il baseline per la task successiva, ma non deve
   // cancellare dirty/conflict o l'avviso appartenenti allo stato più recente.
+  if(epoch===storageEpoch && storageLegacyNeedsCleanup && progressStore.clearLocal(storageBaseline)){
+    storageLegacyNeedsCleanup=false;
+  }
   storageBaseline=raw;
   storageBaselineKnown=true;
   lastSavedStateRevision=Math.max(lastSavedStateRevision,stateRevision);
@@ -217,6 +260,12 @@ function completeSuccessfulSave(epoch,raw,stateRevision,eventRevision){
   }
 }
 async function saveNow(epoch){
+  if(storageReconcileRequired){
+    storageDirty=true;
+    showStorageWarning("conflict",
+      "Le copie IndexedDB e localStorage sono diverse. Importa una copia o azzera i progressi prima di continuare a scrivere.");
+    return false;
+  }
   if(storageWriteBlocked){
     storageDirty=true;
     showStorageWarning("version",
@@ -256,11 +305,24 @@ async function saveNow(epoch){
   }
 }
 async function saveWithLock(epoch,locks){
+  let timer;
   try{
-    return await locks.request(`${STORE_KEY}:write`,()=>epoch===storageEpoch?saveNow(epoch):false);
+    const request=locks.request(`${STORE_KEY}:write`,()=>epoch===storageEpoch?saveNow(epoch):false);
+    const timeout=new Promise((_,reject)=>{
+      timer=setTimeout(()=>reject(new Error("Timeout durante il lock di persistenza")),
+        progressStore.operationTimeoutMs||5000);
+    });
+    return await Promise.race([request,timeout]);
   }catch(_){
-    if(epoch===storageEpoch) storageWriteError();
+    if(epoch===storageEpoch){
+      // Un lock che non risponde potrebbe eseguire il callback più tardi:
+      // invalida l'epoca prima di segnalare l'errore per fencing.
+      storageEpoch++;
+      storageWriteError();
+    }
     return false;
+  }finally{
+    clearTimeout(timer);
   }
 }
 function enqueueSave(epoch,stateRevision,replace=false){
@@ -355,7 +417,10 @@ async function applyImportedState(raw){
   state=normalized.state;
   storageLoadIssue="";
   storageWriteBlocked=false;
+  storageReconcileRequired=false;
+  storageLegacyNeedsCleanup=false;
   storageConflict=false;
+  progressStore.clearLocal();
   renderPersistedState();
   return await saveReplacement();
 }
@@ -370,27 +435,34 @@ async function importProgress(file){
   try{ await applyImportedState(await file.text()); }
   catch(_){ alert("Impossibile leggere il file selezionato."); }
 }
-function hasPendingTransientState(){
+function hasActiveTransientState(){
   return !document.getElementById("cardsStage").classList.contains("hidden") ||
-    !document.getElementById("cardsDone").classList.contains("hidden") ||
     !document.getElementById("quizStage").classList.contains("hidden") ||
-    !document.getElementById("quizDone").classList.contains("hidden") ||
     seq.i>0 || document.getElementById("seqInput").value.trim()!=="" ||
     wSel!==null || document.getElementById("wCellInput").value.trim()!=="";
+}
+function hasPendingTransientState(){
+  // Le schermate di riepilogo non contengono input non salvati, ma proteggono
+  // comunque da un aggiornamento remoto finché non vengono chiuse.
+  return hasActiveTransientState() ||
+    !document.getElementById("cardsDone").classList.contains("hidden") ||
+    !document.getElementById("quizDone").classList.contains("hidden");
 }
 function transientStateSignature(){
   const visible=id=>!document.getElementById(id).classList.contains("hidden");
   return JSON.stringify([
     visible("cardsStage"),visible("cardsDone"),
     visible("quizStage"),visible("quizDone"),
-    seq.i,document.getElementById("seqInput").value,
+    cards.done,cards.queue.length,cards.flipped,
+    quiz.i,quiz.answered,seq.i,seq.ok,seq.bad,seq.marks.length,
+    document.getElementById("seqInput").value,
     wSel,document.getElementById("wCellInput").value
   ]);
 }
 function resetTransientUI(){
   cards={queue:[],dir:null,total:0,done:0,ok:0,flipped:false};
   resetCardsUI();
-  quiz={list:[],i:0,score:0,streak:0,best:0,wrong:[],answered:false};
+  quiz={list:[],i:0,score:0,streak:0,best:0,wrong:[],answered:false,finished:false};
   document.getElementById("quizStage").classList.add("hidden");
   document.getElementById("quizDone").classList.add("hidden");
   document.getElementById("quizSetup").classList.remove("hidden");
@@ -445,7 +517,7 @@ async function reloadFromDisk(){
     const h=document.querySelector("section.view.active h2");
     if(h){ h.setAttribute("tabindex","-1"); h.focus({preventScroll:true}); }
   }catch(_){
-    if(epoch===storageEpoch&&readEpoch===storageReadEpoch&&eventRevision===storageEventRevision) storageWriteError();
+    if(epoch===storageEpoch&&readEpoch===storageReadEpoch&&eventRevision===storageEventRevision) storageReadError();
   }
 }
 const openImportDialog=()=>document.getElementById("progressFile").click();
@@ -469,7 +541,12 @@ function isRelevantStorageEvent(e){
   catch(_){ return false; }
 }
 async function handleProgressEvent(announced){
-  if(announced.raw!==undefined&&announced.raw===storageBaseline) return;
+  // Un remote reset (`newValue:null`) è significativo anche se coincide con
+  // un baseline vuoto: ignorarlo permetterebbe a una tab dirty di sovrascriverlo.
+  // Per un valore non nullo identico al baseline possiamo invece ignorare
+  // l'annuncio quando la tab è pulita.
+  if(announced.raw!==undefined && announced.raw!==null &&
+     announced.raw===storageBaseline && !storageDirty) return;
   // Un annuncio rimane rilevante anche se una scrittura locale è ancora in
   // volo: evita che il suo completamento cancelli il conflitto appena visto.
   storageEventRevision++;
@@ -505,14 +582,32 @@ async function handleProgressEvent(announced){
     renderPersistedState();
     showStorageLoadIssue();
   }catch(_){
-    if(readEpoch===storageReadEpoch) storageWriteError();
+    if(readEpoch===storageReadEpoch) storageReadError();
   }
 }
 function handleStorageEvent(e){
   if(!isRelevantStorageEvent(e)) return;
+  if(storageBackend==="indexeddb" && e.newValue!==storageBaseline && e.newValue!==null){
+    // Un fallback locale divergente non può essere risolto leggendo solo IDB:
+    // segnalalo e blocca scritture automatiche finché l'utente non sceglie.
+    storageEventRevision++;
+    storageReadEpoch++;
+    storageReconcileRequired=true;
+    storageConflict=true;
+    storageLoadIssue="È comparso un aggiornamento localStorage diverso dalla copia IndexedDB. Per evitare perdita dati, l’app chiede di importare o azzerare prima di scrivere.";
+    showStorageWarning("conflict",storageLoadIssue);
+    return;
+  }
   handleProgressEvent({raw:e.newValue});
 }
 progressStore.subscribe(event=>{
+  if(event && event.type==="backend-lost"){
+    storageBackend="localstorage";
+    storageReadEpoch++;
+    storageLoadIssue="IndexedDB è stato chiuso da un’altra scheda. I progressi passano al fallback localStorage; verifica la copia locale prima di continuare.";
+    if(appReady) showStorageWarning("load",storageLoadIssue);
+    return;
+  }
   if(!appReady){ pendingStorageEvent=event; return; }
   handleProgressEvent(event);
 });
@@ -524,7 +619,7 @@ globalThis.addEventListener("storage",e=>{
   handleStorageEvent(e);
 });
 globalThis.addEventListener("beforeunload",e=>{
-  if(!storageDirty&&!storageSavePending) return;
+  if(!storageDirty&&!storageSavePending&&!hasActiveTransientState()) return;
   e.preventDefault(); e.returnValue="";
 });
 function mastery(z){ const v=+state.mastery[z]; return Number.isFinite(v)?Math.round(v):0; }

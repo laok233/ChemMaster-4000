@@ -9,6 +9,7 @@
 <script src="../scripts/nomenclature/app.js" defer></script>
 </head>
 <body class="nomenclature-page">
+<a class="skip-link sr-only" href="#main-content">Vai al contenuto principale</a>
 <header>
   <h1>⚛ Chem<span>Master 4000</span></h1>
   <nav id="nomenclatureTabs" aria-label="Navigazione della nomenclatura">
@@ -18,7 +19,7 @@
   </nav>
 </header>
 
-<main>
+<main id="main-content" tabindex="-1">
   <div class="nomenclature-view" id="nomenclatureGuideView">
   <section class="nomenclature-intro" aria-labelledby="nomenclatureTitle">
     <div>
@@ -52,8 +53,11 @@
     <aside class="panel nomenclature-index" aria-labelledby="nomenclatureIndexTitle">
       <h2 id="nomenclatureIndexTitle">Indice rapido</h2>
       <nav id="nomenclatureIndex" aria-label="Argomenti della nomenclatura"></nav>
-      <p class="legend-note">Le schede restano consultabili anche senza connessione.</p>
+      <p class="legend-note">Il file locale della guida resta consultabile anche senza connessione.</p>
     </aside>
+    <p class="panel nomenclature-empty" id="nomenclatureBootstrap" role="status">
+      Caricamento della guida in corso… Se questo messaggio resta visibile, verifica che JavaScript sia attivo e che gli script locali siano disponibili.
+    </p>
     <section id="nomenclatureContent" class="nomenclature-content" aria-label="Schede di nomenclatura"></section>
   </div>
 
@@ -76,12 +80,7 @@
       <div class="nomenclature-quiz-setup" id="nomenclatureQuizSetup">
         <div class="nomenclature-quiz-settings">
           <label class="ctl">Ambito
-            <select id="nomenclatureQuizScope">
-              <option value="all">Inorganica e organica</option>
-              <option value="inorganic">Solo inorganica</option>
-              <option value="organic">Solo organica</option>
-              <option value="traditional">Nomi tradizionali</option>
-            </select>
+            <select id="nomenclatureQuizScope"></select>
           </label>
           <label class="ctl">Numero di domande
             <select id="nomenclatureQuizLength">
@@ -100,9 +99,11 @@
       <div class="hidden" id="nomenclatureQuizStage">
         <div class="qbar">
           <span id="nomenclatureQuizProgress" aria-live="polite" aria-atomic="true"></span>
-          <span id="nomenclatureQuizScore"></span>
+          <span id="nomenclatureQuizScore" aria-live="polite" aria-atomic="true"></span>
         </div>
-        <div class="meter" aria-hidden="true"><i id="nomenclatureQuizMeter"></i></div>
+        <div class="meter" id="nomenclatureQuizMeterTrack" role="progressbar" aria-label="Avanzamento del quiz" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0%">
+          <i id="nomenclatureQuizMeter"></i>
+        </div>
         <h3 class="qtext nomenclature-quiz-question" id="nomenclatureQuizQuestion" tabindex="-1">Domanda di nomenclatura</h3>
         <div class="options" id="nomenclatureQuizOptions" role="group" aria-label="Alternative di risposta"></div>
         <p class="feedback" id="nomenclatureQuizFeedback" role="status" aria-live="polite" aria-atomic="true"></p>

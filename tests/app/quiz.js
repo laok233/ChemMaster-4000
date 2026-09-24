@@ -10,6 +10,13 @@ module.exports = async context => {
   ok(d.querySelectorAll("#qOptions .opt").length === 5, "4 opzioni + 'Non so'");
   ok([...d.querySelectorAll("#qOptions .opt")].every((b,i)=>b.getAttribute("aria-keyshortcuts")===String(i+1)),
     "shortcut numerici dichiarati sulle opzioni quiz");
+  const quizScope=d.getElementById("quizScope");
+  quizScope.value="cat:alcalini";
+  quizScope.dispatchEvent(new win.Event("change",{bubbles:true}));
+  ok([...d.getElementById("quizLen").options].find(option=>option.value==="999").textContent==="Tutte (6)",
+    "il numero dell'opzione Tutte segue la dimensione dell'ambito");
+  quizScope.value="all";
+  quizScope.dispatchEvent(new win.Event("change",{bubbles:true}));
 
   /* scorciatoie con modificatore: Ctrl/Cmd+1..5 non devono rispondere */
   key(win, { key: "1", code: "Digit1", ctrlKey: true });
@@ -36,19 +43,29 @@ module.exports = async context => {
   ok(!kEnterNext.defaultPrevented, "Enter su 'Prossima' non intercettato", "defaultPrevented=" + kEnterNext.defaultPrevented);
 
   click(win, d.getElementById("qNext"));
-  ok(win.__lastFocus === d.getElementById("qText"), "il focus torna sul testo dopo Prossima");
+  click(win, d.getElementById("qNext"));
+  ok(ev(win, "quiz.i") === 1 && win.__lastFocus === d.getElementById("qText"),
+    "doppio Prossima non salta una domanda non risposta",
+    `i=${ev(win, "quiz.i")}`);
   const ans2 = ev(win, "quiz.list[1].answer");
   const opts2 = [...d.querySelectorAll("#qOptions .opt")].map(b => b.dataset.v);
   const wrongIdx = opts2.findIndex(v => v !== ans2);
   const zQ2 = ev(win, "quiz.list[1].e.z");
-  key(win, { key: String(wrongIdx + 1) });
-  ok(ev(win, "quiz.answered") === true, "tasto 1-4 risponde");
+  const kAnswer=key(win, { key: String(wrongIdx + 1) });
+  ok(ev(win, "quiz.answered") === true && kAnswer.defaultPrevented,
+    "tasto 1-4 risponde e impedisce l'azione predefinita",
+    `answered=${ev(win, "quiz.answered")} defaultPrevented=${kAnswer.defaultPrevented}`);
   ok(ev(win, "quiz.wrong.length") === 1, "errore registrato in sessione");
   ok(ev(win, "state.wrongZ").includes(zQ2), "errore salvato subito (non a fine quiz)", JSON.stringify(ev(win, "state.wrongZ")));
   key(win, { key: "Enter" });
   ok(ev(win, "quiz.i") === 2, "Invio va alla domanda successiva");
 
+  const histBeforeFinish=ev(win, "state.quiz.history.length");
   click(win, d.getElementById("qEnd"));
+  ev(win, "finishQuiz()");
+  ok(ev(win, "state.quiz.history.length")===histBeforeFinish+1,
+    "la fine quiz è idempotente e non duplica lo storico",
+    `${histBeforeFinish} -> ${ev(win, "state.quiz.history.length")}`);
   ok(win.__lastFocus === d.getElementById("quizScoreBig"), "il focus passa al riepilogo quiz");
   const summary = d.getElementById("quizSummary").textContent;
   ok(/^50% di risposte giuste/.test(summary), "percentuale calcolata sulle date (2 risposte, 1 giusta)", summary);
@@ -71,8 +88,12 @@ module.exports = async context => {
   ok(win.__lastFocus === d.getElementById("startQuiz"),
     "nuovo quiz: il focus torna al pulsante di avvio");
   click(win, d.getElementById("startQuiz"));
+  const revisionBeforeEmptyFinish=ev(win, "storageStateRevision");
   click(win, d.getElementById("qEnd"));
   const histLen = ev(win, "state.quiz.history.length");
+  ok(ev(win, "storageStateRevision")===revisionBeforeEmptyFinish,
+    "quiz senza risposte non avvia una scrittura inutilizzare",
+    `${revisionBeforeEmptyFinish} -> ${ev(win, "storageStateRevision")}`);
   ok(/^Nessuna risposta data/.test(d.getElementById("quizSummary").textContent), "quiz terminato subito: nessuna % falsa",
     d.getElementById("quizSummary").textContent);
   ok(histLen === 2, "quiz senza risposte non finisce nello storico", "voci=" + histLen);

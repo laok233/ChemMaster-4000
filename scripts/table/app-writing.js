@@ -23,12 +23,16 @@ function updateWFilled(){
   const n=ELEMENTS.filter(e=>state.write.solved[e.z]).length;
   document.getElementById("wFilled").textContent=n;
 }
-function clearCellSelection(){
+function clearCellSelection(focusNext=false){
   document.querySelectorAll("#wtable .cell.sel").forEach(x=>{
     x.classList.remove("sel"); x.setAttribute("aria-pressed","false");
   });
   wSel=null;
   const inp=document.getElementById("wCellInput"); inp.value=""; inp.disabled=true;
+  if(focusNext){
+    const next=document.querySelector("#wtable .cell.blank") || document.getElementById("wHint");
+    next?.focus({preventScroll:true});
+  }
 }
 function checkCell(){
   if(!wSel) return;
@@ -59,7 +63,7 @@ function checkCell(){
       cell.classList.remove("wrong","hinted");
       wMsg("Già compilato correttamente.","ok");
     }
-    clearCellSelection();
+    clearCellSelection(true);
   }else if(solved){
     // cella già risolta: la risposta è in vista, sbagliarla non deve costare
     // padroneggio né segnare in rosso una casella che è corretta
@@ -153,7 +157,8 @@ function seqCheck(){
     document.getElementById("seqHint").textContent=seq.last;
   }
   inp.value="";   // svuotato solo qui, cioè dopo una risposta effettiva
-  inp.focus();
+  if(seq.i<ELEMENTS.length) inp.focus();
+  else document.getElementById("seqRestart").focus({preventScroll:true});
 }
 document.getElementById("seqInput").addEventListener("keydown",e=>{
   if(e.key!=="Enter") return;

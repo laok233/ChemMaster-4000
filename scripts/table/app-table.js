@@ -102,6 +102,9 @@ function applyFilter(){
     const ok = matchQ && matchC && matchB;
     if(ok) visible++;
     c.classList.toggle("dim",!ok);
+    // Le celle escluse restano visibili per l'esplorazione con il mouse,
+    // ma non rubano il tab order: la navigazione da tastiera segue i match.
+    c.tabIndex=ok?0:-1;
     c.classList.toggle("match", ok && (!!q || (bioOn && BIO_Z.has(e.z))));
   });
   const status=document.getElementById("filterStatus");

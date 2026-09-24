@@ -3,10 +3,10 @@
 /* I dati restano separati dalla UI: la pagina puo' crescere senza
    trasformare il rendering in un oggetto monolitico. */
 const NOMENCLATURE_FILTERS = [
-  {id:"all", label:"Tutte le regole"},
-  {id:"traditional", label:"Nomi tradizionali"},
-  {id:"inorganic", label:"Nomenclatura inorganica"},
-  {id:"organic", label:"Nomenclatura organica"}
+  {id:"all", label:"Tutte le regole", quizLabel:"Inorganica e organica"},
+  {id:"traditional", label:"Nomi tradizionali", quizLabel:"Nomi tradizionali"},
+  {id:"inorganic", label:"Nomenclatura inorganica", quizLabel:"Solo inorganica"},
+  {id:"organic", label:"Nomenclatura organica", quizLabel:"Solo organica"}
 ];
 
 const NOMENCLATURE_CARDS = [
@@ -20,7 +20,7 @@ const NOMENCLATURE_CARDS = [
     steps:[
       "Individua la carica di ciascuno ione dalla posizione nella formula o dal nome dell'acido.",
       "Scrivi il nome del catione e aggiungi, se serve, il numero romano tra parentesi.",
-      "Trasforma il nome dell'anione nella forma aggettivale: -uro per i composti ionici."
+      "Usa il nome dell'anione indicato nella formula: per Cl⁻ e S²⁻ la forma salina è -uro; per anioni poliatomici come OH⁻, NO₃⁻ e ClO₃⁻ si usa il nome specifico (idrossido, nitrato, clorato)."
     ],
     examples:[
       {formula:"Na⁺ / Cl⁻", name:"sodio / cloruro", note:"cariche fisse: non serve un numero romano"},
@@ -38,7 +38,7 @@ const NOMENCLATURE_CARDS = [
     topic:"Composti ionici",
     title:"Composti ionici",
     summary:"Il nome di un sale o di un ossido ionico segue sempre l'ordine catione + anione, senza prefissi molecolari.",
-    rule:"Si scrive prima il catione e poi l'anione. Se il catione ha più valori di ossidazione, il numero romano disambigua il suo stato; gli idrossidi si chiamano idrossido di…",
+    rule:"Si scrive prima il catione e poi l'anione. Se il catione ha più valori di ossidazione, il numero romano disambigua il suo stato; gli idrossidi si chiamano idrossido di catione, come idrossido di calcio.",
     steps:[
       "Suddividi la formula in catione e anione, senza usare i coefficienti come prefissi del nome.",
       "Scrivi il nome del catione, aggiungendo la carica romana solo quando è necessaria.",
@@ -88,28 +88,34 @@ const NOMENCLATURE_CARDS = [
     area:"inorganic",
     topic:"Acidi",
     title:"Acidi",
-    summary:"Gli idracidi derivano da idrogeno + non metallo; negli ossiacidi il numero di ossigeni distingue le forme acido, -oso, -ico.",
-    rule:"Un acido binario si nomina acido + nome del non metallo con suffisso -idrico. In un ossiacido si conta il numero di atomi di ossigeno: -oso per la forma con meno ossigeno e -ico per quella con più ossigeno.",
+    summary:"Gli idracidi derivano da idrogeno + non metallo; negli ossiacidi si usano la radice e i suffissi -oso e -ico, verificando sempre la struttura.",
+    rule:"Un acido binario si nomina acido + nome del non metallo con suffisso -idrico. In un ossiacido si individua la radice: -oso indica lo stato di ossidazione più basso e -ico quello più alto. Il numero di ossigeni è un aiuto, ma non una regola valida per ogni serie.",
     steps:[
       "Conta gli atomi di idrogeno e degli altri elementi nella formula.",
       "Per un idracido, aggiungi il suffisso -idrico al nome dell'elemento.",
-      "Per un ossiacido, individua la radice del non metallo e scegli il suffisso -ico o -oso in base al numero di ossigeni."
+      "Per un ossiacido, individua la radice del non metallo, controlla gli atomi di ossigeno e scegli il suffisso -ico o -oso in base alla serie chimica."
     ],
     examples:[
-      {formula:"HCl", name:"acido cloridrico", note:"idracido"},
+      {formula:"HCl(aq)", name:"acido cloridrico", note:"idracido in soluzione acquosa"},
       {formula:"H₂S", name:"acido solfidrico", note:"H₂ + S"},
+      {formula:"HClO₂", name:"acido cloroso", note:"radice cloro- + -oso"},
       {formula:"HNO₃", name:"acido nitrico", note:"radice nitr- + -ico"},
       {formula:"H₂SO₄", name:"acido solforico", note:"radice solfor- + -ico"},
       {formula:"H₃PO₄", name:"acido fosforico", note:"radice fosfor- + -ico"}
     ],
     table:{
       caption:"Suffissi degli ossiacidi più comuni",
-      headers:["Radice","-oso","-ico"],
-      rows:[["cloro","ipocloroso","clorico"],["nitr","nitroso","nitrico"],["solfur","solforoso","solforico"],["fosfor","fosforoso","fosforico"]]
+      headers:["Radice","-oso","-ico","Altre forme"],
+      rows:[
+        ["cloro","cloroso (HClO₂)","clorico (HClO₃)","ipocloroso (HClO)"],
+        ["nitr","nitroso (HNO₂)","nitrico (HNO₃)","—"],
+        ["solfur","solforoso (H₂SO₃)","solforico (H₂SO₄)","—"],
+        ["fosfor","fosforoso (H₃PO₃)","fosforico (H₃PO₄)","—"]
+      ]
     },
     notes:[
-      "Confronta sempre il numero di ossigeni nella formula: non basta il nome del sale da cui l'acido deriva.",
-      "HCl è cloridrico, non cloroico: gli idracidi seguono il suffisso -idrico."
+      "Il numero di ossigeni segue una regola regolare solo in molte serie: per esempio HClO₂ è cloroso e HClO₃ è clorico, non nomi dedotti da un semplice conteggio valido ovunque.",
+      "HCl(aq) è acido cloridrico; HCl(g) è invece cloruro di idrogeno. Gli idracidi seguono il suffisso -idrico."
     ]
   },
   {
@@ -268,7 +274,7 @@ const NOMENCLATURE_CARDS = [
       "Usa un solo suffisso principale e trasforma gli altri gruppi in prefissi come idrossi-, oss-, nitro- o cloro-."
     ],
     examples:[
-      {formula:"HO–CH₂–COOH", name:"acido idrossietanoico", note:"–COOH è prioritario; –OH diventa idrossi-"},
+      {formula:"HO–CH₂–COOH", name:"acido 2-idrossietanoico", note:"–COOH è prioritario; –OH diventa idrossi-"},
       {formula:"CH₃–CH(OH)–CHO", name:"2-idrossipropanale", note:"–CHO è prioritario; –OH diventa idrossi-"},
       {formula:"Cl–CH₂–COOH", name:"acido 2-cloroetanoico", note:"il cloro è un gruppo sostituente, non un suffisso"}
     ],
@@ -296,7 +302,8 @@ const NOMENCLATURE_CARDS = [
       "Per il sale, riconosci lo ione poliatomico e usa il suo nome tradizionale in -ito o -ato, poi cita il catione."
     ],
     examples:[
-      {formula:"HCl (aq)",name:"acido cloridrico",note:"in acqua; HCl gassoso è cloruro di idrogeno"},
+      {formula:"HCl(aq)",name:"acido cloridrico",note:"in acqua; HCl(g) è cloruro di idrogeno"},
+      {formula:"HCl(g)",name:"cloruro di idrogeno",note:"composto gassoso, non acido"},
       {formula:"H₂S",name:"acido solfidrico",note:"solfuro di idrogeno in soluzione acquosa"},
       {formula:"HNO₂",name:"acido nitroso",note:"radice nitr- + -oso"},
       {formula:"HNO₃",name:"acido nitrico",note:"radice nitr- + -ico"},

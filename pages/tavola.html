@@ -17,6 +17,7 @@
 <script src="../scripts/table/app-init.js" defer></script>
 </head>
 <body>
+<a class="skip-link sr-only" href="#main-content">Vai al contenuto principale</a>
 <header>
   <h1>⚛ Chem<span>Master 4000</span></h1>
   <nav id="tabs">
@@ -32,8 +33,11 @@
     <span class="bar" id="headPctTrack" role="progressbar" aria-label="Padroneggiamento complessivo" aria-valuemin="0" aria-valuemax="118" aria-valuenow="0" aria-valuetext="0 di 118 elementi padroneggiati"><i id="headPctBar"></i></span>
   </div>
 </header>
+<noscript>
+  <p class="panel">La tavola interattiva richiede JavaScript. Attivalo per caricare elementi, esercizi e progressi.</p>
+</noscript>
 
-<main>
+<main id="main-content" tabindex="-1">
   <div class="storage-warning" id="storageWarning" role="alert" hidden>
     <span id="storageWarningText"></span>
     <span class="storage-warning-actions">
@@ -96,7 +100,7 @@
       </div>
 
       <div id="cardsStage" class="hidden" style="margin-top:16px">
-        <div class="card" id="card" role="button" tabindex="0" aria-keyshortcuts="Space Enter" aria-label="Carta: premi Spazio o Invio per girarla">
+        <div class="card" id="card" role="button" tabindex="0" aria-keyshortcuts="Space Enter" aria-expanded="false" aria-controls="cardBack" aria-label="Carta: premi Spazio o Invio per girarla">
           <span class="tag" id="cardTag">Nome</span>
           <span class="tag2" id="cardIdx">1/20</span>
           <div class="front" id="cardFront"></div>

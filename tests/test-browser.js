@@ -7,6 +7,7 @@ const { chromium } = require("@playwright/test");
 const { AxeBuilder } = require("@axe-core/playwright");
 
 const ROOT = path.join(__dirname, "..");
+const REAL_ROOT = fs.realpathSync(ROOT);
 const KEY = "chemmaster-4000-v1";
 const MIME = {
   ".css":"text/css; charset=utf-8",
@@ -33,8 +34,15 @@ function startServer() {
         response.writeHead(403).end("Forbidden");
         return;
       }
-      const body = fs.readFileSync(file);
-      response.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
+      // Il controllo lessicale da solo seguirebbe anche un symlink verso
+      // l'esterno del repository: validare anche il percorso reale.
+      const realFile = fs.realpathSync(file);
+      if (realFile !== REAL_ROOT && !realFile.startsWith(REAL_ROOT + path.sep)) {
+        response.writeHead(403).end("Forbidden");
+        return;
+      }
+      const body = fs.readFileSync(realFile);
+      response.writeHead(200, { "Content-Type": MIME[path.extname(realFile)] || "application/octet-stream" });
       response.end(body);
     } catch (error) {
       response.writeHead(error.code === "ENOENT" ? 404 : 500).end("Not found");
@@ -78,6 +86,12 @@ async function main() {
     await page.goto(`${base}/index.html`, { waitUntil: "networkidle" });
     ok(await page.getByRole("heading", { level: 1 }).textContent() === "⚛ ChemMaster 4000",
       "menu: titolo principale nel browser reale");
+    await page.keyboard.press("Tab");
+    const visibleSkipLink=await page.locator(".skip-link").evaluate(element =>
+      element===element.ownerDocument.activeElement && element.getBoundingClientRect().width>1);
+    await page.keyboard.press("Enter");
+    const mainFocused=await page.evaluate(() => globalThis.document.activeElement?.id==="main-content");
+    ok(visibleSkipLink && mainFocused, "menu: skip link visibile al primo Tab e focus sul contenuto");
     await assertA11y(page, "Menu");
 
     await page.locator('a.tile[href="pages/tavola.html"]').click();
@@ -92,6 +106,11 @@ async function main() {
     await page.waitForLoadState("networkidle");
     ok(await page.locator("#nomenclatureContent article").count() === 14,
       "nomenclatura: 14 schede renderizzate");
+    const nomenclatureIndexLink=page.locator('#nomenclatureIndex a[href="#nom-composti-binari"]');
+    await nomenclatureIndexLink.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => globalThis.document.activeElement?.id === "nom-composti-binari");
+    ok(true, "nomenclatura: il link dell'indice sposta il focus sulla card");
     await page.locator('#nomenclatureFilters [data-filter="traditional"]').click();
     ok(await page.locator('#nomenclatureContent article:not([hidden])[data-traditional="true"]').count() === 3 &&
       await page.locator(".nomenclature-traditional:visible").count() === 3,
@@ -113,6 +132,24 @@ async function main() {
     "nomenclatura: stato vuoto visibile e indice senza gruppi vuoti");
     await assertA11y(page, "Nomenclatura senza risultati");
     await page.locator("#clearNomenclature").click();
+    await page.setViewportSize({ width:320, height:568 });
+    await page.locator("#nom-composti-binari details").evaluate(element => { element.open = true; });
+    const nomenclatureTableWrap=page.locator("#nom-composti-binari .nomenclature-table-wrap");
+    await nomenclatureTableWrap.focus();
+    await page.keyboard.press("ArrowRight");
+    const narrowNomenclature=await nomenclatureTableWrap.evaluate(element => ({
+      focused:element===element.ownerDocument.activeElement,
+      clientWidth:element.clientWidth,
+      scrollWidth:element.scrollWidth,
+      scrollLeft:element.scrollLeft,
+      documentWidth:element.ownerDocument.documentElement.scrollWidth,
+      viewport:element.ownerDocument.defaultView.innerWidth
+    }));
+    ok(narrowNomenclature.focused && narrowNomenclature.scrollWidth>narrowNomenclature.clientWidth &&
+      narrowNomenclature.documentWidth===narrowNomenclature.viewport,
+    "nomenclatura stretta: tabella regionale focalizzabile e senza overflow pagina",
+    JSON.stringify(narrowNomenclature));
+    await page.setViewportSize({ width:1280, height:720 });
     await page.locator('#nomenclatureTabs [data-nomenclature-view="quiz"]').click();
     ok(await page.locator("#nomenclatureQuizView").isVisible() &&
       await page.locator("#nomenclatureGuideView").isHidden() &&
@@ -145,6 +182,19 @@ async function main() {
     ok(await page.evaluate(() => eval("storageBackend")) === "indexeddb", "browser: IndexedDB selezionato come backend");
     ok(await page.evaluate(key => localStorage.getItem(key), KEY) === null, "browser: nessun backup localStorage residuo");
     ok(await page.locator("#ptable .cell").count() === 118, "tavola: 118 celle renderizzate");
+    await page.locator("#searchEl").fill("fer");
+    ok(await page.locator('#ptable .cell[data-z="2"]').getAttribute("tabindex") === "-1" &&
+       await page.locator('#ptable .cell[data-z="26"]').getAttribute("tabindex") === "0",
+    "browser: il filtro della tavola esclude le celle non corrispondenti dal tab order");
+    await page.locator("#clearFilter").click();
+    await page.getByRole("button", { name:"Scrivi la tavola", exact:true }).click();
+    await page.locator('#wtable .cell[data-z="1"]').click();
+    await page.locator("#wCellInput").fill("H");
+    await page.locator("#wCellInput").press("Enter");
+    ok(await page.locator("#wCellInput").evaluate(element =>
+      element.ownerDocument.activeElement?.dataset.z==="2"),
+    "browser: la risposta corretta porta il focus alla prossima casella");
+    await page.getByRole("button", { name:"Tavola", exact:true }).click();
     const reducedMotionCell = page.locator("#ptable .cell").first();
     await reducedMotionCell.hover();
     ok(await reducedMotionCell.evaluate(element =>
@@ -154,8 +204,10 @@ async function main() {
     const secondPage = await context.newPage();
     watchRuntimeErrors(secondPage);
     await secondPage.goto(`${base}/pages/tavola.html`, { waitUntil: "networkidle" });
+    const syncMasteryBefore=await page.evaluate(() => eval("mastery(1)"));
     await page.evaluate(() => eval("addMastery(1,10); save()"));
-    await secondPage.waitForFunction(() => eval("mastery(1)") === 10, null, { timeout:5000 });
+    await secondPage.waitForFunction(expected => eval("mastery(1)") === expected,
+      syncMasteryBefore + 10, { timeout:5000 });
     ok(true, "browser: BroadcastChannel sincronizza due schede IndexedDB");
     await secondPage.close();
     await assertA11y(page, "Tavola");

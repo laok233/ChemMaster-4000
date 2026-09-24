@@ -175,6 +175,18 @@ async function main(){
   ok(localWrites===writesBefore+1, "salvataggi rapidi già inclusi nello snapshot scrivono una sola volta", `${localWrites-writesBefore} scritture`);
   ok(JSON.parse(storage.getItem(KEY)).mastery["5"]===2, "la scrittura compatta mantiene lo stato finale");
 
+  const timeoutWindow=await makeApp();
+  const timeoutResult=await timeoutWindow.window.__run(`
+    Object.defineProperty(progressStore,"operationTimeoutMs",{value:20,configurable:true});
+    Object.defineProperty(navigator.locks,"request",{value:()=>new Promise(()=>{}),configurable:true});
+    addMastery(9,1); save()
+  `);
+  ok(timeoutResult===false && timeoutWindow.window.__run("storageDirty")===true &&
+     timeoutWindow.window.__run("storageSavePending")===0 &&
+     timeoutWindow.window.document.getElementById("storageWarning").dataset.kind==="error",
+    "lock Web Locks che non risponde viene sbloccato con errore e fencing",
+    `${timeoutResult} dirty=${timeoutWindow.window.__run("storageDirty")} pending=${timeoutWindow.window.__run("storageSavePending")}`);
+
   console.log("Storage lock: " + (fail ? fail + " ERRORI" : "OK (" + pass + "/" + pass + ")"));
   process.exit(fail ? 1 : 0);
 }

@@ -9,8 +9,10 @@ module.exports = async context => {
   ok(d.getElementById("card").hasAttribute("tabindex"), "flashcard focusabile da tastiera");
   ok(d.getElementById("card").getAttribute("role") === "button", "flashcard esposta come pulsante");
   ok(d.getElementById("card").getAttribute("aria-keyshortcuts")==="Space Enter" &&
+     d.getElementById("card").getAttribute("aria-expanded")==="false" &&
+     d.getElementById("card").getAttribute("aria-controls")==="cardBack" &&
      d.getElementById("cardMeterTrack").getAttribute("role")==="progressbar",
-    "scorciatoie e avanzamento flashcard accessibili");
+    "scorciatoie, stato espanso e avanzamento flashcard accessibili");
 
   d.getElementById("cardCount").value = "10";
   click(win, d.getElementById("startCards"));
@@ -25,16 +27,19 @@ module.exports = async context => {
 
   click(win, d.getElementById("card"));
   ok(!d.getElementById("cardBack").classList.contains("hidden"), "clic gira la carta");
-  ok(!d.getElementById("card").hasAttribute("aria-keyshortcuts"),
-    "shortcut della carta rimossi dopo il flip", d.getElementById("card").getAttribute("aria-keyshortcuts"));
+  ok(!d.getElementById("card").hasAttribute("aria-keyshortcuts") &&
+     d.getElementById("card").getAttribute("aria-expanded")==="true",
+    "stato della carta aggiornato dopo il flip",
+    `${d.getElementById("card").getAttribute("aria-keyshortcuts")} / ${d.getElementById("card").getAttribute("aria-expanded")}`);
   ok(/risposta .*1, 2 e 3/.test(d.getElementById("card").getAttribute("aria-label") || ""),
     "la carta girata annuncia risposta e controlli di giudizio");
   ok(!d.getElementById("cardGrade").classList.contains("hidden"), "bottoni giudizio visibili");
 
   const before = ev(win, "mastery(" + z1 + ")");
   click(win, d.querySelector('#cardGrade button[data-g="2"]'));
-  ok(d.getElementById("card").getAttribute("aria-keyshortcuts")==="Space Enter",
-    "shortcut della carta ripristinati sulla carta successiva");
+  ok(d.getElementById("card").getAttribute("aria-keyshortcuts")==="Space Enter" &&
+     d.getElementById("card").getAttribute("aria-expanded")==="false",
+    "stato della carta ripristinato sulla carta successiva");
   ok(ev(win, "mastery(" + z1 + ")") === before + 20, "Facile = +20", before + "->" + ev(win, "mastery(" + z1 + ")"));
   ok(ev(win, "state.leitner[" + z1 + "]") === 2, "Facile salta di 2 mazzi", ev(win, "state.leitner[" + z1 + "]"));
   ok(ev(win, "state.due[" + z1 + "]") - Date.now() > 2 * 86400000, "scadenza ~3 giorni (mazzo 2)");
@@ -61,8 +66,10 @@ module.exports = async context => {
   key(win, { code: "Space", key: " " });
   ok(!d.getElementById("cardBack").classList.contains("hidden"), "Spazio gira la carta");
   const z2 = ev(win, "cards.queue[0].z");
-  key(win, { key: "1" });
-  ok(ev(win, "cards.done") === 2, "tasto 1 giudica la carta", "done=" + ev(win, "cards.done"));
+  const kGrade=key(win, { key: "1" });
+  ok(ev(win, "cards.done") === 2 && kGrade.defaultPrevented,
+    "tasto 1 giudica la carta e impedisce l'azione predefinita",
+    `done=${ev(win, "cards.done")} defaultPrevented=${kGrade.defaultPrevented}`);
   ok(ev(win, "state.leitner[" + z2 + "]") === 0, "Non sapevo azzera il mazzo");
 
   /* Enter/Spazio con il focus su un bottone: il gestore globale non deve intercettarli */
@@ -91,4 +98,20 @@ module.exports = async context => {
   ok(winMeter.document.getElementById("cardMeterTrack").getAttribute("aria-valuenow")==="100" &&
      /1 di 1 carte, 100%/.test(winMeter.document.getElementById("cardMeterTrack").getAttribute("aria-valuetext") || ""),
     "progressbar flashcard aggiornata al 100% dopo l'ultima carta");
+
+  const orphanDue=await makeApp(JSON.stringify({due:{1:Date.now()+86400000}}));
+  ok(ev(orphanDue, "scopePool('due').some(e=>e.z===1)") &&
+     ev(orphanDue, "Object.keys(state.due).length") === 0,
+    "una scadenza orfana non esclude una carta non assegnata e viene ripulita");
+
+  const unloadWindow=await makeApp();
+  click(unloadWindow, view(unloadWindow, "cards"));
+  click(unloadWindow, unloadWindow.document.getElementById("startCards"));
+  const activeUnloadPrevented=ev(unloadWindow,
+    "(()=>{const event=new Event('beforeunload',{cancelable:true});dispatchEvent(event);return event.defaultPrevented;})()");
+  ok(activeUnloadPrevented, "beforeunload avvisa per una sessione flashcard attiva");
+  click(unloadWindow, unloadWindow.document.getElementById("stopCards"));
+  const resultUnloadPrevented=ev(unloadWindow,
+    "(()=>{const event=new Event('beforeunload',{cancelable:true});dispatchEvent(event);return event.defaultPrevented;})()");
+  ok(!resultUnloadPrevented, "il riepilogo finale non viene trattato come sessione attiva");
 };

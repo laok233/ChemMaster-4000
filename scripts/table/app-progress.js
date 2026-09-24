@@ -67,7 +67,8 @@ document.getElementById("resetAll").onclick=()=>{
   if(!confirm("Cancellare tutti i progressi? L’azione non è reversibile.")) return;
   // Invalida eventuali callback già in coda: dopo un azzeramento non devono
   // più essere considerati salvataggi correnti né aggiungere scritture obsolete.
-  state=defaultState(); storageWriteBlocked=false; const persistence=saveReplacement(); updateHead();
+  state=defaultState(); storageWriteBlocked=false; storageReconcileRequired=false;
+  storageLegacyNeedsCleanup=false; progressStore.clearLocal(); const persistence=saveReplacement(); updateHead();
   clearCellSelection();
   renderDetail(1);   // prima della griglia: aria-current deve tornare su H
   buildGrid(document.getElementById("ptable"),{});

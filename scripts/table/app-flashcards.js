@@ -32,7 +32,12 @@ function boxOf(z){
   const v=Math.floor(Number(state.leitner[z]));
   return Number.isFinite(v)?Math.min(MAX_BOX,Math.max(0,v)):null;
 }
-function dueNow(z){ const d=state.due[z]; return !d || d<=Date.now(); }
+function dueNow(z){
+  // Una scadenza senza scheda assegnata non può nascondere una carta nuova.
+  if(boxOf(z)===null) return true;
+  const d=state.due[z];
+  return !d || d<=Date.now();
+}
 function scopePool(scope){
   if(scope==="all") return ELEMENTS.slice();
   if(scope==="due") return ELEMENTS.filter(e=>dueNow(e.z));
@@ -89,6 +94,7 @@ function setCardA11y(e,dir,flipped){
   const action=flipped?"Usa i pulsanti o i tasti 1, 2 e 3 per giudicarla.":
     "Premi Spazio o Invio per girarla.";
   const card=document.getElementById("card");
+  card.setAttribute("aria-expanded",String(flipped));
   if(flipped) card.removeAttribute("aria-keyshortcuts");
   else card.setAttribute("aria-keyshortcuts","Space Enter");
   card.setAttribute("aria-label",
@@ -151,6 +157,8 @@ function gradeCard(g){
   showCard();
 }
 function finishCards(){
+  // evita elaborazioni duplicate se il controllo di fine sessione riceve due eventi
+  if(document.getElementById("cardsStage").classList.contains("hidden")) return;
   document.getElementById("cardsStage").classList.add("hidden");
   const done=document.getElementById("cardsDone");
   done.classList.remove("hidden");
@@ -184,5 +192,7 @@ document.addEventListener("keydown",e=>{
   // Enter/Spazio devono attivare quell'elemento, non girare la carta
   const onControl=!!(e.target && e.target.closest && e.target.closest("button,select,input,textarea,a[href]"));
   if(!onControl && (e.code==="Space"||e.key==="Enter")){ e.preventDefault(); flipCard(); }
-  if(cards.flipped && ["1","2","3"].includes(e.key)) gradeCard(+e.key-1);
+  if(cards.flipped && ["1","2","3"].includes(e.key)){
+    e.preventDefault(); gradeCard(+e.key-1);
+  }
 });

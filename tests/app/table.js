@@ -10,6 +10,9 @@ module.exports = context => {
     "tavola carica i moduli esterni nell'ordine corretto senza codice inline");
   ok(win.getComputedStyle(d.body).display !== "flex",
     "stili del menu non invadono il layout della tavola", win.getComputedStyle(d.body).display);
+  const skipLink=d.querySelector('body > a.skip-link[href="#main-content"]');
+  ok(!!skipLink && d.body.firstElementChild===skipLink && d.getElementById("main-content")?.tabIndex===-1,
+    "skip link iniziale verso il contenuto della tavola");
   ok(d.querySelectorAll("#ptable .cell").length === 118, "118 celle nella tavola");
   ok(d.querySelectorAll("#wtable .cell").length === 118, "118 celle nella tavola vuota");
   ok(d.querySelectorAll("#wtable .cell.blank").length === 118, "tutte le celle di scrittura vuote");
@@ -101,6 +104,9 @@ module.exports = context => {
   search("fer");
   ok(matchedSyms().length === 2 && matchedSyms().includes("Fe") && matchedSyms().includes("Fm"),
     "ricerca 'fer' evidenzia Ferro e Fermio", matchedSyms().join(","));
+  ok(d.querySelector('#ptable .cell[data-z="2"]').tabIndex === -1 &&
+     d.querySelector('#ptable .cell[data-z="26"]').tabIndex === 0,
+    "le celle filtrate escono dal tab order senza sparire visivamente");
   search("26");
   ok(JSON.stringify(matchedSyms()) === JSON.stringify(["Fe"]), "ricerca per numero atomico", matchedSyms().join(","));
   search("nessun-elemento");
