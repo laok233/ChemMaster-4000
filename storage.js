@@ -378,6 +378,15 @@ function hasPendingTransientState(){
     seq.i>0 || document.getElementById("seqInput").value.trim()!=="" ||
     wSel!==null || document.getElementById("wCellInput").value.trim()!=="";
 }
+function transientStateSignature(){
+  const visible=id=>!document.getElementById(id).classList.contains("hidden");
+  return JSON.stringify([
+    visible("cardsStage"),visible("cardsDone"),
+    visible("quizStage"),visible("quizDone"),
+    seq.i,document.getElementById("seqInput").value,
+    wSel,document.getElementById("wCellInput").value
+  ]);
+}
 function resetTransientUI(){
   cards={queue:[],dir:null,total:0,done:0,ok:0,flipped:false};
   resetCardsUI();
@@ -406,8 +415,17 @@ function renderPersistedState(){
     if(next) next.focus({preventScroll:true});
   }
 }
+function showTransientReadConflict(message){
+  storageConflict=true;
+  showStorageWarning("conflict",message ||
+    "Un’altra scheda ha aggiornato i progressi mentre una sessione era aperta. Ricarica da disco per continuare senza mescolare stati.");
+}
+
 async function reloadFromDisk(){
-  if(storageConflict&&!confirm("Ricaricare da disco chiuderà la sessione aperta e scarterà eventuali cambiamenti non salvati. Continuare?")) return;
+  const hasUnsavedState=storageDirty || hasPendingTransientState();
+  if((storageConflict||hasUnsavedState) &&
+     !confirm("Ricaricare da disco chiuderà eventuali sessioni aperte e scarterà eventuali cambiamenti non salvati. Continuare?")) return;
+  const transientSignature=transientStateSignature();
   const epoch=++storageEpoch, readEpoch=++storageReadEpoch, eventRevision=storageEventRevision;
   try{
     // Attendi le transazioni già avviate: una scrittura stale che termina dopo
@@ -416,6 +434,11 @@ async function reloadFromDisk(){
     if(epoch!==storageEpoch) return;
     const loaded=await readActiveState();
     if(epoch!==storageEpoch||readEpoch!==storageReadEpoch||eventRevision!==storageEventRevision) return;
+    if(transientStateSignature()!==transientSignature){
+      showTransientReadConflict(
+        "Una sessione è iniziata o è cambiata mentre i progressi venivano ricaricati. Ricarica di nuovo per confermare la sostituzione.");
+      return;
+    }
     applyLoadedState(loaded);
     renderPersistedState();
     showStorageLoadIssue();
@@ -459,9 +482,7 @@ async function handleProgressEvent(announced){
   }
   if(hasPendingTransientState()){
     storageReadEpoch++;
-    storageConflict=true;
-    showStorageWarning("conflict",
-      "Un’altra scheda ha aggiornato i progressi mentre una sessione era aperta. Ricarica da disco per continuare senza mescolare stati.");
+    showTransientReadConflict();
     return;
   }
   const readEpoch=++storageReadEpoch;
@@ -472,6 +493,12 @@ async function handleProgressEvent(announced){
       storageConflict=true;
       showStorageWarning("conflict",
         "Un’altra scheda ha aggiornato i progressi. Esporta questa copia o ricarica da disco.");
+      return;
+    }
+    // La sessione può iniziare mentre la lettura è in volo: applicare lo snapshot
+    // chiamerebbe renderPersistedState() e cancellerebbe silenziosamente cards, quiz o input.
+    if(hasPendingTransientState()){
+      showTransientReadConflict();
       return;
     }
     applyLoadedState(loaded);

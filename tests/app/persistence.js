@@ -71,6 +71,47 @@ module.exports = async context => {
      ev(winPendingEvent, "cards.queue.length") === 0,
     "ricarica remota chiude la sessione e carica uno stato coerente");
 
+  /* race: la lettura remota inizia prima della sessione e termina dopo */
+  const winReadRace = await makeApp(conflictSeed);
+  let releaseRemoteRead;
+  const remoteReadGate = new Promise(resolve => { releaseRemoteRead=resolve; });
+  winReadRace.__remoteReadGate = remoteReadGate;
+  ev(winReadRace,
+    `progressStore.read=()=>globalThis.__remoteReadGate.then(()=>${JSON.stringify(remoteRaw)})`);
+  winReadRace.localStorage.setItem(KEY, remoteRaw);
+  ev(winReadRace,
+    `globalThis.dispatchEvent(new StorageEvent("storage",{key:${JSON.stringify(KEY)},newValue:${JSON.stringify(remoteRaw)},storageArea:localStorage}))`);
+  click(winReadRace, view(winReadRace, "cards"));
+  click(winReadRace, winReadRace.document.getElementById("startCards"));
+  releaseRemoteRead();
+  await settle();
+  ok(ev(winReadRace, "mastery(1)") === 10 &&
+     !winReadRace.document.getElementById("cardsStage").classList.contains("hidden") &&
+     ev(winReadRace, "cards.queue.length") > 0,
+    "lettura remota terminata dopo l’avvio: la sessione non viene cancellata");
+  ok(ev(winReadRace, "storageConflict") === true &&
+     winReadRace.document.getElementById("storageWarning").dataset.kind === "conflict",
+    "race della lettura remota: conflitto segnalato senza applicare lo snapshot");
+
+  /* race analoga durante reloadFromDisk avviato mentre non vi erano sessioni */
+  const winReloadRace = await makeApp(conflictSeed);
+  let releaseReloadRead;
+  const reloadReadGate = new Promise(resolve => { releaseReloadRead=resolve; });
+  winReloadRace.__reloadReadGate = reloadReadGate;
+  ev(winReloadRace,
+    `progressStore.read=()=>globalThis.__reloadReadGate.then(()=>${JSON.stringify(remoteRaw)})`);
+  const reloadPromise = ev(winReloadRace, "reloadFromDisk()");
+  await settle();
+  click(winReloadRace, view(winReloadRace, "cards"));
+  click(winReloadRace, winReloadRace.document.getElementById("startCards"));
+  releaseReloadRead();
+  await reloadPromise;
+  ok(ev(winReloadRace, "mastery(1)") === 10 &&
+     !winReloadRace.document.getElementById("cardsStage").classList.contains("hidden"),
+    "reload completato dopo l’avvio: non sovrascrive una nuova sessione");
+  ok(ev(winReloadRace, "storageConflict") === true,
+    "reload con sessione iniziata durante la lettura richiede una conferma esplicita");
+
   /* storage non disponibile: avviso e possibilità di esportare */
   const winNoStorage = await makeApp(null, "file:///tavola.html");
   const failedSave = await ev(winNoStorage, "addMastery(2,5); save()");

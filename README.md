@@ -21,7 +21,7 @@ Le funzioni disponibili sono la **tavola periodica** (`tavola.html`), con flashc
 | **Scrivi la tavola** | **Tavola vuota**: clicchi una casella e scrivi il **simbolo** (il tooltip non svela la risposta; il nome completo riceve un richiamo senza penalità), con suggerimento e correzione immediata. **Sequenza**: scrivi i 118 simboli in ordine di numero atomico, con feedback e miglior posizione — anche qui il nome completo è ammesso come richiamo, senza penalità. |
 | **Progressi** | Padroneggio medio, % per categoria, mazzetti (etichette derivate da `BOX_DAYS`, quindi sempre allineate alle scadenze, e barre proporzionali alle carte assegnate), storico quiz, importazione/esportazione JSON e azzeramento. |
 
-Tutti i progressi sono salvati principalmente in IndexedDB e ripristinati al riavvio; il vecchio `localStorage` viene migrato automaticamente e resta il fallback quando IndexedDB non è disponibile. Le scritture IndexedDB usano una transazione atomica di confronto-and-scrittura e `BroadcastChannel` per sincronizzare le schede; nel fallback localStorage, quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Le richieste di salvataggio già incluse nello snapshot precedente vengono compatte, mentre una modifica avvenuta durante una transazione non viene considerata salvata finché non viene persistita. Reset e import espliciti ricaricano il baseline corrente prima del CAS, così non falliscono silenziosamente dopo un conflitto. Una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Lo stato importato attraversa la stessa sanitizzazione dei dati salvati, i payload locali sono limitati a 1 MB e le versioni non supportate vengono rifiutate.
+Tutti i progressi sono salvati principalmente in IndexedDB e ripristinati al riavvio; il vecchio `localStorage` viene migrato automaticamente e resta il fallback quando IndexedDB non è disponibile o non completa l'inizializzazione entro 5 secondi. Una lettura remota che termina durante una sessione aperta non può applicare lo snapshot e cancellarla. Le scritture IndexedDB usano una transazione atomica di confronto-and-scrittura e `BroadcastChannel` per sincronizzare le schede; nel fallback localStorage, quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Le richieste di salvataggio già incluse nello snapshot precedente vengono compatte, mentre una modifica avvenuta durante una transazione non viene considerata salvata finché non viene persistita. Reset e import espliciti ricaricano il baseline corrente prima del CAS, così non falliscono silenziosamente dopo un conflitto. Una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Lo stato importato attraversa la stessa sanitizzazione dei dati salvati, i payload locali sono limitati a 1 MB e le versioni non supportate vengono rifiutate.
 
 Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera e il numero di elementi filtrati sono regioni `aria-live="polite"`; le barre di avanzamento espongono il valore tramite `role="progressbar"`; le scorciatoie tastiera sono dichiarate con `aria-keyshortcuts` e si attivano solo senza tasti modificatori; ogni controllo ha un nome accessibile e `prefers-reduced-motion` disattiva sia animazioni sia trasformazioni immediate dell’hover. La guida di nomenclatura usa controlli nativi, schede `<details>` e un indice navigabile per consultare le regole anche da tastiera. Su viewport stretti la tavola scorre dentro il proprio contenitore senza allargare la pagina.
 
@@ -104,7 +104,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
 - **`bun run validate`** — validazione HTML delle tre pagine con `html-validate`.
-- **`tests/test-app.js`** — 346 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`tests/test-app.js`** — 350 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,
@@ -121,6 +121,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   barre di categoria e mazzi proporzionali alle carte assegnate (non alle 118 caselle), con valori accessibili,
   `Enter`/`Spazio`/`Shift` con il focus sui controlli, Invio ripetuto senza penalità multiple,
   box Leitner 0 distinto da “nuovo”, conflitti multi-tab rifiutati senza sovrascrivere,
+  sessioni avviate mentre una lettura remota o un reload è in volo senza perdita della coda,
   eventi `sessionStorage` ignorati senza provocare falsi conflitti,
   storage non disponibile con avviso/import/export, import valido o malformato, payload oltre 1 MB rifiutato e versioni future rifiutate,
   campi sconosciuti scartati e storico quiz coerente tra risposte, punteggio, errori e data,
@@ -133,9 +134,10 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
 - **`tests/test-browser.js`** — 30 asserzioni: Chromium headless sul menu, sulla guida di nomenclatura e su tutte le viste della
   tavola, nessun errore JavaScript, zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili,
   viewport a 320 px senza overflow della pagina, hover neutro con motion ridotto e avvio `file://` senza server.
-- **`tests/test-storage-indexeddb.js`** — 14 asserzioni: migrazione automatica da localStorage,
-  caricamento condiviso del database, rifiuto di una seconda scrittura con baseline obsoleto e
-  serializzazione dei salvataggi rapidi nella stessa scheda e rifiuto dei record falsi corrotti.
+- **`tests/test-storage-indexeddb.js`** — 16 asserzioni: migrazione automatica da localStorage,
+  caricamento condiviso del database, rifiuto di una seconda scrittura con baseline obsoleto,
+  serializzazione dei salvataggi rapidi, rifiuto dei record falsi corrotti, timeout del bootstrap
+  e chiusura di un database aperto tardivamente.
 - **`tests/test-storage-lock.js`** — 21 asserzioni: due finestre con storage condiviso e lock
   concorrenti; la seconda scrittura obsoleta viene rifiutata e non annulla la prima; un reset
   invalida anche i salvataggi già in coda prima di scrivere lo stato vuoto; una modifica effettuata

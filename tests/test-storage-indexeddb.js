@@ -1,4 +1,4 @@
-// Verifica IndexedDB: migrazione dal backup localStorage e CAS multi-finestra.
+// Verifica IndexedDB: migrazione, CAS multi-finestra e timeout del bootstrap.
 const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
@@ -77,6 +77,39 @@ async function main() {
   ok(a.__run("mastery(1)") === 54, "entrambi i salvataggi rapidi applicati");
   ok(a.__run("storageSavePending") === 0 && b.__run("storageSavePending") === 0,
     "nessuna transazione IndexedDB resta pendente");
+
+  /* bootstrap: un open() che non completa non può lasciare l'app invisibile */
+  Object.defineProperty(a, "indexedDB", {
+    configurable:true,
+    value:{ open(){ return {}; } }
+  });
+  const timeoutStarted=Date.now();
+  const timedOut=await a.__run(
+    'createProgressStore("timeout-test",{dbName:"timeout-db",initTimeoutMs:20}).init()');
+  ok(timedOut.backend==="localstorage" && /scaduta/.test(timedOut.error.message) &&
+    Date.now()-timeoutStarted<250,
+    "init: open IndexedDB pendente scade e attiva il fallback", timedOut.error?.message);
+
+  /* una risposta tardiva dell'open deve chiudere il database, non riaprirlo */
+  let lateCloses=0;
+  Object.defineProperty(a, "indexedDB", {
+    configurable:true,
+    value:{
+      open(){
+        const request={};
+        setTimeout(()=>{
+          request.result={close(){ lateCloses++; }};
+          request.onsuccess?.();
+        },40);
+        return request;
+      }
+    }
+  });
+  await a.__run(
+    'createProgressStore("late-timeout-test",{dbName:"late-timeout-db",initTimeoutMs:20}).init()');
+  await new Promise(resolve => setTimeout(resolve,60));
+  ok(lateCloses===1,
+    "init: il database aperto dopo il timeout viene chiuso", String(lateCloses));
 
   console.log(`IndexedDB: ${fail ? "ERRORI" : "OK"} (${pass}/${pass + failures.length})`);
   failures.forEach(failure => console.log("FAIL: " + failure));

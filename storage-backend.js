@@ -4,8 +4,18 @@ function createProgressStore(key,options={}){
   const dbName=options.dbName||"chemmaster-4000";
   const storeName=options.storeName||"progress";
   const channelName=options.channelName||`${key}:updates`;
+  const configuredTimeout=Number(options.initTimeoutMs);
+  const initTimeoutMs=Number.isFinite(configuredTimeout)&&configuredTimeout>0?configuredTimeout:5000;
   const listeners=new Set();
   let db=null, backend="localstorage", channel=null;
+
+  function withTimeout(promise,timeoutMs,message){
+    let timer;
+    const timeout=new Promise((_,reject)=>{
+      timer=setTimeout(()=>reject(new Error(message)),timeoutMs);
+    });
+    return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
+  }
 
   function readLocal(){
     try{ return {available:true,raw:globalThis.localStorage.getItem(key)}; }
@@ -15,24 +25,29 @@ function createProgressStore(key,options={}){
     try{ globalThis.localStorage.removeItem(key); }
     catch(_){ /* IndexedDB è già la copia primaria */ }
   }
-  function openDatabase(){
+  function openDatabase(timeoutMs){
     return new Promise((resolve,reject)=>{
       if(!globalThis.indexedDB){ reject(new Error("IndexedDB non disponibile")); return; }
       let settled=false;
       let request;
+      let timer;
       const fail=error=>{
         if(settled) return;
         settled=true;
+        clearTimeout(timer);
         reject(error||new Error("Apertura IndexedDB fallita"));
       };
       try{ request=globalThis.indexedDB.open(dbName,1); }
       catch(error){ fail(error); return; }
+      timer=setTimeout(()=>fail(
+        new Error(`Apertura IndexedDB scaduta dopo ${timeoutMs} ms`)),timeoutMs);
       request.onupgradeneeded=()=>{
         if(!request.result.objectStoreNames.contains(storeName)){
           request.result.createObjectStore(storeName,{keyPath:"key"});
         }
       };
       request.onsuccess=()=>{
+        clearTimeout(timer);
         if(settled){ request.result.close(); return; }
         settled=true;
         const opened=request.result;
@@ -108,16 +123,20 @@ function createProgressStore(key,options={}){
     if(db){ db.close(); db=null; }
   }
   async function init(){
+    const deadline=Date.now()+initTimeoutMs;
+    const remaining=()=>Math.max(1,deadline-Date.now());
     try{
-      db=await openDatabase();
+      db=await openDatabase(remaining());
       backend="indexeddb";
       setupChannel();
-      let raw=await idbRead();
+      let raw=await withTimeout(idbRead(),remaining(),
+        `Lettura IndexedDB scaduta dopo ${initTimeoutMs} ms`);
       let migrated=false;
       if(raw===null){
         const legacy=readLocal();
         if(legacy.available&&legacy.raw!==null){
-          await idbPut(legacy.raw);
+          await withTimeout(idbPut(legacy.raw),remaining(),
+            `Migrazione IndexedDB scaduta dopo ${initTimeoutMs} ms`);
           removeLocal();
           raw=legacy.raw;
           migrated=true;
