@@ -1,14 +1,13 @@
 module.exports = context => {
-  const {win, d, html, css, ok, section, ev, click, type} = context;
+  const {win, d, html, css, appScripts, ok, section, ev, click, type} = context;
   /* ================= INIT ================= */
   section("Init / rendering");
   ok(win.__errors.length === 0, "nessun errore JS al caricamento", win.__errors.join(" | "));
   ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
     "tavola usa il CSS esterno senza stili inline");
   const scriptSources=[...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map(m=>m[1]);
-  ok(JSON.stringify(scriptSources)===JSON.stringify(["data.js", "storage-backend.js", "storage.js", "app.js"]) &&
-     !html.includes("<script>"),
-    "tavola carica i quattro script esterni nell'ordine corretto senza codice inline");
+  ok(JSON.stringify(scriptSources)===JSON.stringify(appScripts) && !html.includes("<script>"),
+    "tavola carica i moduli esterni nell'ordine corretto senza codice inline");
   ok(win.getComputedStyle(d.body).display !== "flex",
     "stili del menu non invadono il layout della tavola", win.getComputedStyle(d.body).display);
   ok(d.querySelectorAll("#ptable .cell").length === 118, "118 celle nella tavola");

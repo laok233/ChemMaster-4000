@@ -4,11 +4,12 @@
 const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
+const { APP_SCRIPTS } = require("./helpers/app-scripts");
 
 const root = path.join(__dirname, "..");
 const html = fs.readFileSync(path.join(root, "tavola.html"), "utf8");
 const readScript = name => fs.readFileSync(path.join(root, name), "utf8");
-const code = ["data.js", "storage-backend.js", "storage.js", "app.js"].map(readScript).join("\n");
+const code = APP_SCRIPTS.map(readScript).join("\n");
 const KEY = "chemmaster-4000-v1";
 const seed = JSON.stringify({
   version:1, mastery:{}, leitner:{}, due:{},

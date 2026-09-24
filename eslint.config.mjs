@@ -4,9 +4,9 @@ import globals from "globals";
 // I file dell'app sono script classici separati (nessun build step): vengono
 // analizzati direttamente; i test sono CommonJS avviati da Bun.
 
-// Contratto esplicito dei quattro script classici. La lista rende gli incroci
-// fra file visibili a ESLint, invece di disattivare no-undef per tutto il
-// codice dell'applicazione.
+// Contratto esplicito degli script classici. La lista rende gli incroci
+// fra i moduli applicativi visibili a ESLint, invece di disattivare no-undef
+// per tutto il codice dell'applicazione.
 const sharedGlobalNames = [
   // data.js
   "SYMBOLS", "NAMES", "MASSES", "CAT_DEF", "CAT_LABEL", "posOf", "CFG_EXC", "AUFBAU",
@@ -25,16 +25,25 @@ const sharedGlobalNames = [
   "applyImportedState", "importProgress", "hasPendingTransientState", "resetTransientUI",
   "renderPersistedState", "reloadFromDisk", "openImportDialog", "handleProgressEvent", "handleStorageEvent", "mastery",
   "addMastery", "MASTERY_THRESHOLD", "masteredCount", "avgMastery",
-  // app.js
-  "appReadyPromise", "makeElement", "go", "updateHead", "activeCats", "placeholderTimer", "bioOn", "cellChildren", "setCellA11y",
-  "buildGrid", "applyFilter", "setBio", "renderLegend", "detailZ", "renderDetail", "refreshCellMastery",
-  "DIRS", "fieldValue", "fieldLabel", "scopeOptions", "MAX_BOX", "boxOf", "dueNow", "scopePool",
-  "shuffle", "cards", "cardScopesBuilt", "refreshCardScopes", "updateCardInfo", "startCards",
-  "setCardA11y", "showCard", "flipCard", "gradeCard", "finishCards", "resetCardsUI",
-  "questionFieldLabel", "QTYPES", "buildQuizTypes", "quizScopeBuilt", "refreshQuizScopes", "quiz", "NON_SO", "makeQuestion",
-  "startQuiz", "renderQuestion", "answerQuiz", "nextQuestion", "finishQuiz", "wSel", "writeGridBound",
-  "initWriteGrid", "wMsg", "updateWFilled", "clearCellSelection", "checkCell", "seq", "seqRender",
-  "seqCheck", "renderStats"
+  // app-core.js
+  "makeElement", "go", "updateHead",
+  // app-table.js
+  "activeCats", "placeholderTimer", "bioOn", "cellChildren", "setCellA11y", "buildGrid", "applyFilter", "setBio",
+  "renderLegend", "detailZ", "renderDetail", "refreshCellMastery",
+  // app-flashcards.js
+  "DIRS", "fieldValue", "fieldLabel", "scopeOptions", "MAX_BOX", "boxOf", "dueNow", "scopePool", "shuffle",
+  "cards", "cardScopesBuilt", "refreshCardScopes", "updateCardInfo", "startCards", "setCardA11y", "showCard",
+  "flipCard", "gradeCard", "finishCards", "resetCardsUI",
+  // app-quiz.js
+  "questionFieldLabel", "QTYPES", "buildQuizTypes", "quizScopeBuilt", "refreshQuizScopes", "quiz", "NON_SO",
+  "makeQuestion", "startQuiz", "renderQuestion", "answerQuiz", "nextQuestion", "finishQuiz",
+  // app-writing.js
+  "wSel", "writeGridBound", "initWriteGrid", "wMsg", "updateWFilled", "clearCellSelection", "checkCell",
+  "seq", "seqRender", "seqCheck",
+  // app-progress.js
+  "renderStats",
+  // app-init.js
+  "appReadyPromise"
 ];
 const sharedGlobals = Object.fromEntries(sharedGlobalNames.map(name => [name, "writable"]));
 
@@ -51,7 +60,7 @@ export default [
   { ignores: ["node_modules/**"] },
 
   {
-    files: ["data.js", "storage-backend.js", "storage.js", "app.js",
+    files: ["data.js", "storage-backend.js", "storage.js", "app-*.js",
       "nomenclatura-data.js", "nomenclatura.js"],
     languageOptions: {
       ecmaVersion: "latest",

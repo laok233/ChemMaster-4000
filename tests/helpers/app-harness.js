@@ -1,13 +1,14 @@
 const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
+const { APP_SCRIPTS } = require("./app-scripts");
 
 const root = path.join(__dirname, "..", "..");
 const html = fs.readFileSync(path.join(root, "tavola.html"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const readScript = name => fs.readFileSync(path.join(root, name), "utf8");
 const KEY = "chemmaster-4000-v1";
-const PAGE_CODE = ["data.js", "storage-backend.js", "storage.js", "app.js"].map(readScript).join("\n");
+const PAGE_CODE = APP_SCRIPTS.map(readScript).join("\n");
 // JSDOM non carica gli asset esterni senza un server: li inseriamo/valutiamo nel test.
 const TEST_HTML = html.replace('<link rel="stylesheet" href="style.css">', `<style>${css}</style>`);
 // Il codice della pagina è strict-mode: let/const restano private all'eval.
@@ -69,7 +70,7 @@ async function createTestApp() {
 
   const settle = () => new Promise(resolve => setTimeout(resolve, 0));
   return {
-    KEY, html, css, win, d: win.document, makeApp, ev, click, type, keyOn, key, view, settle,
+    KEY, html, css, appScripts: APP_SCRIPTS, win, d: win.document, makeApp, ev, click, type, keyOn, key, view, settle,
     ok, section,
     results: () => ({ pass, fail, failures: [...failures] })
   };

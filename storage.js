@@ -491,7 +491,7 @@ progressStore.subscribe(event=>{
 });
 globalThis.addEventListener("storage",e=>{
   if(!isRelevantStorageEvent(e)) return;
-  // L'evento può arrivare tra storage.js e app.js: conserva l'ultimo senza
+  // L'evento può arrivare tra storage.js e i moduli app: conserva l'ultimo senza
   // chiamare funzioni UI che non sono ancora state inizializzate.
   if(!appReady){ pendingStorageEvent=e; return; }
   handleStorageEvent(e);

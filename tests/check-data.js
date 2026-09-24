@@ -3,14 +3,16 @@
 const fs = require("fs");
 const vm = require("vm");
 const path = require("path");
+const { APP_SCRIPTS } = require("./helpers/app-scripts");
 
 const root = path.join(__dirname, "..");
 const html = fs.readFileSync(path.join(root, "tavola.html"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const dataCode = fs.readFileSync(path.join(root, "data.js"), "utf8");
 const storageCode = fs.readFileSync(path.join(root, "storage.js"), "utf8");
-const appCode = fs.readFileSync(path.join(root, "app.js"), "utf8");
-const code = [dataCode, storageCode, appCode].join("\n");
+const appFiles = APP_SCRIPTS.filter(name => name.startsWith("app-"));
+const appCode = appFiles.map(name => fs.readFileSync(path.join(root, name), "utf8")).join("\n");
+const code = [dataCode, storageCode, ...appFiles.map(name => fs.readFileSync(path.join(root, name), "utf8"))].join("\n");
 const data = dataCode.slice(0, dataCode.indexOf("// END DATA"));
 
 const sandbox = { console };
@@ -25,9 +27,9 @@ let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.log("FAIL: " + msg); fails++; } };
 ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
   "CSS esterno collegato e nessun blocco inline residuo");
-ok(["data.js", "storage-backend.js", "storage.js", "app.js"].every(f=>html.includes(`<script src="${f}" defer></script>`)) &&
-   !html.includes("<script>"),
-  "script esterni separati e nessun blocco inline residuo");
+const scriptSources = [...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map(match => match[1]);
+ok(JSON.stringify(scriptSources) === JSON.stringify(APP_SCRIPTS) && !html.includes("<script>"),
+  "script esterni separati nell'ordine dei moduli e nessun blocco inline residuo");
 ok(!/\.innerHTML\s*=/.test(appCode), "rendering applicativo senza innerHTML");
 
 /* --- struttura --- */

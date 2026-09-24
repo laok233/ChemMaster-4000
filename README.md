@@ -37,22 +37,29 @@ nomenclatura.html     funzione «Nomenclatura chimica»
 
 tavola.html           funzione «Tavola periodica» (ex index.html)
 ├── <body>    5 sezioni (una vista per modalità)
-└── <script>  quattro script classici, caricati in ordine con defer
-    ├── data.js       simboli, nomi italiani, masse, categorie, posizioni,
-    │                 configurazioni elettronica (con le eccezioni note: Cr, Cu, Mo, Au…)
-    │                 e BIO_SYMS/BIO_Z (i 26 elementi biorilevanti)
+└── <script>  dieci script classici, caricati in ordine con defer
+    ├── data.js            simboli, nomi italiani, masse, categorie, posizioni,
+    │                      configurazioni elettronica (con le eccezioni note: Cr, Cu, Mo, Au…)
+    │                      e BIO_SYMS/BIO_Z (i 26 elementi biorilevanti)
     ├── storage-backend.js repository IndexedDB atomico, migrazione e BroadcastChannel
-    ├── storage.js    persistenza versionata, protezione dai conflitti, import/export
-    │                 JSON e avviso se nessun archivio è disponibile, migrazione v0→v1
-    │                 e rifiuto delle versioni future, sanitizzazione dello stato corrotto
-    │                 (anche ai membri annidati), scarto di booleani/chiavi non canoniche,
-    │                 storico quiz con invarianti risposte/punteggio, caselle `solved`
-    │                 con flag canonico 1 ed elementi validi, `wrongZ` a soli Z reali
-    └── app.js        navigazione, TAVOLA, FLASHCARD, QUIZ, SCRIVI e PROGRESSI
+    ├── storage.js         persistenza versionata, protezione dai conflitti, import/export
+    │                      JSON e avviso se nessun archivio è disponibile, migrazione v0→v1
+    │                      e rifiuto delle versioni future, sanitizzazione dello stato corrotto
+    │                      (anche ai membri annidati), scarto di booleani/chiavi non canoniche,
+    │                      storico quiz con invarianti risposte/punteggio, caselle `solved`
+    │                      con flag canonico 1 ed elementi validi, `wrongZ` a soli Z reali
+    ├── app-core.js        helper DOM, navigazione e avanzamento globale
+    ├── app-table.js       griglia, dettagli, ricerca, filtri e biorilevanti
+    ├── app-flashcards.js  Leitner, giudizi e scorciatoie
+    ├── app-quiz.js        domande, risposte e ripasso errori
+    ├── app-writing.js     tavola vuota e sequenza
+    ├── app-progress.js    statistiche, barre e azzeramento
+    └── app-init.js        bootstrap e gestione degli eventi iniziali
 tests/
 ├── check-data.js       verifiche sui dati della tavola (nessuna dipendenza)
 ├── helpers/
-│   └── app-harness.js  harness JSDOM condiviso e helper di interazione
+│   ├── app-harness.js  harness JSDOM condiviso e helper di interazione
+│   └── app-scripts.js  ordine canonico dei moduli della tavola
 ├── app/
 │   ├── table.js        inizializzazione, ricerca, filtri e biorilevanti
 │   ├── flashcards.js   flashcards, giudizi e scorciatoie
