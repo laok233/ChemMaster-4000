@@ -11,19 +11,20 @@
 <body class="nomenclature-page">
 <header>
   <h1>⚛ Chem<span>Master 4000</span></h1>
-  <nav aria-label="Navigazione principale">
+  <nav id="nomenclatureTabs" aria-label="Navigazione della nomenclatura">
     <a class="home-link" href="index.html" title="Torna al menu principale">🏠 Menu</a>
-    <a class="home-link" href="nomenclatura.html" aria-current="page">🧪 Nomenclatura</a>
+    <button type="button" data-nomenclature-view="guide" class="active" aria-current="true">Guida</button>
+    <button type="button" data-nomenclature-view="quiz">Quiz</button>
   </nav>
 </header>
 
 <main>
+  <div class="nomenclature-view" id="nomenclatureGuideView">
   <section class="nomenclature-intro" aria-labelledby="nomenclatureTitle">
     <div>
       <p class="eyebrow">Guida rapida di chimica</p>
       <h2 id="nomenclatureTitle">Nomenclatura chimica</h2>
       <p class="sub">Una guida interattiva per costruire e leggere i nomi dei composti inorganici e organici, con anche i principali nomi tradizionali: scegli un argomento, cerca una regola e apri gli esempi.</p>
-      <a class="btn ghost sm nomenclature-quiz-jump" href="#nomenclatureQuiz">Prova il quiz ↓</a>
     </div>
     <ol class="nomenclature-steps">
       <li><b>1.</b> Scegli la famiglia</li>
@@ -47,69 +48,6 @@
     <p class="nomenclature-results" id="nomenclatureStatus" aria-live="polite" aria-atomic="true"></p>
   </section>
 
-  <section class="panel nomenclature-quiz" id="nomenclatureQuiz" aria-labelledby="nomenclatureQuizTitle">
-    <div class="nomenclature-quiz-header">
-      <div>
-        <p class="eyebrow">Metti alla prova quello che sai</p>
-        <h2 id="nomenclatureQuizTitle">Quiz di nomenclatura</h2>
-        <p class="sub">Scegli l'ambito, indovina il nome dalla formula o la formula dal nome e consulta subito la spiegazione.</p>
-      </div>
-      <span class="nomenclature-quiz-count" id="nomenclatureQuizPoolCount"></span>
-    </div>
-
-    <div class="nomenclature-quiz-setup" id="nomenclatureQuizSetup">
-      <div class="nomenclature-quiz-settings">
-        <label class="ctl">Ambito
-          <select id="nomenclatureQuizScope">
-            <option value="all">Inorganica e organica</option>
-            <option value="inorganic">Solo inorganica</option>
-            <option value="organic">Solo organica</option>
-            <option value="traditional">Nomi tradizionali</option>
-          </select>
-        </label>
-        <label class="ctl">Numero di domande
-          <select id="nomenclatureQuizLength">
-            <option value="5">5 domande</option>
-            <option value="10" selected>10 domande</option>
-            <option value="15">15 domande</option>
-          </select>
-        </label>
-      </div>
-      <div class="nomenclature-quiz-launch">
-        <p id="nomenclatureQuizHint" aria-live="polite"></p>
-        <button class="btn" type="button" id="nomenclatureQuizStart">Inizia il quiz →</button>
-      </div>
-    </div>
-
-    <div class="hidden" id="nomenclatureQuizStage">
-      <div class="qbar">
-        <span id="nomenclatureQuizProgress" aria-live="polite" aria-atomic="true"></span>
-        <span id="nomenclatureQuizScore"></span>
-      </div>
-      <div class="meter" aria-hidden="true"><i id="nomenclatureQuizMeter"></i></div>
-      <h3 class="qtext nomenclature-quiz-question" id="nomenclatureQuizQuestion" tabindex="-1">Domanda di nomenclatura</h3>
-      <div class="options" id="nomenclatureQuizOptions" role="group" aria-label="Alternative di risposta"></div>
-      <p class="feedback" id="nomenclatureQuizFeedback" role="status" aria-live="polite" aria-atomic="true"></p>
-      <div class="nomenclature-quiz-actions">
-        <button class="btn ghost" type="button" id="nomenclatureQuizEnd">Termina</button>
-        <button class="btn hidden" type="button" id="nomenclatureQuizNext">Prossima →</button>
-      </div>
-    </div>
-
-    <div class="hidden" id="nomenclatureQuizDone">
-      <div class="result-big" id="nomenclatureQuizResult" tabindex="-1"></div>
-      <p id="nomenclatureQuizSummary" aria-live="polite"></p>
-      <section class="nomenclature-quiz-review" id="nomenclatureQuizReview" aria-labelledby="nomenclatureQuizReviewTitle" hidden>
-        <h3 id="nomenclatureQuizReviewTitle">Da ripassare</h3>
-        <ul id="nomenclatureQuizWrong"></ul>
-      </section>
-      <div class="nomenclature-quiz-actions">
-        <button class="btn" type="button" id="nomenclatureQuizAgain">Ricomincia</button>
-        <a class="btn ghost" href="#nomenclatureContent">Rivedi la guida</a>
-      </div>
-    </div>
-  </section>
-
   <div class="nomenclature-layout">
     <aside class="panel nomenclature-index" aria-labelledby="nomenclatureIndexTitle">
       <h2 id="nomenclatureIndexTitle">Indice rapido</h2>
@@ -122,6 +60,72 @@
   <noscript>
     <p class="panel nomenclature-empty">Questa guida interattiva richiede JavaScript. Attivalo per caricare le schede di nomenclatura.</p>
   </noscript>
+  </div>
+
+  <section class="nomenclature-view nomenclature-quiz-view" id="nomenclatureQuizView" hidden aria-labelledby="nomenclatureQuizTitle">
+    <div class="panel nomenclature-quiz" id="nomenclatureQuiz">
+      <div class="nomenclature-quiz-header">
+        <div>
+          <p class="eyebrow">Metti alla prova quello che sai</p>
+          <h2 id="nomenclatureQuizTitle">Quiz di nomenclatura</h2>
+          <p class="sub">Scegli l'ambito, indovina il nome dalla formula o la formula dal nome e consulta subito la spiegazione.</p>
+        </div>
+        <span class="nomenclature-quiz-count" id="nomenclatureQuizPoolCount"></span>
+      </div>
+
+      <div class="nomenclature-quiz-setup" id="nomenclatureQuizSetup">
+        <div class="nomenclature-quiz-settings">
+          <label class="ctl">Ambito
+            <select id="nomenclatureQuizScope">
+              <option value="all">Inorganica e organica</option>
+              <option value="inorganic">Solo inorganica</option>
+              <option value="organic">Solo organica</option>
+              <option value="traditional">Nomi tradizionali</option>
+            </select>
+          </label>
+          <label class="ctl">Numero di domande
+            <select id="nomenclatureQuizLength">
+              <option value="5">5 domande</option>
+              <option value="10" selected>10 domande</option>
+              <option value="15">15 domande</option>
+            </select>
+          </label>
+        </div>
+        <div class="nomenclature-quiz-launch">
+          <p id="nomenclatureQuizHint" aria-live="polite"></p>
+          <button class="btn" type="button" id="nomenclatureQuizStart">Inizia il quiz →</button>
+        </div>
+      </div>
+
+      <div class="hidden" id="nomenclatureQuizStage">
+        <div class="qbar">
+          <span id="nomenclatureQuizProgress" aria-live="polite" aria-atomic="true"></span>
+          <span id="nomenclatureQuizScore"></span>
+        </div>
+        <div class="meter" aria-hidden="true"><i id="nomenclatureQuizMeter"></i></div>
+        <h3 class="qtext nomenclature-quiz-question" id="nomenclatureQuizQuestion" tabindex="-1">Domanda di nomenclatura</h3>
+        <div class="options" id="nomenclatureQuizOptions" role="group" aria-label="Alternative di risposta"></div>
+        <p class="feedback" id="nomenclatureQuizFeedback" role="status" aria-live="polite" aria-atomic="true"></p>
+        <div class="nomenclature-quiz-actions">
+          <button class="btn ghost" type="button" id="nomenclatureQuizEnd">Termina</button>
+          <button class="btn hidden" type="button" id="nomenclatureQuizNext">Prossima →</button>
+        </div>
+      </div>
+
+      <div class="hidden" id="nomenclatureQuizDone">
+        <div class="result-big" id="nomenclatureQuizResult" tabindex="-1"></div>
+        <p id="nomenclatureQuizSummary" aria-live="polite"></p>
+        <section class="nomenclature-quiz-review" id="nomenclatureQuizReview" aria-labelledby="nomenclatureQuizReviewTitle" hidden>
+          <h3 id="nomenclatureQuizReviewTitle">Da ripassare</h3>
+          <ul id="nomenclatureQuizWrong"></ul>
+        </section>
+        <div class="nomenclature-quiz-actions">
+          <button class="btn" type="button" id="nomenclatureQuizAgain">Ricomincia</button>
+          <button class="btn ghost" type="button" data-nomenclature-view="guide">Rivedi la guida</button>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer>ChemMaster 4000 · nomenclatura inorganica e organica</footer>

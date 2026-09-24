@@ -303,7 +303,6 @@ body.menu-page .sub{font-size:14px; margin:0 0 22px}
   background:var(--panel2); border:1px solid var(--line); border-radius:999px; padding:7px 11px;
 }
 .nomenclature-steps b{color:var(--accent); font-size:13px}
-.nomenclature-quiz-jump{display:inline-flex; margin-top:-4px; text-decoration:none}
 .nomenclature-toolbar{margin-bottom:18px}
 .nomenclature-toolbar-top{display:flex; justify-content:space-between; align-items:start; gap:16px; flex-wrap:wrap}
 .nomenclature-toolbar h2{font-size:18px; margin-bottom:3px}
@@ -314,7 +313,8 @@ body.menu-page .sub{font-size:14px; margin:0 0 22px}
 .nomenclature-filter.off{text-decoration:none; opacity:1; color:var(--txt-dim)}
 .nomenclature-results{color:var(--txt-dim); font-size:12.5px; margin:12px 0 0; min-height:1.45em}
 .nomenclature-results[data-empty="true"]{color:var(--warn); font-weight:700}
-.nomenclature-quiz{margin-bottom:18px; scroll-margin-top:90px; box-shadow:var(--shadow)}
+.nomenclature-quiz-view{max-width:900px; margin:0 auto}
+.nomenclature-quiz{margin-bottom:0; scroll-margin-top:90px; box-shadow:var(--shadow)}
 .nomenclature-quiz-header{display:flex; justify-content:space-between; align-items:start; gap:18px; flex-wrap:wrap}
 .nomenclature-quiz-header h2{font-size:20px; margin-bottom:4px}
 .nomenclature-quiz-header .sub{margin-bottom:0}

@@ -75,17 +75,24 @@ ok([...d.querySelectorAll("#nomenclatureFilters button")].every(button =>
   button.type === "button" && button.hasAttribute("aria-pressed")),
 "filtri navigabili da tastiera con stato esposto");
 ok(d.querySelectorAll("#nomenclatureContent table caption").length === 6, "tabelle di riferimento presenti");
-ok(!!d.getElementById("nomenclatureQuiz"), "sezione quiz presente nella pagina");
-ok(d.querySelector("label.ctl #nomenclatureQuizScope") &&
+const nomenclatureTabs = [...d.querySelectorAll("#nomenclatureTabs [data-nomenclature-view]")];
+ok(nomenclatureTabs.length === 2 &&
+    nomenclatureTabs.map(button => button.textContent).join(",") === "Guida,Quiz",
+  "Guida e Quiz sono schede nella barra superiore", nomenclatureTabs.map(button => button.textContent).join(","));
+ok(nomenclatureTabs[0].classList.contains("active") &&
+    nomenclatureTabs[0].getAttribute("aria-current") === "true" &&
+    !d.getElementById("nomenclatureGuideView").hidden && d.getElementById("nomenclatureQuizView").hidden,
+  "all'avvio è attiva la scheda Guida");
+ok(!!d.getElementById("nomenclatureQuiz") && d.querySelector("label.ctl #nomenclatureQuizScope") &&
     d.querySelector("label.ctl #nomenclatureQuizLength"),
-  "ambito e lunghezza del quiz hanno etichette visibili");
+  "sezione quiz presente con etichette visibili per ambito e lunghezza");
 ok([...d.querySelectorAll("#nomenclatureQuizLength option")].map(option => option.value).join(",") === "5,10,15",
   "quiz: durate da 5, 10 o 15 domande");
 ok(d.getElementById("nomenclatureQuizSetup") &&
     !d.getElementById("nomenclatureQuizSetup").classList.contains("hidden") &&
     d.getElementById("nomenclatureQuizStage").classList.contains("hidden") &&
     d.getElementById("nomenclatureQuizDone").classList.contains("hidden"),
-  "quiz: inizialmente mostra la configurazione");
+  "quiz: la configurazione è pronta nella propria scheda");
 ok(/^[1-9][0-9]* esempi$/.test(d.getElementById("nomenclatureQuizPoolCount").textContent),
   "quiz: numero di esempi disponibili annunciato", d.getElementById("nomenclatureQuizPoolCount").textContent);
 ok(d.getElementById("nomenclatureQuizFeedback").getAttribute("role") === "status" &&
@@ -192,6 +199,11 @@ section("Nomenclatura: quiz");
 const quizState = win.__nomenclatureQuiz;
 const quizScope = d.getElementById("nomenclatureQuizScope");
 const quizLength = d.getElementById("nomenclatureQuizLength");
+const quizTab = nomenclatureTabs.find(button => button.dataset.nomenclatureView === "quiz");
+click(quizTab);
+ok(d.getElementById("nomenclatureGuideView").hidden && !d.getElementById("nomenclatureQuizView").hidden &&
+    quizTab.getAttribute("aria-current") === "true" && !nomenclatureTabs[0].hasAttribute("aria-current"),
+  "la scheda Quiz della barra superiore apre il quiz e aggiorna lo stato attivo");
 ok(quizLength.value === "10", "il quiz parte da una durata di 10 domande");
 click(d.getElementById("nomenclatureQuizStart"));
 ok(!d.getElementById("nomenclatureQuizStage").classList.contains("hidden") &&
@@ -266,6 +278,11 @@ ok(d.getElementById("nomenclatureQuizResult").textContent === "0/10" &&
   "un quiz terminato senza risposte non mostra una percentuale falsa");
 ok(d.getElementById("nomenclatureQuizReview").hidden,
   "senza errori non viene mostrato il riepilogo di ripasso");
+click(d.querySelector("#nomenclatureQuizDone [data-nomenclature-view='guide']"));
+ok(!d.getElementById("nomenclatureGuideView").hidden &&
+    d.getElementById("nomenclatureQuizView").hidden &&
+    nomenclatureTabs[0].getAttribute("aria-current") === "true",
+  "il riepilogo permette di tornare alla Guida dalla barra in alto");
 
 console.log("\n================ RISULTATO ================");
 console.log("PASS: " + pass + "   FAIL: " + fail);

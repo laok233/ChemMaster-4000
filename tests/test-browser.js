@@ -104,6 +104,11 @@ async function main() {
     "nomenclatura: stato vuoto visibile e indice senza gruppi vuoti");
     await assertA11y(page, "Nomenclatura senza risultati");
     await page.locator("#clearNomenclature").click();
+    await page.locator('#nomenclatureTabs [data-nomenclature-view="quiz"]').click();
+    ok(await page.locator("#nomenclatureQuizView").isVisible() &&
+      await page.locator("#nomenclatureGuideView").isHidden() &&
+      await page.locator('#nomenclatureTabs [data-nomenclature-view="quiz"]').getAttribute("aria-current") === "true",
+    "nomenclatura: Quiz aperto dalla barra superiore");
     await page.locator("#nomenclatureQuizStart").click();
     ok(await page.locator("#nomenclatureQuizStage").isVisible() &&
       await page.locator("#nomenclatureQuizOptions .opt").count() === 5,
@@ -121,6 +126,10 @@ async function main() {
     await page.locator("#nomenclatureQuizAgain").click();
     ok(await page.locator("#nomenclatureQuizSetup").isVisible(),
       "nomenclatura: nuovo quiz torna alla configurazione");
+    await page.locator('#nomenclatureTabs [data-nomenclature-view="guide"]').click();
+    ok(await page.locator("#nomenclatureGuideView").isVisible() &&
+      await page.locator("#nomenclatureQuizView").isHidden(),
+    "nomenclatura: Guida aperta dalla barra superiore");
     await assertA11y(page, "Nomenclatura");
 
     await page.goto(`${base}/tavola.html`, { waitUntil: "networkidle" });

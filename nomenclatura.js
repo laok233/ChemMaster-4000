@@ -276,6 +276,31 @@ function clearNomenclature(){
   document.getElementById("nomenclatureSearch").focus();
 }
 
+function showNomenclatureView(view){
+  if(view!=="guide" && view!=="quiz") return;
+  const guide=document.getElementById("nomenclatureGuideView");
+  const quiz=document.getElementById("nomenclatureQuizView");
+  const active=view==="quiz"?quiz:guide;
+  guide.hidden=active!==guide;
+  quiz.hidden=active!==quiz;
+  document.querySelectorAll("#nomenclatureTabs [data-nomenclature-view]").forEach(button=>{
+    const on=button.dataset.nomenclatureView===view;
+    button.classList.toggle("active",on);
+    if(on) button.setAttribute("aria-current","true");
+    else button.removeAttribute("aria-current");
+  });
+  const heading=active.querySelector("h2");
+  if(heading){
+    heading.setAttribute("tabindex","-1");
+    heading.focus({preventScroll:true});
+  }
+  const reduceMotion=!!(globalThis.matchMedia&&
+    globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  if(typeof globalThis.scrollTo==="function"){
+    globalThis.scrollTo({top:0,behavior:reduceMotion?"auto":"smooth"});
+  }
+}
+
 const NOMENCLATURE_NOT_KNOWN="__nomenclature_not_known__";
 const nomenclatureQuiz={questions:[],index:0,correct:0,answered:0,wrong:[],answeredCurrent:false};
 
@@ -481,6 +506,10 @@ function resetNomenclatureQuiz(){
 }
 
 function initNomenclatureQuiz(){
+  document.body.addEventListener("click",event=>{
+    const control=event.target.closest("[data-nomenclature-view]");
+    if(control) showNomenclatureView(control.dataset.nomenclatureView);
+  });
   document.getElementById("nomenclatureQuizScope").addEventListener("change",updateNomenclatureQuizSetup);
   document.getElementById("nomenclatureQuizStart").addEventListener("click",startNomenclatureQuiz);
   document.getElementById("nomenclatureQuizOptions").addEventListener("click",event=>{
