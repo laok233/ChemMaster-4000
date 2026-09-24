@@ -39,16 +39,20 @@ ok(/Piattaforma di studio della chimica/.test(d.body.textContent), "sottotitolo 
 /* ================= TESSERE ================= */
 section("Menu: tessere");
 const tiles = d.querySelectorAll("a.tile");
-ok(tiles.length === 1, "1 funzione disponibile per ora (ottenute " + tiles.length + ")", String(tiles.length));
+ok(tiles.length === 2, "2 funzioni disponibili (ottenute " + tiles.length + ")", String(tiles.length));
 const tav = d.querySelector('a.tile[href="tavola.html"]');
 ok(!!tav, "tessera 'Tavola periodica' che punta a tavola.html");
 ok(!!tav && /Tavola periodica/i.test(tav.textContent), "nome della funzione nella tessera",
   tav && tav.textContent.replace(/\s+/g, " ").trim());
+const nom = d.querySelector('a.tile[href="nomenclatura.html"]');
+ok(!!nom, "tessera 'Nomenclatura' che punta a nomenclatura.html");
+ok(!!nom && /Nomenclatura/i.test(nom.textContent) && /inorganica.*organica/i.test(nom.textContent),
+  "nome e descrizione della nomenclatura nella tessera", nom && nom.textContent.replace(/\s+/g, " ").trim());
 
 /* ================= LINK ================= */
 section("Menu: link");
 const links = [...d.querySelectorAll('a[href$=".html"]')];
-ok(links.length >= 1, "almeno un link a una pagina", String(links.length));
+ok(links.length >= 2, "almeno due link a pagine", String(links.length));
 links.forEach(a => {
   const target = a.getAttribute("href").split("#")[0];
   ok(fs.existsSync(path.join(__dirname, "..", target)), "link esistente: " + target);

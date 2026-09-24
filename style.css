@@ -285,3 +285,112 @@ footer{text-align:center; color:var(--txt-dim); font-size:12.5px; padding:26px 1
 /* il menu mantiene il proprio ritmo tipografico, separato dalla tavola */
 body.menu-page h2{font-size:22px; margin:0 0 4px}
 body.menu-page .sub{font-size:14px; margin:0 0 22px}
+
+/* ---------- NOMENCLATURA ---------- */
+.nomenclature-page{display:flex; flex-direction:column}
+.nomenclature-page main{width:100%; max-width:1200px; flex:1}
+.nomenclature-intro{
+  display:grid; grid-template-columns:minmax(0,1fr) auto; gap:24px; align-items:end;
+  margin-bottom:18px;
+}
+.eyebrow{color:var(--accent); font-size:12px; font-weight:800; letter-spacing:1.2px;
+  text-transform:uppercase; margin:0 0 5px}
+.nomenclature-steps{
+  display:flex; gap:8px; flex-wrap:wrap; list-style:none; margin:0; padding:0; max-width:480px;
+}
+.nomenclature-steps li{
+  display:flex; align-items:center; gap:7px; color:var(--txt-dim); font-size:12.5px;
+  background:var(--panel2); border:1px solid var(--line); border-radius:999px; padding:7px 11px;
+}
+.nomenclature-steps b{color:var(--accent); font-size:13px}
+.nomenclature-toolbar{margin-bottom:18px}
+.nomenclature-toolbar-top{display:flex; justify-content:space-between; align-items:start; gap:16px; flex-wrap:wrap}
+.nomenclature-toolbar h2{font-size:18px; margin-bottom:3px}
+.nomenclature-toolbar .sub{margin-bottom:12px}
+.nomenclature-search-label{width:min(100%,560px); margin-top:2px}
+.nomenclature-search-label input{width:100%; margin-top:2px}
+.nomenclature-toolbar .chips{margin-top:14px}
+.nomenclature-filter.off{text-decoration:none; opacity:1; color:var(--txt-dim)}
+.nomenclature-layout{display:grid; grid-template-columns:220px minmax(0,1fr); gap:18px; align-items:start}
+.nomenclature-index{position:sticky; top:86px}
+.nomenclature-index h2{font-size:17px; margin-bottom:12px}
+.nomenclature-index-group+ .nomenclature-index-group{margin-top:16px}
+.nomenclature-index-group h3{
+  color:var(--txt-dim); font-size:11px; letter-spacing:1px; text-transform:uppercase;
+  margin:0 0 6px;
+}
+.nomenclature-index ul{list-style:none; padding:0; margin:0}
+.nomenclature-index li+li{margin-top:2px}
+.nomenclature-index a{
+  display:block; color:var(--txt-dim); text-decoration:none; font-size:13px; line-height:1.35;
+  padding:6px 8px; border-left:2px solid transparent; border-radius:0 6px 6px 0;
+}
+.nomenclature-index a:hover{color:var(--txt); background:var(--panel2)}
+.nomenclature-index a[aria-current]{color:var(--accent); border-left-color:var(--accent); background:rgba(90,200,250,.08)}
+.nomenclature-content{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px}
+.nomenclature-card{
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:17px; min-width:0; scroll-margin-top:100px;
+}
+.nomenclature-card-header{margin-bottom:13px}
+.nomenclature-card-meta{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:9px}
+.nomenclature-area,.nomenclature-topic{font-size:11px; font-weight:700; letter-spacing:.2px}
+.nomenclature-area{border:1px solid currentColor; border-radius:999px; padding:2px 8px}
+.nomenclature-area-inorganic{color:var(--metalloid)}
+.nomenclature-area-organic{color:var(--lanth)}
+.nomenclature-topic{color:var(--txt-dim)}
+.nomenclature-card h3{font-size:19px; line-height:1.2; margin:0 0 6px}
+.nomenclature-card-header p{color:var(--txt-dim); font-size:13.5px; margin:0}
+.nomenclature-details{border-top:1px solid var(--line); padding-top:11px}
+.nomenclature-details summary{
+  color:var(--accent); cursor:pointer; font-size:13px; font-weight:700; list-style-position:inside;
+}
+.nomenclature-details summary:hover{color:var(--txt)}
+.nomenclature-card-body{font-size:13.5px}
+.nomenclature-card-body h4{font-size:13px; color:var(--txt); margin:14px 0 5px}
+.nomenclature-rule{
+  background:rgba(90,200,250,.08); border:1px solid rgba(90,200,250,.28);
+  border-radius:8px; padding:10px 12px;
+}
+.nomenclature-rule h4{margin:0 0 4px; color:var(--accent)}
+.nomenclature-rule p{margin:0}
+.nomenclature-procedure{margin:0; padding-left:22px}
+.nomenclature-procedure li{padding:2px 0}
+.nomenclature-examples{list-style:none; padding:0; margin:0; display:grid; gap:7px}
+.nomenclature-examples li{
+  display:grid; grid-template-columns:minmax(90px,auto) 1fr; gap:5px 10px; align-items:baseline;
+  border:1px solid var(--line); border-radius:7px; padding:8px 10px; background:var(--panel2);
+}
+.nomenclature-formula{color:var(--accent); font-size:13px; font-weight:700; overflow-wrap:anywhere}
+.nomenclature-examples strong{font-size:13px}
+.nomenclature-examples small{grid-column:2; color:var(--txt-dim); font-size:12px}
+.nomenclature-table-wrap{overflow-x:auto; margin-top:14px; border:1px solid var(--line); border-radius:8px}
+.nomenclature-table-wrap table{width:100%; border-collapse:collapse; min-width:300px; font-size:12.5px}
+.nomenclature-table-wrap caption{text-align:left; color:var(--txt-dim); font-weight:700; padding:9px 10px}
+.nomenclature-table-wrap th,.nomenclature-table-wrap td{padding:7px 10px; border-top:1px solid var(--line); text-align:left}
+.nomenclature-table-wrap th{color:var(--txt); background:rgba(255,255,255,.035); font-weight:700}
+.nomenclature-table-wrap tbody th{font-weight:600}
+.nomenclature-notes{
+  background:rgba(255,200,87,.08); border:1px solid rgba(255,200,87,.3); border-radius:8px;
+  padding:10px 12px; margin-top:14px;
+}
+.nomenclature-notes h4{color:var(--warn); margin:0 0 5px}
+.nomenclature-notes ul{margin:0; padding-left:20px}
+.nomenclature-notes li+li{margin-top:4px}
+.nomenclature-empty{margin-top:18px; text-align:center; color:var(--txt-dim)}
+@media (max-width:900px){
+  .nomenclature-intro{grid-template-columns:1fr; align-items:start}
+  .nomenclature-steps{max-width:none}
+  .nomenclature-layout{grid-template-columns:1fr}
+  .nomenclature-index{position:static}
+  .nomenclature-index nav{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 16px}
+}
+@media (max-width:640px){
+  .nomenclature-content{grid-template-columns:1fr}
+  .nomenclature-index nav{grid-template-columns:1fr}
+  .nomenclature-toolbar-top{align-items:stretch}
+  .nomenclature-toolbar-top .btn{align-self:flex-start}
+}
+@media (prefers-reduced-motion:reduce){
+  .nomenclature-index a{transition:none}
+}

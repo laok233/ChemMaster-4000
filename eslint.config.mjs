@@ -11,6 +11,8 @@ const sharedGlobalNames = [
   // data.js
   "SYMBOLS", "NAMES", "MASSES", "CAT_DEF", "CAT_LABEL", "posOf", "CFG_EXC", "AUFBAU",
   "baseConfig", "shellsOf", "prettyCfg", "catOf", "ELEMENTS", "BY_Z", "BIO_SYMS", "BIO_Z",
+  // nomenclatura-data.js
+  "NOMENCLATURE_FILTERS", "NOMENCLATURE_CARDS",
   // storage-backend.js
   "createProgressStore",
   // storage.js
@@ -49,7 +51,8 @@ export default [
   { ignores: ["node_modules/**"] },
 
   {
-    files: ["data.js", "storage-backend.js", "storage.js", "app.js"],
+    files: ["data.js", "storage-backend.js", "storage.js", "app.js",
+      "nomenclatura-data.js", "nomenclatura.js"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "script",

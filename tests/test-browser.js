@@ -79,6 +79,15 @@ async function main() {
       "menu: titolo principale nel browser reale");
     await assertA11y(page, "Menu");
 
+    await page.goto(`${base}/nomenclatura.html`, { waitUntil: "networkidle" });
+    ok(await page.locator("#nomenclatureContent article").count() === 11,
+      "nomenclatura: 11 schede renderizzate");
+    await page.locator('#nomenclatureFilters [data-filter="organic"]').click();
+    ok(await page.locator("#nomenclatureContent article:not([hidden])").count() === 6,
+      "nomenclatura: filtro organica funziona nel browser reale");
+    await page.locator("#clearNomenclature").click();
+    await assertA11y(page, "Nomenclatura");
+
     await page.goto(`${base}/tavola.html`, { waitUntil: "networkidle" });
     ok(await page.evaluate(() => eval("storageBackend")) === "indexeddb", "browser: IndexedDB selezionato come backend");
     ok(await page.evaluate(key => localStorage.getItem(key), KEY) === null, "browser: nessun backup localStorage residuo");

@@ -7,7 +7,7 @@
 
 Piattaforma di studio della chimica in **HTML puro**, senza installazione né build: fai doppio clic su `index.html` (il menu principale) e da lì apri ogni funzione.
 
-Per ora l'unica funzione è la **tavola periodica** (`tavola.html`), che contiene flashcard, quiz ed esercizi di scrittura; altre funzioni arriveranno come nuove pagine collegate dal menu.
+Le funzioni disponibili sono la **tavola periodica** (`tavola.html`), con flashcard, quiz ed esercizi di scrittura, e la **nomenclatura chimica** (`nomenclatura.html`), una guida interattiva con esempi inorganici e organici.
 
 ## Cosa contiene
 
@@ -15,6 +15,7 @@ Per ora l'unica funzione è la **tavola periodica** (`tavola.html`), che contien
 |---|---|
 | **Menu principale** | La home (`index.html`): griglia di tessere, una per funzione disponibile. Clicca una tessera e la funzione si apre nella stessa finestra; il link **🏠 Menu** nell'header di ogni funzione riporta alla home. |
 | **Tavola** | 118 elementi cliccabili: numero atomico, peso atomico (numero di massa per gli elementi radioattivi), gruppo/periodo, configurazione elettronica, gusci, categoria (il pannello dettagli si aggiorna anche quando il padroneggio cambia da altri esercizi). Ricerca testuale (se la query è un simbolo si evidenziano i simboli, altrimenti i nomi) e filtri per categoria, raggiungibili anche da tastiera. La barretta sotto ogni cella mostra quanto la padroneggi. Il chip **🧬 Biorilevanti** evidenzia i 26 elementi biorilevanti oscurando tutti gli altri (si combina con ricerca e filtri, e “Mostra tutti” lo spegne); il pannello dettagli mostra il badge 🧬 accanto alla categoria quando l’elemento è biorilevante. |
+| **Nomenclatura** | Guida interattiva separata: ricerca, filtri per area e schede espandibili con regole, procedure, formule ed esempi. Copre composti ionici, composti covalenti binari, acidi, basi, ossidi, idrocarburi, alcoli, aldeidi, chetoni, acidi carbossilici, esteri, ammine e alogenuri. |
 | **Flashcard** | Ripetizione spaziata (mazzetti di Leitner, scadenze 0/1/3/7/21 giorni). 6 direzioni di domanda (nome↔simbolo↔numero atomico), 13 ambiti, giudizio *Non sapevo / Sapevo / Facile*; la percentuale del riepilogo è calcolata sulle carte effettivamente svolte. Scorciatoie: `Spazio`/`Invio` girano la carta, `1` `2` `3` giudicano. |
 | **Quiz** | Risposta multipla con 4 opzioni (più “Non so”), 6 tipi di domanda, punteggio e serie. “Non so” conta come errore: va **subito** in “Ripassa gli errori”, azzera la serie e toglie punti di padroneggio. Ogni errore viene salvato **subito** in “Ripassa gli errori” e una risposta giusta lo toglie; la percentuale del riepilogo è calcolata sulle risposte effettivamente date. Scorciatoie: `1`–`4` rispondono, `5` = “Non so”, `Invio` va avanti. |
 | **Scrivi la tavola** | **Tavola vuota**: clicchi una casella e scrivi il **simbolo** (il tooltip non svela la risposta; il nome completo riceve un richiamo senza penalità), con suggerimento e correzione immediata. **Sequenza**: scrivi i 118 simboli in ordine di numero atomico, con feedback e miglior posizione — anche qui il nome completo è ammesso come richiamo, senza penalità. |
@@ -22,15 +23,19 @@ Per ora l'unica funzione è la **tavola periodica** (`tavola.html`), che contien
 
 Tutti i progressi sono salvati principalmente in IndexedDB e ripristinati al riavvio; il vecchio `localStorage` viene migrato automaticamente e resta il fallback quando IndexedDB non è disponibile. Le scritture IndexedDB usano una transazione atomica di confronto-and-scrittura e `BroadcastChannel` per sincronizzare le schede; nel fallback localStorage, quando Web Locks è disponibile, le scritture multi-tab sono serializzate. Le richieste di salvataggio già incluse nello snapshot precedente vengono compatte, mentre una modifica avvenuta durante una transazione non viene considerata salvata finché non viene persistita. Reset e import espliciti ricaricano il baseline corrente prima del CAS, così non falliscono silenziosamente dopo un conflitto. Una copia JSON può essere esportata e reimportata dall'avviso di errore o dalla sezione **Progressi**. Lo stato importato attraversa la stessa sanitizzazione dei dati salvati, i payload locali sono limitati a 1 MB e le versioni non supportate vengono rifiutate.
 
-Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera e il numero di elementi filtrati sono regioni `aria-live="polite"`; le barre di avanzamento espongono il valore tramite `role="progressbar"`; le scorciatoie tastiera sono dichiarate con `aria-keyshortcuts` e si attivano solo senza tasti modificatori; ogni controllo ha un nome accessibile e `prefers-reduced-motion` disattiva sia animazioni sia trasformazioni immediate dell’hover. Su viewport stretti la tavola scorre dentro il proprio contenitore senza allargare la pagina.
+Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus; filtri, modalità e celle selezionate espongono il loro stato; il focus segue l’avanzamento di flashcard e quiz; i feedback che cambiano in corso d’opera e il numero di elementi filtrati sono regioni `aria-live="polite"`; le barre di avanzamento espongono il valore tramite `role="progressbar"`; le scorciatoie tastiera sono dichiarate con `aria-keyshortcuts` e si attivano solo senza tasti modificatori; ogni controllo ha un nome accessibile e `prefers-reduced-motion` disattiva sia animazioni sia trasformazioni immediate dell’hover. La guida di nomenclatura usa controlli nativi, schede `<details>` e un indice navigabile per consultare le regole anche da tastiera. Su viewport stretti la tavola scorre dentro il proprio contenitore senza allargare la pagina.
 
 ## Struttura del progetto
 
 ```
-index.html     menu principale (hub): griglia con una tessera per funzione
-style.css       tema scuro, layout comune e layout a griglia CSS della tavola
-                (18 colonne + colonna periodi)
-tavola.html    funzione «Tavola periodica» (ex index.html)
+index.html           menu principale (hub): griglia con una tessera per ogni funzione
+style.css             tema scuro, layout comune, griglia CSS della tavola e stili
+                      della guida di nomenclatura
+nomenclatura.html     funzione «Nomenclatura chimica»
+├── nomenclatura-data.js  contenuti, esempi e tabelle delle regole
+└── nomenclatura.js       rendering, ricerca, filtri e schede espandibili
+
+tavola.html           funzione «Tavola periodica» (ex index.html)
 ├── <body>    5 sezioni (una vista per modalità)
 └── <script>  quattro script classici, caricati in ordine con defer
     ├── data.js       simboli, nomi italiani, masse, categorie, posizioni,
@@ -59,6 +64,7 @@ tests/
 ├── test-app.js         orchestratore dei test funzionali sulla tavola
 ├── test-browser.js     smoke test Chromium e audit WCAG con axe-core
 ├── test-menu.js        test del menu principale: struttura e link (jsdom)
+├── test-nomenclature.js test della guida: contenuti, filtri e ricerca (jsdom)
 ├── test-storage-indexeddb.js migrazione e confronto-and-scrittura IndexedDB
 └── test-storage-lock.js due tab concorrenti serializzate tramite Web Locks
 ├── eslint.config.mjs   lint (ESLint): script esterni dell’app + test
@@ -75,6 +81,7 @@ bun run test                    # lint + HTML + JSDOM + IndexedDB/fallback + Chr
 bun run lint                    # solo ESLint
 bun run validate                # solo HTML validate
 bun run test:browser            # solo smoke test Chromium e audit axe-core
+bun run test:nomenclature        # solo test JSDOM della guida di nomenclatura
 ```
 
 In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **push e pull request su `master`** con **Bun 1.4.2** pinnato (`bun install --frozen-lockfile`, installazione Chromium e `bun run test`): non viene avviato alcun processo Node per la suite. Le Action sono referenziate per SHA; `bun run test` include lint ESLint, validazione HTML, test JSDOM, test IndexedDB/fallback e smoke test Chromium con axe-core. La badge qui sopra riflette l'ultimo run.
@@ -89,7 +96,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   gusci coerenti, eccezioni di configurazione reali, controlli incrociati noti (Ar>K, Co>Ni, Te>I…),
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
-- **`bun run validate`** — validazione HTML delle due pagine con `html-validate`.
+- **`bun run validate`** — validazione HTML delle tre pagine con `html-validate`.
 - **`tests/test-app.js`** — 345 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
@@ -116,7 +123,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   `go()` con vista ignota che non lascia la pagina vuota, `aria-current`/`aria-pressed`/`aria-live`,
   navigazione senza animazione con `prefers-reduced-motion`, pannello dettagli non sticky su mobile,
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
-- **`tests/test-browser.js`** — 21 asserzioni: Chromium headless sul menu e su tutte le viste della
+- **`tests/test-browser.js`** — 24 asserzioni: Chromium headless sul menu, sulla guida di nomenclatura e su tutte le viste della
   tavola, nessun errore JavaScript, zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili,
   viewport a 320 px senza overflow della pagina e hover neutrale con motion ridotto.
 - **`tests/test-storage-indexeddb.js`** — 14 asserzioni: migrazione automatica da localStorage,
@@ -129,8 +136,11 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   e reload con annuncio remoto vengono gestiti senza perdere lo snapshot; il reset della sola griglia
   non sovrascrive il mastery remoto; due richieste già incluse nello snapshot precedente producono
   una sola scrittura.
-- **`tests/test-menu.js`** — menu principale: titolo/h1, sottotitolo piattaforma, una sola tessera
-  («Tavola periodica» → `tavola.html`), e tutti i link `*.html` del menu puntano a file esistenti.
+- **`tests/test-menu.js`** — menu principale: titolo/h1, sottotitolo piattaforma, due tessere
+  («Tavola periodica» → `tavola.html` e «Nomenclatura» → `nomenclatura.html`), e tutti i link `*.html` del menu puntano a file esistenti.
+- **`tests/test-nomenclature.js`** — 27 asserzioni: struttura della nuova pagina, 11 schede,
+  ricerca su regole/note/esempi, filtri inorganica/organica, indice sincronizzato, tabelle
+  accessibili e apertura dei pannelli con esempi.
 
 ## Personalizzazione rapida
 

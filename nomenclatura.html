@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nomenclatura chimica — ChemMaster 4000</title>
+<link rel="stylesheet" href="style.css">
+<script src="nomenclatura-data.js" defer></script>
+<script src="nomenclatura.js" defer></script>
+</head>
+<body class="nomenclature-page">
+<header>
+  <h1>⚛ Chem<span>Master 4000</span></h1>
+  <nav aria-label="Navigazione principale">
+    <a class="home-link" href="index.html" title="Torna al menu principale">🏠 Menu</a>
+    <a class="home-link" href="nomenclatura.html" aria-current="page">🧪 Nomenclatura</a>
+  </nav>
+</header>
+
+<main>
+  <section class="nomenclature-intro" aria-labelledby="nomenclatureTitle">
+    <div>
+      <p class="eyebrow">Guida rapida di chimica</p>
+      <h2 id="nomenclatureTitle">Nomenclatura chimica</h2>
+      <p class="sub">Una guida interattiva per costruire e leggere i nomi dei composti inorganici e organici: scegli un argomento, cerca una regola e apri gli esempi.</p>
+    </div>
+    <ol class="nomenclature-steps">
+      <li><b>1.</b> Scegli la famiglia</li>
+      <li><b>2.</b> Segui la regola</li>
+      <li><b>3.</b> Controlla l'esempio</li>
+    </ol>
+  </section>
+
+  <section class="panel nomenclature-toolbar" aria-labelledby="nomenclatureToolsTitle">
+    <div class="nomenclature-toolbar-top">
+      <div>
+        <h2 id="nomenclatureToolsTitle">Esplora la guida</h2>
+        <p class="sub">La ricerca guarda anche esempi, formule e note.</p>
+      </div>
+      <button type="button" class="btn ghost sm" id="clearNomenclature" disabled>Mostra tutte</button>
+    </div>
+    <label class="ctl nomenclature-search-label">Cerca una regola, un gruppo o un esempio
+      <input type="search" id="nomenclatureSearch" placeholder="Es. ferro, -olo, CO₂…" autocomplete="off">
+    </label>
+    <div class="chips" id="nomenclatureFilters" role="group" aria-label="Filtra per area della nomenclatura"></div>
+    <p class="sr-only" id="nomenclatureStatus" aria-live="polite" aria-atomic="true"></p>
+  </section>
+
+  <div class="nomenclature-layout">
+    <aside class="panel nomenclature-index" aria-labelledby="nomenclatureIndexTitle">
+      <h2 id="nomenclatureIndexTitle">Indice rapido</h2>
+      <nav id="nomenclatureIndex" aria-label="Argomenti della nomenclatura"></nav>
+      <p class="legend-note">Le schede restano consultabili anche senza connessione.</p>
+    </aside>
+    <section id="nomenclatureContent" class="nomenclature-content" aria-label="Schede di nomenclatura"></section>
+  </div>
+
+  <noscript>
+    <p class="panel nomenclature-empty">Questa guida interattiva richiede JavaScript. Attivalo per caricare le schede di nomenclatura.</p>
+  </noscript>
+</main>
+
+<footer>ChemMaster 4000 · nomenclatura inorganica e organica</footer>
+</body>
+</html>
