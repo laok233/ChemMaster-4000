@@ -276,6 +276,241 @@ function clearNomenclature(){
   document.getElementById("nomenclatureSearch").focus();
 }
 
+const NOMENCLATURE_NOT_KNOWN="__nomenclature_not_known__";
+const nomenclatureQuiz={questions:[],index:0,correct:0,answered:0,wrong:[],answeredCurrent:false};
+
+function nomenclatureShuffle(values){
+  const result=values.slice();
+  for(let index=result.length-1;index>0;index--){
+    const other=Math.random()*(index+1)|0;
+    [result[index],result[other]]=[result[other],result[index]];
+  }
+  return result;
+}
+
+function buildNomenclatureQuizPool(scope){
+  return NOMENCLATURE_CARDS.flatMap(card=>{
+    const inScope=scope==="all" || (scope==="traditional"?card.traditional===true:card.area===scope);
+    if(!inScope) return [];
+    return (card.examples||[]).map((example,index)=>({
+      id:`${card.id}:${index}`,
+      cardId:card.id,
+      area:card.area,
+      traditional:card.traditional===true,
+      topic:card.topic,
+      formula:example.formula,
+      name:example.name,
+      note:example.note||""
+    }));
+  });
+}
+
+function makeNomenclatureQuizQuestion(entry,pool,index){
+  const direction=index%2===0?"formulaToName":"nameToFormula";
+  const answerField=direction==="formulaToName"?"name":"formula";
+  const answer=entry[answerField];
+  const optionSet=new Set([answer]);
+  let sources=pool;
+  if(sources.length<4) sources=buildNomenclatureQuizPool("all");
+  sources.forEach(candidate=>{
+    const value=candidate[answerField];
+    if(optionSet.size<4 && value!==answer) optionSet.add(value);
+  });
+  if(optionSet.size<4){
+    buildNomenclatureQuizPool("all").forEach(candidate=>{
+      const value=candidate[answerField];
+      if(optionSet.size<4 && value!==answer) optionSet.add(value);
+    });
+  }
+  return {...entry,direction,answer,options:nomenclatureShuffle([...optionSet])};
+}
+
+function nomenclatureQuizPrompt(question){
+  const formulaToName=question.direction==="formulaToName";
+  return [
+    makeNomenclatureElement("span",{},formulaToName?
+      "Qual è il nome del composto con formula ":
+      "Quale formula corrisponde al nome "),
+    makeNomenclatureElement("code",{
+      class:"nomenclature-quiz-term",
+      text:formulaToName?question.formula:question.name
+    }),
+    makeNomenclatureElement("span",{},"?")
+  ];
+}
+
+function updateNomenclatureQuizSetup(){
+  const scope=document.getElementById("nomenclatureQuizScope").value;
+  const length=document.getElementById("nomenclatureQuizLength");
+  const pool=buildNomenclatureQuizPool(scope);
+  [...length.options].forEach(option=>{ option.disabled=Number(option.value)>pool.length; });
+  if(Number(length.value)>pool.length) length.value=String(Math.min(10,pool.length));
+  document.getElementById("nomenclatureQuizPoolCount").textContent=`${pool.length} esempi`;
+  document.getElementById("nomenclatureQuizHint").textContent=pool.length?
+    `${pool.length} coppie formula–nome disponibili in questo ambito.`:
+    "Non ci sono esempi disponibili per questo ambito.";
+  document.getElementById("nomenclatureQuizStart").disabled=pool.length===0;
+}
+
+function startNomenclatureQuiz(){
+  const pool=buildNomenclatureQuizPool(document.getElementById("nomenclatureQuizScope").value);
+  if(!pool.length){ updateNomenclatureQuizSetup(); return; }
+  const requested=Number(document.getElementById("nomenclatureQuizLength").value)||10;
+  const count=Math.max(1,Math.min(requested,pool.length));
+  const questions=nomenclatureShuffle(pool).slice(0,count)
+    .map((entry,index)=>makeNomenclatureQuizQuestion(entry,pool,index));
+  Object.assign(nomenclatureQuiz,{questions,index:0,correct:0,answered:0,wrong:[],answeredCurrent:false});
+  document.getElementById("nomenclatureQuizSetup").classList.add("hidden");
+  document.getElementById("nomenclatureQuizDone").classList.add("hidden");
+  document.getElementById("nomenclatureQuizStage").classList.remove("hidden");
+  renderNomenclatureQuizQuestion();
+}
+
+function renderNomenclatureQuizQuestion(){
+  const question=nomenclatureQuiz.questions[nomenclatureQuiz.index];
+  if(!question) return;
+  nomenclatureQuiz.answeredCurrent=false;
+  document.getElementById("nomenclatureQuizProgress").textContent=
+    `Domanda ${nomenclatureQuiz.index+1}/${nomenclatureQuiz.questions.length}`;
+  document.getElementById("nomenclatureQuizScore").textContent=`Corrette: ${nomenclatureQuiz.correct}`;
+  document.getElementById("nomenclatureQuizMeter").style.width=
+    `${(nomenclatureQuiz.index+1)/nomenclatureQuiz.questions.length*100}%`;
+  document.getElementById("nomenclatureQuizQuestion").replaceChildren(...nomenclatureQuizPrompt(question));
+  const options=document.getElementById("nomenclatureQuizOptions");
+  options.replaceChildren();
+  question.options.forEach((answer,index)=>{
+    const button=makeNomenclatureElement("button",{
+      type:"button",
+      class:"opt",
+      "aria-keyshortcuts":String(index+1),
+      dataset:{answer}
+    },answer);
+    options.append(button);
+  });
+  const skip=makeNomenclatureElement("button",{
+    type:"button",
+    class:"opt skip",
+    "aria-keyshortcuts":"5",
+    dataset:{answer:NOMENCLATURE_NOT_KNOWN}
+  },"Non so");
+  options.append(skip);
+  const feedback=document.getElementById("nomenclatureQuizFeedback");
+  feedback.textContent="";
+  feedback.className="feedback";
+  const next=document.getElementById("nomenclatureQuizNext");
+  next.classList.add("hidden");
+  document.getElementById("nomenclatureQuizEnd").classList.remove("hidden");
+  document.getElementById("nomenclatureQuizQuestion").focus({preventScroll:true});
+}
+
+function answerNomenclatureQuiz(answer){
+  if(nomenclatureQuiz.answeredCurrent) return;
+  const question=nomenclatureQuiz.questions[nomenclatureQuiz.index];
+  if(!question) return;
+  nomenclatureQuiz.answeredCurrent=true;
+  nomenclatureQuiz.answered++;
+  const skipped=answer===NOMENCLATURE_NOT_KNOWN;
+  const correct=!skipped && answer===question.answer;
+  if(correct) nomenclatureQuiz.correct++;
+  else nomenclatureQuiz.wrong.push(question);
+
+  document.querySelectorAll("#nomenclatureQuizOptions .opt").forEach(button=>{
+    button.disabled=true;
+    button.removeAttribute("aria-keyshortcuts");
+    if(button.dataset.answer===question.answer) button.classList.add("correct");
+    else if(skipped && button.classList.contains("skip")) button.classList.add("chosen");
+    else if(button.dataset.answer===answer) button.classList.add("wrong");
+  });
+
+  const relation=question.direction==="formulaToName"?
+    `${question.formula} si chiama ${question.name}.`:
+    `${question.name} ha formula ${question.formula}.`;
+  const feedback=document.getElementById("nomenclatureQuizFeedback");
+  feedback.textContent=`${correct?"Esatto!":skipped?"Non sapevi.":"Non è corretto."} ${relation} ${question.note}`;
+  feedback.className=`feedback ${correct?"ok":"no"}`;
+  document.getElementById("nomenclatureQuizScore").textContent=`Corrette: ${nomenclatureQuiz.correct}`;
+  const next=document.getElementById("nomenclatureQuizNext");
+  next.textContent=nomenclatureQuiz.index+1<nomenclatureQuiz.questions.length?
+    "Prossima →":"Risultati →";
+  next.classList.remove("hidden");
+  next.focus({preventScroll:true});
+}
+
+function nextNomenclatureQuizQuestion(){
+  if(!nomenclatureQuiz.answeredCurrent) return;
+  if(nomenclatureQuiz.index+1<nomenclatureQuiz.questions.length){
+    nomenclatureQuiz.index++;
+    renderNomenclatureQuizQuestion();
+  }else finishNomenclatureQuiz();
+}
+
+function finishNomenclatureQuiz(){
+  const total=nomenclatureQuiz.questions.length;
+  if(!total) return;
+  const percentage=nomenclatureQuiz.answered?
+    Math.round(nomenclatureQuiz.correct/nomenclatureQuiz.answered*100):0;
+  document.getElementById("nomenclatureQuizStage").classList.add("hidden");
+  document.getElementById("nomenclatureQuizDone").classList.remove("hidden");
+  document.getElementById("nomenclatureQuizResult").textContent=
+    `${nomenclatureQuiz.correct}/${total}`;
+  document.getElementById("nomenclatureQuizSummary").textContent=
+    `${nomenclatureQuiz.answered?`${percentage}% di risposte giuste`:"Nessuna risposta data"}`+
+    ` · domande svolte ${nomenclatureQuiz.answered}/${total}`+
+    ` · risposte corrette ${nomenclatureQuiz.correct}`;
+
+  const review=document.getElementById("nomenclatureQuizReview");
+  const wrongList=document.getElementById("nomenclatureQuizWrong");
+  wrongList.replaceChildren();
+  nomenclatureQuiz.wrong.forEach(question=>{
+    wrongList.append(makeNomenclatureElement("li",{},
+      makeNomenclatureElement("span",{class:"nomenclature-quiz-review-topic",text:question.topic}),
+      makeNomenclatureElement("strong",{text:`${question.formula} — ${question.name}`}),
+      makeNomenclatureElement("small",{text:question.note})
+    ));
+  });
+  review.hidden=nomenclatureQuiz.wrong.length===0;
+  document.getElementById("nomenclatureQuizResult").focus({preventScroll:true});
+}
+
+function resetNomenclatureQuiz(){
+  document.getElementById("nomenclatureQuizDone").classList.add("hidden");
+  document.getElementById("nomenclatureQuizStage").classList.add("hidden");
+  document.getElementById("nomenclatureQuizSetup").classList.remove("hidden");
+  updateNomenclatureQuizSetup();
+  document.getElementById("nomenclatureQuizStart").focus({preventScroll:true});
+}
+
+function initNomenclatureQuiz(){
+  document.getElementById("nomenclatureQuizScope").addEventListener("change",updateNomenclatureQuizSetup);
+  document.getElementById("nomenclatureQuizStart").addEventListener("click",startNomenclatureQuiz);
+  document.getElementById("nomenclatureQuizOptions").addEventListener("click",event=>{
+    const button=event.target.closest(".opt");
+    if(button&&!button.disabled) answerNomenclatureQuiz(button.dataset.answer);
+  });
+  document.getElementById("nomenclatureQuizNext").addEventListener("click",nextNomenclatureQuizQuestion);
+  document.getElementById("nomenclatureQuizEnd").addEventListener("click",finishNomenclatureQuiz);
+  document.getElementById("nomenclatureQuizAgain").addEventListener("click",resetNomenclatureQuiz);
+  document.addEventListener("keydown",event=>{
+    if(event.ctrlKey||event.metaKey||event.altKey||event.shiftKey) return;
+    if(document.getElementById("nomenclatureQuizStage").classList.contains("hidden")) return;
+    if(event.target?.closest?.("input,select,textarea,[contenteditable='true']")) return;
+    if(!nomenclatureQuiz.answeredCurrent && /^[1-5]$/.test(event.key)){
+      const buttons=document.querySelectorAll("#nomenclatureQuizOptions .opt");
+      const button=buttons[Number(event.key)-1];
+      if(button&&!button.disabled){
+        event.preventDefault();
+        answerNomenclatureQuiz(button.dataset.answer);
+      }
+    }
+    const onControl=!!event.target?.closest?.("button,select,input,textarea,a[href]");
+    if(nomenclatureQuiz.answeredCurrent && !onControl && (event.key==="Enter"||event.key===" ")){
+      event.preventDefault();
+      nextNomenclatureQuizQuestion();
+    }
+  });
+  updateNomenclatureQuizSetup();
+}
+
 function initNomenclature(){
   const content=document.getElementById("nomenclatureContent");
   content.replaceChildren();
@@ -313,7 +548,8 @@ function initNomenclature(){
     nomenclatureEventsBound=true;
   }
   updateNomenclatureFilter();
-  globalThis.__nomenclatureReady=true;
 }
 
 initNomenclature();
+initNomenclatureQuiz();
+globalThis.__nomenclatureReady=true;

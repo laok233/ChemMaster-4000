@@ -104,6 +104,23 @@ async function main() {
     "nomenclatura: stato vuoto visibile e indice senza gruppi vuoti");
     await assertA11y(page, "Nomenclatura senza risultati");
     await page.locator("#clearNomenclature").click();
+    await page.locator("#nomenclatureQuizStart").click();
+    ok(await page.locator("#nomenclatureQuizStage").isVisible() &&
+      await page.locator("#nomenclatureQuizOptions .opt").count() === 5,
+    "nomenclatura: quiz avviato con 4 alternative e Non so");
+    await page.locator("#nomenclatureQuizOptions .opt").first().click();
+    ok(await page.locator("#nomenclatureQuizFeedback").isVisible() &&
+      await page.locator("#nomenclatureQuizNext").isVisible(),
+    "nomenclatura: feedback e controllo successivo mostrati dopo la risposta");
+    await page.locator("#nomenclatureQuizNext").click();
+    await page.locator("#nomenclatureQuizEnd").click();
+    ok(await page.locator("#nomenclatureQuizDone").isVisible() &&
+      /risposte corrette/.test(await page.locator("#nomenclatureQuizSummary").textContent()),
+    "nomenclatura: riepilogo del quiz completato nel browser reale");
+    await assertA11y(page, "Quiz nomenclatura");
+    await page.locator("#nomenclatureQuizAgain").click();
+    ok(await page.locator("#nomenclatureQuizSetup").isVisible(),
+      "nomenclatura: nuovo quiz torna alla configurazione");
     await assertA11y(page, "Nomenclatura");
 
     await page.goto(`${base}/tavola.html`, { waitUntil: "networkidle" });

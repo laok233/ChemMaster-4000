@@ -31,7 +31,8 @@ try {
   win.scrollTo = () => {};
   win.HTMLElement.prototype.focus = function () {};
   win.eval(dataCode + "\n" + appCode +
-    ";globalThis.__nomenclatureData=NOMENCLATURE_CARDS;globalThis.__nomenclatureUpdateIndex=updateNomenclatureIndex;");
+    ";globalThis.__nomenclatureData=NOMENCLATURE_CARDS;globalThis.__nomenclatureUpdateIndex=updateNomenclatureIndex;" +
+    "globalThis.__nomenclatureQuiz=nomenclatureQuiz;");
 } catch (error) {
   errors.push(String(error && error.stack || error));
 }
@@ -74,6 +75,22 @@ ok([...d.querySelectorAll("#nomenclatureFilters button")].every(button =>
   button.type === "button" && button.hasAttribute("aria-pressed")),
 "filtri navigabili da tastiera con stato esposto");
 ok(d.querySelectorAll("#nomenclatureContent table caption").length === 6, "tabelle di riferimento presenti");
+ok(!!d.getElementById("nomenclatureQuiz"), "sezione quiz presente nella pagina");
+ok(d.querySelector("label.ctl #nomenclatureQuizScope") &&
+    d.querySelector("label.ctl #nomenclatureQuizLength"),
+  "ambito e lunghezza del quiz hanno etichette visibili");
+ok([...d.querySelectorAll("#nomenclatureQuizLength option")].map(option => option.value).join(",") === "5,10,15",
+  "quiz: durate da 5, 10 o 15 domande");
+ok(d.getElementById("nomenclatureQuizSetup") &&
+    !d.getElementById("nomenclatureQuizSetup").classList.contains("hidden") &&
+    d.getElementById("nomenclatureQuizStage").classList.contains("hidden") &&
+    d.getElementById("nomenclatureQuizDone").classList.contains("hidden"),
+  "quiz: inizialmente mostra la configurazione");
+ok(/^[1-9][0-9]* esempi$/.test(d.getElementById("nomenclatureQuizPoolCount").textContent),
+  "quiz: numero di esempi disponibili annunciato", d.getElementById("nomenclatureQuizPoolCount").textContent);
+ok(d.getElementById("nomenclatureQuizFeedback").getAttribute("role") === "status" &&
+    d.getElementById("nomenclatureQuizProgress").getAttribute("aria-live") === "polite",
+  "quiz: feedback e avanzamento accessibili");
 const cardData = win.__nomenclatureData;
 ok(new Set(cardData.map(card => card.id)).size === cardData.length,
   "ID delle schede univoci", cardData.map(card => card.id).join(","));
@@ -170,6 +187,85 @@ ok(/toluene/.test(d.querySelector("#nom-organici-tradizionali").textContent) &&
 ok(/ossido ferroso/.test(d.querySelector("#nom-metalli-tradizionali").textContent) &&
    /cloruro ferrico/.test(d.querySelector("#nom-metalli-tradizionali").textContent),
   "esempi dei suffissi tradizionali dei metalli");
+
+section("Nomenclatura: quiz");
+const quizState = win.__nomenclatureQuiz;
+const quizScope = d.getElementById("nomenclatureQuizScope");
+const quizLength = d.getElementById("nomenclatureQuizLength");
+ok(quizLength.value === "10", "il quiz parte da una durata di 10 domande");
+click(d.getElementById("nomenclatureQuizStart"));
+ok(!d.getElementById("nomenclatureQuizStage").classList.contains("hidden") &&
+    d.getElementById("nomenclatureQuizSetup").classList.contains("hidden"),
+  "avvio: il quiz passa dalla configurazione alla domanda");
+ok(quizState.questions.length === 10 && quizState.index === 0,
+  "quiz avviato con 10 domande", String(quizState.questions.length));
+ok(quizState.questions.every(question => question.options.length === 4) &&
+    d.querySelectorAll("#nomenclatureQuizOptions .opt").length === 5,
+  "ogni domanda offre 4 alternative e Non so");
+ok(quizState.questions.every(question => new Set(question.options).size === 4) &&
+    quizState.questions.every(question => question.options.includes(question.answer)),
+  "alternative univoche e risposta presente");
+const exampleNames = new Set(cardData.flatMap(card => card.examples.map(example => example.name)));
+const exampleFormulas = new Set(cardData.flatMap(card => card.examples.map(example => example.formula)));
+ok(quizState.questions.every(question => question.options.every(option =>
+    (question.direction === "formulaToName" ? exampleNames : exampleFormulas).has(option))),
+  "le alternative contengono tutte nomi oppure tutte formule");
+ok(quizState.questions[0].direction === "formulaToName" &&
+    quizState.questions[1].direction === "nameToFormula",
+  "domande alternate tra formula→nome e nome→formula");
+d.dispatchEvent(new win.KeyboardEvent("keydown", { key:"1", code:"Digit1", ctrlKey:true, bubbles:true }));
+ok(!quizState.answeredCurrent, "Ctrl+1 non risponde nel quiz di nomenclatura");
+
+const firstQuestion = quizState.questions[0];
+click([...d.querySelectorAll("#nomenclatureQuizOptions .opt")]
+  .find(button => button.dataset.answer === firstQuestion.answer));
+ok(quizState.correct === 1 && quizState.answered === 1 &&
+    /Esatto!/.test(d.getElementById("nomenclatureQuizFeedback").textContent),
+  "risposta corretta: punteggio e feedback aggiornati");
+ok(d.querySelectorAll("#nomenclatureQuizOptions .opt.correct").length === 1 &&
+    [...d.querySelectorAll("#nomenclatureQuizOptions .opt")].every(button => button.disabled),
+  "dopo la risposta viene mostrata quella corretta e le opzioni sono bloccate");
+click(d.getElementById("nomenclatureQuizNext"));
+const secondQuestion = quizState.questions[1];
+const wrongButton = [...d.querySelectorAll("#nomenclatureQuizOptions .opt")]
+  .find(button => button.dataset.answer !== secondQuestion.answer);
+click(wrongButton);
+ok(quizState.correct === 1 && quizState.wrong.length === 1 &&
+    wrongButton.classList.contains("wrong"),
+  "risposta errata: il tentativo viene segnato e conteggiato");
+click(d.getElementById("nomenclatureQuizNext"));
+d.dispatchEvent(new win.KeyboardEvent("keydown", { key:"5", code:"Digit5", bubbles:true }));
+ok(quizState.answeredCurrent && quizState.answered === 3 && quizState.wrong.length === 2,
+  "il tasto 5 risponde Non so e lo registra come errore");
+ok(d.querySelector("#nomenclatureQuizOptions .opt.skip").classList.contains("chosen"),
+  "Non so viene evidenziato come scelta");
+click(d.getElementById("nomenclatureQuizEnd"));
+ok(d.getElementById("nomenclatureQuizStage").classList.contains("hidden") &&
+    !d.getElementById("nomenclatureQuizDone").classList.contains("hidden"),
+  "Termina chiude il quiz e mostra il riepilogo");
+ok(d.getElementById("nomenclatureQuizResult").textContent === "1/10" &&
+    /^33% di risposte giuste/.test(d.getElementById("nomenclatureQuizSummary").textContent),
+  "riepilogo calcolato sulle 3 risposte effettivamente date",
+  d.getElementById("nomenclatureQuizSummary").textContent);
+ok(d.querySelectorAll("#nomenclatureQuizWrong li").length === 2 &&
+    !d.getElementById("nomenclatureQuizReview").hidden,
+  "il riepilogo elenca i due errori da ripassare");
+click(d.getElementById("nomenclatureQuizAgain"));
+ok(!d.getElementById("nomenclatureQuizSetup").classList.contains("hidden") &&
+    d.getElementById("nomenclatureQuizDone").classList.contains("hidden"),
+  "Ricomincia torna alla configurazione");
+
+quizScope.value = "inorganic";
+quizScope.dispatchEvent(new win.Event("change", { bubbles:true }));
+click(d.getElementById("nomenclatureQuizStart"));
+ok(quizState.questions.every(question => question.area === "inorganic"),
+  "il filtro Quiz solo inorganica limita il pool di domande");
+click(d.getElementById("nomenclatureQuizEnd"));
+ok(d.getElementById("nomenclatureQuizResult").textContent === "0/10" &&
+    /^Nessuna risposta data/.test(d.getElementById("nomenclatureQuizSummary").textContent),
+  "un quiz terminato senza risposte non mostra una percentuale falsa");
+ok(d.getElementById("nomenclatureQuizReview").hidden,
+  "senza errori non viene mostrato il riepilogo di ripasso");
 
 console.log("\n================ RISULTATO ================");
 console.log("PASS: " + pass + "   FAIL: " + fail);
