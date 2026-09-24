@@ -4,6 +4,7 @@ const nomenclatureState={filter:"all",query:""};
 const nomenclatureCardRecords=[];
 const nomenclatureIndexNodes=new Map();
 const nomenclatureIndexGroups=new Map();
+let nomenclatureEventsBound=false;
 
 function makeNomenclatureElement(tag,attrs={},...children){
   const node=document.createElement(tag);
@@ -63,19 +64,38 @@ function nomenclatureAreaLabel(area){
   return NOMENCLATURE_FILTERS.find(filter=>filter.id===area)?.label || area;
 }
 
+function nomenclatureCardMatchesFilter(card,filter){
+  if(filter==="all") return true;
+  if(filter==="traditional") return card.traditional===true;
+  return card.area===filter;
+}
+
+function nomenclatureCardIdFromHash(){
+  let elementId;
+  try{ elementId=decodeURIComponent(globalThis.location.hash.slice(1)); }
+  catch(_){ return null; }
+  const node=document.getElementById(elementId);
+  return elementId.startsWith("nom-") && node?.classList.contains("nomenclature-card") ?
+    elementId.slice(4) : null;
+}
+
 function buildNomenclatureCard(card){
   const titleId=`nom-title-${card.id}`;
   const article=makeNomenclatureElement("article",{
     id:`nom-${card.id}`,
     class:"nomenclature-card",
     "aria-labelledby":titleId,
-    dataset:{area:card.area}
+    dataset:{area:card.area,traditional:String(card.traditional===true)}
   });
   const meta=makeNomenclatureElement("div",{class:"nomenclature-card-meta"},
     makeNomenclatureElement("span",{
       class:`nomenclature-area nomenclature-area-${card.area}`,
       text:nomenclatureAreaLabel(card.area)
     }),
+    card.traditional===true?makeNomenclatureElement("span",{
+      class:"nomenclature-traditional",
+      text:"Nome tradizionale"
+    }):null,
     makeNomenclatureElement("span",{class:"nomenclature-topic",text:card.topic})
   );
   const header=makeNomenclatureElement("header",{class:"nomenclature-card-header"},
@@ -174,10 +194,11 @@ function buildNomenclatureIndex(){
   host.replaceChildren();
   nomenclatureIndexNodes.clear();
   nomenclatureIndexGroups.clear();
-  const groups=[
-    {id:"inorganic",label:"Inorganica"},
-    {id:"organic",label:"Organica"}
-  ];
+  const areas=[...new Set(NOMENCLATURE_CARDS.map(card=>card.area))];
+  const groups=areas.map(area=>({
+    id:area,
+    label:nomenclatureAreaLabel(area).replace(/^Nomenclatura\s+/i,"")
+  }));
   groups.forEach(group=>{
     const groupNode=makeNomenclatureElement("section",{class:"nomenclature-index-group","aria-labelledby":`nom-index-${group.id}`});
     const heading=makeNomenclatureElement("h3",{id:`nom-index-${group.id}`,text:group.label});
@@ -195,16 +216,21 @@ function buildNomenclatureIndex(){
   });
 }
 
-function updateNomenclatureIndex(visibleIds,visibleAreas){
-  let firstVisible=true;
+function updateNomenclatureIndex(){
+  const visibleIds=new Set();
+  const visibleAreas=new Set();
+  nomenclatureCardRecords.forEach(record=>{
+    if(!record.node.hidden){
+      visibleIds.add(record.card.id);
+      visibleAreas.add(record.card.area);
+    }
+  });
+  const currentId=nomenclatureCardIdFromHash();
   nomenclatureIndexNodes.forEach((item,id)=>{
     item.hidden=!visibleIds.has(id);
     const link=item.querySelector("a");
-    link.removeAttribute("aria-current");
-    if(visibleIds.has(id) && firstVisible){
-      link.setAttribute("aria-current","location");
-      firstVisible=false;
-    }
+    if(id===currentId) link.setAttribute("aria-current","location");
+    else link.removeAttribute("aria-current");
   });
   nomenclatureIndexGroups.forEach((group,area)=>{
     group.hidden=!visibleAreas.has(area);
@@ -214,16 +240,12 @@ function updateNomenclatureIndex(visibleIds,visibleAreas){
 function updateNomenclatureFilter(){
   const query=normalizeNomenclatureText(nomenclatureState.query);
   const visibleIds=new Set();
-  const visibleAreas=new Set();
   nomenclatureCardRecords.forEach(record=>{
-    const matchArea=nomenclatureState.filter==="all" || record.card.area===nomenclatureState.filter;
+    const matchFilter=nomenclatureCardMatchesFilter(record.card,nomenclatureState.filter);
     const matchQuery=nomenclatureMatches(record,query);
-    const visible=matchArea && matchQuery;
+    const visible=matchFilter && matchQuery;
     record.node.hidden=!visible;
-    if(visible){
-      visibleIds.add(record.card.id);
-      visibleAreas.add(record.card.area);
-    }
+    if(visible) visibleIds.add(record.card.id);
   });
 
   const count=visibleIds.size;
@@ -243,7 +265,7 @@ function updateNomenclatureFilter(){
     button.classList.toggle("off",!on);
     button.setAttribute("aria-pressed",String(on));
   });
-  updateNomenclatureIndex(visibleIds,visibleAreas);
+  updateNomenclatureIndex();
 }
 
 function clearNomenclature(){
@@ -271,17 +293,25 @@ function initNomenclature(){
   });
   buildNomenclatureFilters();
   buildNomenclatureIndex();
-  document.getElementById("nomenclatureSearch").addEventListener("input",event=>{
-    nomenclatureState.query=event.target.value;
-    updateNomenclatureFilter();
-  });
-  document.getElementById("nomenclatureSearch").addEventListener("keydown",event=>{
-    if(event.key==="Escape" && nomenclatureState.query){
-      event.preventDefault();
-      clearNomenclature();
-    }
-  });
-  document.getElementById("clearNomenclature").addEventListener("click",clearNomenclature);
+  if(!nomenclatureEventsBound){
+    const search=document.getElementById("nomenclatureSearch");
+    search.addEventListener("input",event=>{
+      nomenclatureState.query=event.target.value;
+      updateNomenclatureFilter();
+    });
+    search.addEventListener("keydown",event=>{
+      if(event.key==="Escape" && nomenclatureState.query){
+        event.preventDefault();
+        clearNomenclature();
+      }
+    });
+    document.getElementById("clearNomenclature").addEventListener("click",clearNomenclature);
+    document.getElementById("nomenclatureIndex").addEventListener("click",event=>{
+      if(event.target.closest('a[href^="#nom-"]')) queueMicrotask(updateNomenclatureIndex);
+    });
+    globalThis.addEventListener("hashchange",updateNomenclatureIndex);
+    nomenclatureEventsBound=true;
+  }
   updateNomenclatureFilter();
   globalThis.__nomenclatureReady=true;
 }

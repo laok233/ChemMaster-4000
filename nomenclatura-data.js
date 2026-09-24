@@ -4,6 +4,7 @@
    trasformare il rendering in un oggetto monolitico. */
 const NOMENCLATURE_FILTERS = [
   {id:"all", label:"Tutte le regole"},
+  {id:"traditional", label:"Nomi tradizionali"},
   {id:"inorganic", label:"Nomenclatura inorganica"},
   {id:"organic", label:"Nomenclatura organica"}
 ];
@@ -279,6 +280,109 @@ const NOMENCLATURE_CARDS = [
     notes:[
       "La priorità degli acidi è più alta di quella di aldeidi, chetoni, alcoli e ammine.",
       "I prefissi si ordinano alfabeticamente quando compaiono più gruppi sostituenti nello stesso nome."
+    ]
+  },
+  {
+    id:"acidi-tradizionali",
+    area:"inorganic",
+    traditional:true,
+    topic:"Nomi tradizionali",
+    title:"Acidi e nomi tradizionali",
+    summary:"Gli idracidi e gli ossiacidi tradizionali usano suffissi storici che devono essere distinti dai nomi basati sul numero di ossidazione.",
+    rule:"Nel sistema tradizionale gli idracidi prendono il suffisso -idrico, mentre gli ossiacidi usano la radice dell'elemento con -oso o -ico. I sali corrispondenti nominano l'anione con i suffissi tradizionali -ito e -ato, come ipoclorito, clorato, nitrito o nitrato.",
+    steps:[
+      "Conta gli atomi della formula e individua se è un idracido o un ossiacido.",
+      "Per un idracido aggiungi -idrico al nome dell'elemento; per un ossiacido scegli la radice e il suffisso tradizionale.",
+      "Per il sale, riconosci lo ione poliatomico e usa il suo nome tradizionale in -ito o -ato, poi cita il catione."
+    ],
+    examples:[
+      {formula:"HCl (aq)",name:"acido cloridrico",note:"in acqua; HCl gassoso è cloruro di idrogeno"},
+      {formula:"H₂S",name:"acido solfidrico",note:"solfuro di idrogeno in soluzione acquosa"},
+      {formula:"HNO₂",name:"acido nitroso",note:"radice nitr- + -oso"},
+      {formula:"HNO₃",name:"acido nitrico",note:"radice nitr- + -ico"},
+      {formula:"H₂SO₃",name:"acido solforoso",note:"forma con tre ossigeni"},
+      {formula:"H₂SO₄",name:"acido solforico",note:"forma con quattro ossigeni"},
+      {formula:"NaClO",name:"ipoclorito di sodio",note:"l'anione ipoclorito deriva dal nome tradizionale"},
+      {formula:"NaClO₃",name:"clorato di sodio",note:"l'anione clorato deriva dall'acido clorico"}
+    ],
+    table:{
+      caption:"Radici e suffissi tradizionali di ossiacidi comuni",
+      headers:["Radice","Suffisso -oso","Suffisso -ico"],
+      rows:[
+        ["cloro","ipocloroso (HClO)","clorico (HClO₃)"],
+        ["nitr","nitroso (HNO₂)","nitrico (HNO₃)"],
+        ["solfur","solforoso (H₂SO₃)","solforico (H₂SO₄)"],
+        ["fosfor","fosforoso (H₃PO₃)","fosforico (H₃PO₄)"]
+      ]
+    },
+    notes:[
+      "I suffissi tradizionali -oso e -ico non indicano sempre direttamente il numero di ossigeni: vanno verificati con la radice e la formula.",
+      " HCl gassoso e acido cloridrico non sono la stessa indicazione: il secondo descrive HCl in soluzione acquosa."
+    ]
+  },
+  {
+    id:"metalli-tradizionali",
+    area:"inorganic",
+    traditional:true,
+    topic:"Nomi tradizionali",
+    title:"Metalli e suffissi tradizionali",
+    summary:"Alcuni metalli con più stati di ossidazione ricevono nomi tradizionali con -oso e -ico; non è una regola valida per ogni elemento.",
+    rule:"Quando il catione ha due valenze tradizionalmente distinte, la radice metallica assume il suffisso -oso per lo stato minore e -ico per quello maggiore. Il nome tradizionale vale solo per i metalli e gli stati previsti da questo sistema.",
+    steps:[
+      "Ricava la carica del catione bilanciando la formula con gli anioni.",
+      "Individua la coppia tradizionale del metallo, se esiste, e scegli -oso oppure -ico.",
+      "Scrivi catione e anione senza dimenticare che -oso e -ico qui descrivono il metallo, non l'ossigeno o l'anione."
+    ],
+    examples:[
+      {formula:"FeO",name:"ossido ferroso",note:"Fe(II)"},
+      {formula:"Fe₂O₃",name:"ossido ferrico",note:"Fe(III)"},
+      {formula:"FeCl₂",name:"cloruro ferroso",note:"Fe(II)"},
+      {formula:"FeCl₃",name:"cloruro ferrico",note:"Fe(III)"},
+      {formula:"Cu₂O",name:"ossido cuproso",note:"Cu(I)"},
+      {formula:"CuO",name:"ossido cuprico",note:"Cu(II)"},
+      {formula:"SnCl₂",name:"cloruro stannoso",note:"Sn(II)"},
+      {formula:"SnCl₄",name:"cloruro stannico",note:"Sn(IV)"}
+    ],
+    table:{
+      caption:"Coppie tradizionali più comuni",
+      headers:["Radice","Suffisso -oso","Suffisso -ico"],
+      rows:[
+        ["ferro","ferroso (II)","ferrico (III)"],
+        ["rame","cuproso (I)","cuprico (II)"],
+        ["stagno","stannoso (II)","stannico (IV)"]
+      ]
+    },
+    notes:[
+      "Metalli a valenza fissa come alluminio, calcio e zinco non ricevono queste trasformazioni: si usano alluminio, calcio e zinco.",
+      "Quando la nomenclatura Stock è richiesta, il numero romano rende esplicito lo stato di ossidazione ed è preferibile."
+    ]
+  },
+  {
+    id:"organici-tradizionali",
+    area:"organic",
+    traditional:true,
+    topic:"Nomi tradizionali",
+    title:"Nomi tradizionali organici",
+    summary:"Molti composti organici hanno nomi d'uso consolidati, ma il nome IUPAC rivela con maggiore precisione struttura e gruppo funzionale.",
+    rule:"Un nome tradizionale organico non segue sempre un algoritmo: identifica una molecola nota. Per passare alla nomenclatura IUPAC bisogna ricostruire catena, legami e gruppi funzionali; alcuni nomi tradizionali sono anche mantenuti ufficialmente.",
+    steps:[
+      "Riconosci il nome tradizionale e associane la struttura o la formula.",
+      "Identifica la catena principale, le insaturazioni e il gruppo funzionale prioritario.",
+      "Costruisci il nome IUPAC e annota anche il nome tradizionale solo quando è utile o richiesto."
+    ],
+    examples:[
+      {formula:"C₆H₆",name:"benzene",note:"nome tradizionale mantenuto anche dall'IUPAC"},
+      {formula:"C₇H₈",name:"toluene",note:"nome sistematico: metilbenzene"},
+      {formula:"CH₃–COOH",name:"acido acetico",note:"nome IUPAC: acido etanoico"},
+      {formula:"CH₃–CO–CH₃",name:"acetone",note:"nome sistematico: propan-2-one"},
+      {formula:"HCHO",name:"formaldeide",note:"nome sistematico: metanale"},
+      {formula:"CH₃–CH₂–OH",name:"alcool etilico",note:"nome sistematico: etanolo"},
+      {formula:"CH₂=CH₂",name:"etilene",note:"nome sistematico: etene"},
+      {formula:"HC≡CH",name:"acetilene",note:"nome sistematico: etina"}
+    ],
+    notes:[
+      "Metano, etano, propano e butano sono invece nomi sistematici IUPAC derivati dalla catena carbonica.",
+      "Essere tradizionale non significa automaticamente errato: benzene e acido acetico sono nomi tradizionali ritenuti e usati anche nella nomenclatura moderna."
     ]
   }
 ];

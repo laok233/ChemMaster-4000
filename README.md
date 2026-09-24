@@ -7,7 +7,7 @@
 
 Piattaforma di studio della chimica in **HTML puro**, senza installazione né build: fai doppio clic su `index.html` (il menu principale) e da lì apri ogni funzione.
 
-Le funzioni disponibili sono la **tavola periodica** (`tavola.html`), con flashcard, quiz ed esercizi di scrittura, e la **nomenclatura chimica** (`nomenclatura.html`), una guida interattiva con esempi inorganici e organici.
+Le funzioni disponibili sono la **tavola periodica** (`tavola.html`), con flashcard, quiz ed esercizi di scrittura, e la **nomenclatura chimica** (`nomenclatura.html`), una guida interattiva con esempi inorganici, organici e nomi tradizionali.
 
 ## Cosa contiene
 
@@ -15,7 +15,7 @@ Le funzioni disponibili sono la **tavola periodica** (`tavola.html`), con flashc
 |---|---|
 | **Menu principale** | La home (`index.html`): griglia di tessere, una per funzione disponibile. Clicca una tessera e la funzione si apre nella stessa finestra; il link **🏠 Menu** nell'header di ogni funzione riporta alla home. |
 | **Tavola** | 118 elementi cliccabili: numero atomico, peso atomico (numero di massa per gli elementi radioattivi), gruppo/periodo, configurazione elettronica, gusci, categoria (il pannello dettagli si aggiorna anche quando il padroneggio cambia da altri esercizi). Ricerca testuale (se la query è un simbolo si evidenziano i simboli, altrimenti i nomi) e filtri per categoria, raggiungibili anche da tastiera. La barretta sotto ogni cella mostra quanto la padroneggi. Il chip **🧬 Biorilevanti** evidenzia i 26 elementi biorilevanti oscurando tutti gli altri (si combina con ricerca e filtri, e “Mostra tutti” lo spegne); il pannello dettagli mostra il badge 🧬 accanto alla categoria quando l’elemento è biorilevante. |
-| **Nomenclatura** | Guida interattiva separata: ricerca, filtri per area e schede espandibili con regole, procedure, formule ed esempi. Copre composti ionici, composti covalenti binari, acidi, basi, ossidi, idrocarburi, alcoli, aldeidi, chetoni, acidi carbossilici, esteri, ammine e alogenuri. |
+| **Nomenclatura** | Guida interattiva separata: ricerca, filtri per area e schede espandibili con regole, procedure, formule ed esempi. Copre composti ionici, composti covalenti binari, acidi, basi, ossidi, idrocarburi, alcoli, aldeidi, chetoni, acidi carbossilici, esteri, ammine, alogenuri e nomi tradizionali inorganici e organici. |
 | **Flashcard** | Ripetizione spaziata (mazzetti di Leitner, scadenze 0/1/3/7/21 giorni). 6 direzioni di domanda (nome↔simbolo↔numero atomico), 13 ambiti, giudizio *Non sapevo / Sapevo / Facile*; la percentuale del riepilogo è calcolata sulle carte effettivamente svolte. Scorciatoie: `Spazio`/`Invio` girano la carta, `1` `2` `3` giudicano. |
 | **Quiz** | Risposta multipla con 4 opzioni (più “Non so”), 6 tipi di domanda, punteggio e serie. “Non so” conta come errore: va **subito** in “Ripassa gli errori”, azzera la serie e toglie punti di padroneggio. Ogni errore viene salvato **subito** in “Ripassa gli errori” e una risposta giusta lo toglie; la percentuale del riepilogo è calcolata sulle risposte effettivamente date. Scorciatoie: `1`–`4` rispondono, `5` = “Non so”, `Invio` va avanti. |
 | **Scrivi la tavola** | **Tavola vuota**: clicchi una casella e scrivi il **simbolo** (il tooltip non svela la risposta; il nome completo riceve un richiamo senza penalità), con suggerimento e correzione immediata. **Sequenza**: scrivi i 118 simboli in ordine di numero atomico, con feedback e miglior posizione — anche qui il nome completo è ammesso come richiamo, senza penalità. |
@@ -130,7 +130,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   `go()` con vista ignota che non lascia la pagina vuota, `aria-current`/`aria-pressed`/`aria-live`,
   navigazione senza animazione con `prefers-reduced-motion`, pannello dettagli non sticky su mobile,
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
-- **`tests/test-browser.js`** — 28 asserzioni: Chromium headless sul menu, sulla guida di nomenclatura e su tutte le viste della
+- **`tests/test-browser.js`** — 30 asserzioni: Chromium headless sul menu, sulla guida di nomenclatura e su tutte le viste della
   tavola, nessun errore JavaScript, zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili,
   viewport a 320 px senza overflow della pagina, hover neutro con motion ridotto e avvio `file://` senza server.
 - **`tests/test-storage-indexeddb.js`** — 14 asserzioni: migrazione automatica da localStorage,
@@ -145,9 +145,9 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   una sola scrittura.
 - **`tests/test-menu.js`** — menu principale: titolo/h1, sottotitolo piattaforma, due tessere
   («Tavola periodica» → `tavola.html` e «Nomenclatura» → `nomenclatura.html`), e tutti i link `*.html` del menu puntano a file esistenti.
-- **`tests/test-nomenclature.js`** — 34 asserzioni: struttura della nuova pagina, 11 schede,
-  ricerca normalizzata su regole/note/esempi (incluse formule come `N2O4` per `N₂O₄`),
-  filtri inorganica/organica, indice sincronizzato e senza gruppi vuoti, tabelle
+- **`tests/test-nomenclature.js`** — 44 asserzioni: struttura della pagina, 14 schede, nomi tradizionali
+  inorganici e organici, ricerca normalizzata su regole/note/esempi (incluse formule come `N2O4` per `N₂O₄`),
+  filtri tradizionali/inorganica/organica, indice sincronizzato e senza gruppi vuoti, tabelle
   accessibili e apertura dei pannelli con esempi.
 
 ## Personalizzazione rapida

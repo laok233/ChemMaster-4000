@@ -81,10 +81,16 @@ async function main() {
     await assertA11y(page, "Menu");
 
     await page.goto(`${base}/nomenclatura.html`, { waitUntil: "networkidle" });
-    ok(await page.locator("#nomenclatureContent article").count() === 11,
-      "nomenclatura: 11 schede renderizzate");
+    ok(await page.locator("#nomenclatureContent article").count() === 14,
+      "nomenclatura: 14 schede renderizzate");
+    await page.locator('#nomenclatureFilters [data-filter="traditional"]').click();
+    ok(await page.locator('#nomenclatureContent article:not([hidden])[data-traditional="true"]').count() === 3 &&
+      await page.locator(".nomenclature-traditional:visible").count() === 3,
+    "nomenclatura: filtro dei nomi tradizionali nel browser reale");
+    await assertA11y(page, "Nomenclatura tradizionale");
+    await page.locator("#clearNomenclature").click();
     await page.locator('#nomenclatureFilters [data-filter="organic"]').click();
-    ok(await page.locator("#nomenclatureContent article:not([hidden])").count() === 6,
+    ok(await page.locator("#nomenclatureContent article:not([hidden])").count() === 7,
       "nomenclatura: filtro organica funziona nel browser reale");
     await page.locator("#clearNomenclature").click();
     await page.locator("#nomenclatureSearch").fill("N2O4");
@@ -148,7 +154,11 @@ async function main() {
     const offlinePage = await context.newPage();
     watchRuntimeErrors(offlinePage);
     await offlinePage.goto(pathToFileURL(path.join(ROOT, "tavola.html")).href);
-    await offlinePage.waitForFunction(() => globalThis.__appReadyPromise);
+    await offlinePage.waitForFunction(
+      () => !globalThis.document.documentElement.hasAttribute("data-storage-state"),
+      null,
+      { timeout:10000 }
+    );
     await offlinePage.evaluate(() => globalThis.__appReadyPromise);
     ok(await offlinePage.locator("#ptable .cell").count() === 118,
       "tavola: apertura file:// senza server e bootstrap completato");
