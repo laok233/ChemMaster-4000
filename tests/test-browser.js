@@ -80,7 +80,16 @@ async function main() {
       "menu: titolo principale nel browser reale");
     await assertA11y(page, "Menu");
 
-    await page.goto(`${base}/nomenclatura.html`, { waitUntil: "networkidle" });
+    await page.locator('a.tile[href="pages/tavola.html"]').click();
+    ok(new URL(page.url()).pathname === "/pages/tavola.html",
+      "menu: collegamento alla tavola dal nuovo percorso");
+    await page.locator('header a[href="../index.html"]').click();
+    ok(new URL(page.url()).pathname === "/index.html",
+      "tavola: collegamento relativo al menu");
+    await page.locator('a.tile[href="pages/nomenclatura.html"]').click();
+    ok(new URL(page.url()).pathname === "/pages/nomenclatura.html",
+      "menu: collegamento alla nomenclatura dal nuovo percorso");
+    await page.waitForLoadState("networkidle");
     ok(await page.locator("#nomenclatureContent article").count() === 14,
       "nomenclatura: 14 schede renderizzate");
     await page.locator('#nomenclatureFilters [data-filter="traditional"]').click();
@@ -132,7 +141,7 @@ async function main() {
     "nomenclatura: Guida aperta dalla barra superiore");
     await assertA11y(page, "Nomenclatura");
 
-    await page.goto(`${base}/tavola.html`, { waitUntil: "networkidle" });
+    await page.goto(`${base}/pages/tavola.html`, { waitUntil: "networkidle" });
     ok(await page.evaluate(() => eval("storageBackend")) === "indexeddb", "browser: IndexedDB selezionato come backend");
     ok(await page.evaluate(key => localStorage.getItem(key), KEY) === null, "browser: nessun backup localStorage residuo");
     ok(await page.locator("#ptable .cell").count() === 118, "tavola: 118 celle renderizzate");
@@ -144,7 +153,7 @@ async function main() {
 
     const secondPage = await context.newPage();
     watchRuntimeErrors(secondPage);
-    await secondPage.goto(`${base}/tavola.html`, { waitUntil: "networkidle" });
+    await secondPage.goto(`${base}/pages/tavola.html`, { waitUntil: "networkidle" });
     await page.evaluate(() => eval("addMastery(1,10); save()"));
     await secondPage.waitForFunction(() => eval("mastery(1)") === 10, null, { timeout:5000 });
     ok(true, "browser: BroadcastChannel sincronizza due schede IndexedDB");
@@ -177,9 +186,18 @@ async function main() {
       await assertA11y(page, `Vista ${label}`);
     }
 
+    const offlineNomenclaturePage = await context.newPage();
+    watchRuntimeErrors(offlineNomenclaturePage);
+    await offlineNomenclaturePage.goto(pathToFileURL(path.join(ROOT, "pages", "nomenclatura.html")).href);
+    await offlineNomenclaturePage.waitForFunction(() => globalThis.__nomenclatureReady === true, null,
+      { timeout:10000 });
+    ok(await offlineNomenclaturePage.locator("#nomenclatureContent article").count() === 14,
+      "nomenclatura: apertura file:// senza server e asset riorganizzati");
+    await offlineNomenclaturePage.close();
+
     const offlinePage = await context.newPage();
     watchRuntimeErrors(offlinePage);
-    await offlinePage.goto(pathToFileURL(path.join(ROOT, "tavola.html")).href);
+    await offlinePage.goto(pathToFileURL(path.join(ROOT, "pages/tavola.html")).href);
     await offlinePage.waitForFunction(
       () => !globalThis.document.documentElement.hasAttribute("data-storage-state"),
       null,

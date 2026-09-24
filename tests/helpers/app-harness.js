@@ -4,13 +4,13 @@ const { JSDOM } = require("jsdom");
 const { APP_SCRIPTS } = require("./app-scripts");
 
 const root = path.join(__dirname, "..", "..");
-const html = fs.readFileSync(path.join(root, "tavola.html"), "utf8");
-const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const html = fs.readFileSync(path.join(root, "pages/tavola.html"), "utf8");
+const css = fs.readFileSync(path.join(root, "assets/css/style.css"), "utf8");
 const readScript = name => fs.readFileSync(path.join(root, name), "utf8");
 const KEY = "chemmaster-4000-v1";
 const PAGE_CODE = APP_SCRIPTS.map(readScript).join("\n");
 // JSDOM non carica gli asset esterni senza un server: li inseriamo/valutiamo nel test.
-const TEST_HTML = html.replace('<link rel="stylesheet" href="style.css">', `<style>${css}</style>`);
+const TEST_HTML = html.replace('<link rel="stylesheet" href="../assets/css/style.css">', `<style>${css}</style>`);
 // Il codice della pagina è strict-mode: let/const restano private all'eval.
 // L'hook riesegue espressioni nello stesso scope lessicale per l'ispezione.
 const HOOK = ";globalThis.__t={run:(s)=>eval(s)};";
@@ -24,7 +24,7 @@ async function createTestApp() {
   }
   function section(title) { console.log("== " + title + " =="); }
 
-  async function makeApp(seed, pageUrl = "http://localhost/tavola.html") {
+  async function makeApp(seed, pageUrl = "http://localhost/pages/tavola.html") {
     const errors = [];
     const dom = new JSDOM(TEST_HTML, {
       runScripts: "outside-only",

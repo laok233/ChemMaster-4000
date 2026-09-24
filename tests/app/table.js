@@ -3,10 +3,10 @@ module.exports = context => {
   /* ================= INIT ================= */
   section("Init / rendering");
   ok(win.__errors.length === 0, "nessun errore JS al caricamento", win.__errors.join(" | "));
-  ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
+  ok(html.includes('<link rel="stylesheet" href="../assets/css/style.css">') && !html.includes("<style>"),
     "tavola usa il CSS esterno senza stili inline");
   const scriptSources=[...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map(m=>m[1]);
-  ok(JSON.stringify(scriptSources)===JSON.stringify(appScripts) && !html.includes("<script>"),
+  ok(JSON.stringify(scriptSources)===JSON.stringify(appScripts.map(script=>`../${script}`)) && !html.includes("<script>"),
     "tavola carica i moduli esterni nell'ordine corretto senza codice inline");
   ok(win.getComputedStyle(d.body).display !== "flex",
     "stili del menu non invadono il layout della tavola", win.getComputedStyle(d.body).display);

@@ -5,8 +5,8 @@
   "description": "ChemMaster 4000 — tavola periodica interattiva per memorizzazione (app HTML senza build)",
   "scripts": {
     "lint": "bun ./node_modules/eslint/bin/eslint.js .",
-    "validate": "bun ./node_modules/html-validate/bin/html-validate.mjs index.html tavola.html nomenclatura.html",
-    "test": "bun ./node_modules/eslint/bin/eslint.js . && bun ./node_modules/html-validate/bin/html-validate.mjs index.html tavola.html nomenclatura.html && bun tests/check-data.js && bun tests/test-app.js && bun tests/test-menu.js && bun tests/test-nomenclature.js && bun tests/test-storage-lock.js && bun tests/test-storage-indexeddb.js && bun tests/test-browser.js",
+    "validate": "bun ./node_modules/html-validate/bin/html-validate.mjs index.html pages/tavola.html pages/nomenclatura.html",
+    "test": "bun ./node_modules/eslint/bin/eslint.js . && bun ./node_modules/html-validate/bin/html-validate.mjs index.html pages/tavola.html pages/nomenclatura.html && bun tests/check-data.js && bun tests/test-app.js && bun tests/test-menu.js && bun tests/test-nomenclature.js && bun tests/test-storage-lock.js && bun tests/test-storage-indexeddb.js && bun tests/test-browser.js",
     "test:app": "bun tests/test-app.js",
     "test:browser": "bun tests/test-browser.js",
     "test:nomenclature": "bun tests/test-nomenclature.js",

@@ -6,7 +6,7 @@ const { IDBFactory } = require("fake-indexeddb");
 const { APP_SCRIPTS } = require("./helpers/app-scripts");
 
 const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "tavola.html"), "utf8");
+const html = fs.readFileSync(path.join(root, "pages/tavola.html"), "utf8");
 const readScript = name => fs.readFileSync(path.join(root, name), "utf8");
 const code = APP_SCRIPTS.map(readScript).join("\n");
 const KEY = "chemmaster-4000-v1";
@@ -26,7 +26,7 @@ async function makeApp(factory, localSeed) {
   const errors = [];
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
-    url: "http://localhost/tavola.html",
+    url: "http://localhost/pages/tavola.html",
     beforeParse(window) {
       Object.defineProperty(window, "indexedDB", { configurable:true, value:factory });
       window.scrollTo = () => {};

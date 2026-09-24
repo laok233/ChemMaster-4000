@@ -1,15 +1,15 @@
 // Ordine condiviso dai test della tavola: data → storage → moduli applicativi → bootstrap.
 const APP_SCRIPTS = [
-  "data.js",
-  "storage-backend.js",
-  "storage.js",
-  "app-core.js",
-  "app-table.js",
-  "app-flashcards.js",
-  "app-quiz.js",
-  "app-writing.js",
-  "app-progress.js",
-  "app-init.js"
+  "scripts/table/data.js",
+  "scripts/table/storage-backend.js",
+  "scripts/table/storage.js",
+  "scripts/table/app-core.js",
+  "scripts/table/app-table.js",
+  "scripts/table/app-flashcards.js",
+  "scripts/table/app-quiz.js",
+  "scripts/table/app-writing.js",
+  "scripts/table/app-progress.js",
+  "scripts/table/app-init.js"
 ];
 
 module.exports = { APP_SCRIPTS };

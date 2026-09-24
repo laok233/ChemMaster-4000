@@ -6,11 +6,11 @@ const path = require("path");
 const { APP_SCRIPTS } = require("./helpers/app-scripts");
 
 const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "tavola.html"), "utf8");
-const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
-const dataCode = fs.readFileSync(path.join(root, "data.js"), "utf8");
-const storageCode = fs.readFileSync(path.join(root, "storage.js"), "utf8");
-const appFiles = APP_SCRIPTS.filter(name => name.startsWith("app-"));
+const html = fs.readFileSync(path.join(root, "pages/tavola.html"), "utf8");
+const css = fs.readFileSync(path.join(root, "assets/css/style.css"), "utf8");
+const dataCode = fs.readFileSync(path.join(root, "scripts/table/data.js"), "utf8");
+const storageCode = fs.readFileSync(path.join(root, "scripts/table/storage.js"), "utf8");
+const appFiles = APP_SCRIPTS.filter(name => path.basename(name).startsWith("app-"));
 const appCode = appFiles.map(name => fs.readFileSync(path.join(root, name), "utf8")).join("\n");
 const code = [dataCode, storageCode, ...appFiles.map(name => fs.readFileSync(path.join(root, name), "utf8"))].join("\n");
 const data = dataCode.slice(0, dataCode.indexOf("// END DATA"));
@@ -25,10 +25,10 @@ const o = sandbox.__out;
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.log("FAIL: " + msg); fails++; } };
-ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
+ok(html.includes('<link rel="stylesheet" href="../assets/css/style.css">') && !html.includes("<style>"),
   "CSS esterno collegato e nessun blocco inline residuo");
 const scriptSources = [...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map(match => match[1]);
-ok(JSON.stringify(scriptSources) === JSON.stringify(APP_SCRIPTS) && !html.includes("<script>"),
+ok(JSON.stringify(scriptSources) === JSON.stringify(APP_SCRIPTS.map(name=>`../${name}`)) && !html.includes("<script>"),
   "script esterni separati nell'ordine dei moduli e nessun blocco inline residuo");
 ok(!/\.innerHTML\s*=/.test(appCode), "rendering applicativo senza innerHTML");
 

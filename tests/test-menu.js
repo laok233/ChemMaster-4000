@@ -15,8 +15,8 @@ function section(t) { console.log("== " + t + " =="); }
 const ROOT = path.join(__dirname, "..");
 const MENU = path.join(ROOT, "index.html");
 const html = fs.readFileSync(MENU, "utf8");
-const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
-const testHtml = html.replace('<link rel="stylesheet" href="style.css">', `<style>${css}</style>`);
+const css = fs.readFileSync(path.join(ROOT, "assets/css/style.css"), "utf8");
+const testHtml = html.replace('<link rel="stylesheet" href="assets/css/style.css">', `<style>${css}</style>`);
 const menuWindow = new JSDOM(testHtml, { url: "http://localhost/index.html" }).window;
 const d = menuWindow.document;
 
@@ -24,9 +24,9 @@ const d = menuWindow.document;
 section("Menu: struttura");
 ok(/ChemMaster 4000/.test(d.title), "titolo della pagina menu", d.title);
 ok(html.includes('lang="it"'), "pagina dichiara lang=it");
-ok(html.includes('<link rel="stylesheet" href="style.css">'),
+ok(html.includes('<link rel="stylesheet" href="assets/css/style.css">'),
   "menu collega il CSS esterno");
-ok(fs.existsSync(path.join(ROOT, "style.css")), "file style.css presente");
+ok(fs.existsSync(path.join(ROOT, "assets/css/style.css")), "file assets/css/style.css presente");
 ok(menuWindow.getComputedStyle(d.body).display === "flex", "layout flex limitato alla pagina menu");
 ok(menuWindow.getComputedStyle(d.querySelector(".menu-grid")).display === "grid", "griglia menu dal CSS esterno");
 ok(menuWindow.getComputedStyle(d.querySelector("main h2")).fontSize === "22px",
@@ -40,12 +40,12 @@ ok(/Piattaforma di studio della chimica/.test(d.body.textContent), "sottotitolo 
 section("Menu: tessere");
 const tiles = d.querySelectorAll("a.tile");
 ok(tiles.length === 2, "2 funzioni disponibili (ottenute " + tiles.length + ")", String(tiles.length));
-const tav = d.querySelector('a.tile[href="tavola.html"]');
-ok(!!tav, "tessera 'Tavola periodica' che punta a tavola.html");
+const tav = d.querySelector('a.tile[href="pages/tavola.html"]');
+ok(!!tav, "tessera 'Tavola periodica' che punta a pages/tavola.html");
 ok(!!tav && /Tavola periodica/i.test(tav.textContent), "nome della funzione nella tessera",
   tav && tav.textContent.replace(/\s+/g, " ").trim());
-const nom = d.querySelector('a.tile[href="nomenclatura.html"]');
-ok(!!nom, "tessera 'Nomenclatura' che punta a nomenclatura.html");
+const nom = d.querySelector('a.tile[href="pages/nomenclatura.html"]');
+ok(!!nom, "tessera 'Nomenclatura' che punta a pages/nomenclatura.html");
 ok(!!nom && /Nomenclatura/i.test(nom.textContent) && /inorganica.*organica/i.test(nom.textContent),
   "nome e descrizione della nomenclatura nella tessera", nom && nom.textContent.replace(/\s+/g, " ").trim());
 
@@ -55,7 +55,7 @@ const links = [...d.querySelectorAll('a[href$=".html"]')];
 ok(links.length >= 2, "almeno due link a pagine", String(links.length));
 links.forEach(a => {
   const target = a.getAttribute("href").split("#")[0];
-  ok(fs.existsSync(path.join(__dirname, "..", target)), "link esistente: " + target);
+  ok(fs.existsSync(path.resolve(path.dirname(MENU), target)), "link esistente: " + target);
 });
 
 console.log("\n================ RISULTATO ================");

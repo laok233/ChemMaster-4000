@@ -5,11 +5,11 @@ const path = require("path");
 const { JSDOM } = require("jsdom");
 
 const ROOT = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(ROOT, "nomenclatura.html"), "utf8");
-const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
-const dataCode = fs.readFileSync(path.join(ROOT, "nomenclatura-data.js"), "utf8");
-const appCode = fs.readFileSync(path.join(ROOT, "nomenclatura.js"), "utf8");
-const testHtml = html.replace('<link rel="stylesheet" href="style.css">', `<style>${css}</style>`);
+const html = fs.readFileSync(path.join(ROOT, "pages/nomenclatura.html"), "utf8");
+const css = fs.readFileSync(path.join(ROOT, "assets/css/style.css"), "utf8");
+const dataCode = fs.readFileSync(path.join(ROOT, "scripts/nomenclature/data.js"), "utf8");
+const appCode = fs.readFileSync(path.join(ROOT, "scripts/nomenclature/app.js"), "utf8");
+const testHtml = html.replace('<link rel="stylesheet" href="../assets/css/style.css">', `<style>${css}</style>`);
 
 let pass = 0;
 let fail = 0;
@@ -22,7 +22,7 @@ function section(title) { console.log("== " + title + " =="); }
 
 const dom = new JSDOM(testHtml, {
   runScripts: "outside-only",
-  url: "http://localhost/nomenclatura.html"
+  url: "http://localhost/pages/nomenclatura.html"
 });
 const win = dom.window;
 const d = win.document;
@@ -52,12 +52,12 @@ section("Nomenclatura: struttura e contenuti");
 ok(errors.length === 0, "pagina senza errori JavaScript", errors.join(" | "));
 ok(d.documentElement.lang === "it", "pagina dichiara lang=it");
 ok(/Nomenclatura chimica/.test(d.title), "titolo della pagina", d.title);
-ok(html.includes('<link rel="stylesheet" href="style.css">') && !html.includes("<style>"),
+ok(html.includes('<link rel="stylesheet" href="../assets/css/style.css">') && !html.includes("<style>"),
   "CSS esterno senza stili inline");
 const scriptSources = [...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map(match => match[1]);
-ok(JSON.stringify(scriptSources) === JSON.stringify(["nomenclatura-data.js", "nomenclatura.js"]) &&
+ok(JSON.stringify(scriptSources) === JSON.stringify(["../scripts/nomenclature/data.js", "../scripts/nomenclature/app.js"]) &&
   !html.includes("<script>"), "script esterni separati e caricati nell'ordine", scriptSources.join(","));
-ok(!!d.querySelector('a[href="index.html"]') && /Menu/.test(d.querySelector('a[href="index.html"]').textContent),
+ok(!!d.querySelector('a[href="../index.html"]') && /Menu/.test(d.querySelector('a[href="../index.html"]').textContent),
   "link al menu presente");
 ok(!d.getElementById("nomenclatureSearch").hasAttribute("aria-label"),
   "il campo di ricerca ha un'etichetta visibile associata");

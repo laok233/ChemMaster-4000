@@ -7,7 +7,7 @@
 
 Piattaforma di studio della chimica in **HTML puro**, senza installazione né build: fai doppio clic su `index.html` (il menu principale) e da lì apri ogni funzione.
 
-Le funzioni disponibili sono la **tavola periodica** (`tavola.html`), con flashcard, quiz ed esercizi di scrittura, e la **nomenclatura chimica** (`nomenclatura.html`), una guida interattiva con esempi inorganici, organici e nomi tradizionali, completata da un quiz basato sui suoi esempi.
+Le funzioni disponibili sono la **tavola periodica** (`pages/tavola.html`), con flashcard, quiz ed esercizi di scrittura, e la **nomenclatura chimica** (`pages/nomenclatura.html`), una guida interattiva con esempi inorganici, organici e nomi tradizionali, completata da un quiz basato sui suoi esempi.
 
 ## Cosa contiene
 
@@ -28,55 +28,43 @@ Accessibilità: la vista attiva è marcata con `aria-current` e riceve il focus;
 ## Struttura del progetto
 
 ```
-index.html           menu principale (hub): griglia con una tessera per ogni funzione
-style.css             tema scuro, layout comune, griglia CSS della tavola e stili
-                      della guida di nomenclatura
-nomenclatura.html     funzione «Nomenclatura chimica»
-├── nomenclatura-data.js  contenuti, esempi e tabelle delle regole
-└── nomenclatura.js       navigazione Guida/Quiz, rendering, ricerca, filtri e motore quiz
-
-tavola.html           funzione «Tavola periodica» (ex index.html)
-├── <body>    5 sezioni (una vista per modalità)
-└── <script>  dieci script classici, caricati in ordine con defer
-    ├── data.js            simboli, nomi italiani, masse, categorie, posizioni,
-    │                      configurazioni elettronica (con le eccezioni note: Cr, Cu, Mo, Au…)
-    │                      e BIO_SYMS/BIO_Z (i 26 elementi biorilevanti)
-    ├── storage-backend.js repository IndexedDB atomico, migrazione e BroadcastChannel
-    ├── storage.js         persistenza versionata, protezione dai conflitti, import/export
-    │                      JSON e avviso se nessun archivio è disponibile, migrazione v0→v1
-    │                      e rifiuto delle versioni future, sanitizzazione dello stato corrotto
-    │                      (anche ai membri annidati), scarto di booleani/chiavi non canoniche,
-    │                      storico quiz con invarianti risposte/punteggio, caselle `solved`
-    │                      con flag canonico 1 ed elementi validi, `wrongZ` a soli Z reali
-    ├── app-core.js        helper DOM, navigazione e avanzamento globale
-    ├── app-table.js       griglia, dettagli, ricerca, filtri e biorilevanti
-    ├── app-flashcards.js  Leitner, giudizi e scorciatoie
-    ├── app-quiz.js        domande, risposte e ripasso errori
-    ├── app-writing.js     tavola vuota e sequenza
-    ├── app-progress.js    statistiche, barre e azzeramento
-    └── app-init.js        bootstrap e gestione degli eventi iniziali
+index.html                 menu principale (hub), unico file HTML alla radice
+assets/
+└── css/
+    └── style.css           tema e layout condivisi da tutte le pagine
+pages/
+├── tavola.html             tavola periodica e relative viste
+└── nomenclatura.html       guida e quiz della nomenclatura
+scripts/
+├── table/
+│   ├── data.js                 simboli, masse, categorie e configurazioni elettroniche
+│   ├── storage-backend.js      repository IndexedDB atomico e BroadcastChannel
+│   ├── storage.js              persistenza, migrazione e sanitizzazione dello stato
+│   ├── app-core.js             helper DOM, navigazione e avanzamento globale
+│   ├── app-table.js            griglia, dettagli, ricerca, filtri e biorilevanti
+│   ├── app-flashcards.js       Leitner, giudizi e scorciatoie
+│   ├── app-quiz.js             domande, risposte e ripasso errori
+│   ├── app-writing.js          tavola vuota e sequenza
+│   ├── app-progress.js         statistiche, barre e azzeramento
+│   └── app-init.js             bootstrap e gestione degli eventi iniziali
+└── nomenclature/
+    ├── data.js                 contenuti, esempi e tabelle delle regole
+    └── app.js                  navigazione Guida/Quiz, rendering e motore quiz
 tests/
-├── check-data.js       verifiche sui dati della tavola (nessuna dipendenza)
-├── helpers/
-│   ├── app-harness.js  harness JSDOM condiviso e helper di interazione
-│   └── app-scripts.js  ordine canonico dei moduli della tavola
-├── app/
-│   ├── table.js        inizializzazione, ricerca, filtri e biorilevanti
-│   ├── flashcards.js   flashcards, giudizi e scorciatoie
-│   ├── quiz.js         quiz, risposte e ripasso errori
-│   ├── writing.js      tavola vuota e sequenza
-│   ├── progress.js     statistiche e barre accessibili
-│   ├── persistence.js  salvataggio, import/export e stati corrotti
-│   └── navigation.js   accessibilità, focus e navigazione
-├── test-app.js         orchestratore dei test funzionali sulla tavola
-├── test-browser.js     smoke test Chromium e audit WCAG con axe-core
-├── test-menu.js        test del menu principale: struttura e link (jsdom)
-├── test-nomenclature.js test della guida: contenuti, filtri e ricerca (jsdom)
-├── test-storage-indexeddb.js migrazione e confronto-and-scrittura IndexedDB
-└── test-storage-lock.js due tab concorrenti serializzate tramite Web Locks
-├── eslint.config.mjs   lint (ESLint): script esterni dell’app + test
-├── .htmlvalidate.json  regole per la validazione HTML
-└── bun.lock            grafo delle dipendenze riproducibile per Bun/CI
+├── check-data.js               verifiche sui dati della tavola
+├── helpers/                    harness JSDOM e ordine canonico degli script
+├── app/                        test funzionali per area della tavola
+├── test-app.js                 orchestratore dei test funzionali sulla tavola
+├── test-browser.js             smoke test Chromium e audit WCAG con axe-core
+├── test-menu.js                struttura e link del menu (jsdom)
+├── test-nomenclature.js        guida e quiz della nomenclatura (jsdom)
+├── test-storage-indexeddb.js   migrazione e confronto-and-scrittura IndexedDB
+└── test-storage-lock.js        due tab concorrenti serializzate tramite Web Locks
+package.json                    script di sviluppo, lint e test
+eslint.config.mjs               contratto ESLint per moduli classici e test
+.htmlvalidate.json              regole per la validazione HTML
+bun.lock                        grafo delle dipendenze riproducibile per Bun/CI
+.github/workflows/test.yml      pipeline CI
 ```
 
 ## Test
@@ -131,9 +119,9 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   `go()` con vista ignota che non lascia la pagina vuota, `aria-current`/`aria-pressed`/`aria-live`,
   navigazione senza animazione con `prefers-reduced-motion`, pannello dettagli non sticky su mobile,
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
-- **`tests/test-browser.js`** — 37 asserzioni: Chromium headless sul menu, sulla guida e sul quiz di nomenclatura e su tutte le viste della
+- **`tests/test-browser.js`** — 41 asserzioni: Chromium headless sul menu, sui nuovi percorsi delle pagine, sulla guida e sul quiz di nomenclatura e su tutte le viste della
   tavola, nessun errore JavaScript, zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili,
-  viewport a 320 px senza overflow della pagina, hover neutro con motion ridotto e avvio `file://` senza server.
+  viewport a 320 px senza overflow della pagina, hover neutro con motion ridotto e avvio `file://` di tavola e nomenclatura senza server.
 - **`tests/test-storage-indexeddb.js`** — 16 asserzioni: migrazione automatica da localStorage,
   caricamento condiviso del database, rifiuto di una seconda scrittura con baseline obsoleto,
   serializzazione dei salvataggi rapidi, rifiuto dei record falsi corrotti, timeout del bootstrap
@@ -146,7 +134,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   non sovrascrive il mastery remoto; due richieste già incluse nello snapshot precedente producono
   una sola scrittura.
 - **`tests/test-menu.js`** — menu principale: titolo/h1, sottotitolo piattaforma, due tessere
-  («Tavola periodica» → `tavola.html` e «Nomenclatura» → `nomenclatura.html`), e tutti i link `*.html` del menu puntano a file esistenti.
+  («Tavola periodica» → `pages/tavola.html` e «Nomenclatura» → `pages/nomenclatura.html`), e tutti i link `*.html` del menu puntano a file esistenti.
 - **`tests/test-nomenclature.js`** — 73 asserzioni: struttura della pagina, 14 schede, nomi tradizionali
   inorganici e organici, ricerca normalizzata su regole/note/esempi (incluse formule come `N2O4` per `N₂O₄`),
   filtri tradizionali/inorganica/organica, indice sincronizzato e tabelle accessibili, oltre alla navigazione
@@ -155,9 +143,9 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
 
 ## Personalizzazione rapida
 
-- Colori delle categorie: variabili `--alkali`, `--transition`, … in `:root` (in `CAT_DEF` il campo `v` le collega alle categorie).
-- Elementi biorilevanti: la stringa `BIO_SYMS` in `DATI` (il conteggio nel chip 🧬 e il badge si aggiornano da soli).
-- Durate dei mazzetti: `BOX_DAYS = [0, 1, 3, 7, 21]` (le etichette in *Progressi* e l'ultimo mazzo,
+- Colori delle categorie: variabili `--alkali`, `--transition`, … in `assets/css/style.css` (in `CAT_DEF` il campo `v` le collega alle categorie).
+- Elementi biorilevanti: la stringa `BIO_SYMS` in `scripts/table/data.js` (il conteggio nel chip 🧬 e il badge si aggiornano da soli).
+- Durate dei mazzetti: `BOX_DAYS = [0, 1, 3, 7, 21]` in `scripts/table/storage.js` (le etichette in *Progressi* e l'ultimo mazzo,
   `MAX_BOX = BOX_DAYS.length - 1`, si aggiornano da sole).
 - Punti per il padroneggio: `addMastery(z, ±n)` nei vari motori (quiz +8/−6, flashcard +12/+20/−15, tavola vuota +12/−3, sequenza +10/−3).
 - Soglia “padroneggiato”: `MASTERY_THRESHOLD = 70` (una sola definizione, usata da contatore in testa, ambiti flashcard/quiz e statistiche).

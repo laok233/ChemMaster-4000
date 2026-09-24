@@ -113,7 +113,7 @@ module.exports = async context => {
     "reload con sessione iniziata durante la lettura richiede una conferma esplicita");
 
   /* storage non disponibile: avviso e possibilità di esportare */
-  const winNoStorage = await makeApp(null, "file:///tavola.html");
+  const winNoStorage = await makeApp(null, "file:///pages/tavola.html");
   const failedSave = await ev(winNoStorage, "addMastery(2,5); save()");
   ok(failedSave === false && ev(winNoStorage, "storageDirty") === true,
     "errore di scrittura segnalato e stato marcato dirty");
