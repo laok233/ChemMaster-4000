@@ -70,18 +70,18 @@ ok(d.querySelector("label.nomenclature-search-label #nomenclatureSearch"), "etic
 ok(d.getElementById("nomenclatureStatus").getAttribute("aria-live") === "polite" &&
    !d.getElementById("nomenclatureStatus").classList.contains("sr-only"),
   "conteggio dei risultati annunciato e visibile");
-ok(d.querySelectorAll("#nomenclatureContent article").length === 14, "14 schede iniziali",
+ok(d.querySelectorAll("#nomenclatureContent article").length === 16, "16 schede iniziali",
   String(d.querySelectorAll("#nomenclatureContent article").length));
 ok(d.getElementById("nomenclatureBootstrap").hidden,
   "il messaggio di bootstrap viene nascosto dopo l'inizializzazione");
-ok(d.querySelectorAll("#nomenclatureContent details").length === 14, "ogni scheda ha un pannello espandibile");
-ok(d.querySelectorAll("#nomenclatureIndex a").length === 14, "indice con un link per ogni scheda");
+ok(d.querySelectorAll("#nomenclatureContent details").length === 16, "ogni scheda ha un pannello espandibile");
+ok(d.querySelectorAll("#nomenclatureIndex a").length === 16, "indice con un link per ogni scheda");
 ok(!d.querySelector("#nomenclatureIndex a[aria-current]"),
   "l'indice non marca una posizione corrente senza un hash reale");
 ok([...d.querySelectorAll("#nomenclatureFilters button")].every(button =>
   button.type === "button" && button.hasAttribute("aria-pressed")),
 "filtri navigabili da tastiera con stato esposto");
-ok(d.querySelectorAll("#nomenclatureContent table caption").length === 6, "tabelle di riferimento presenti");
+ok(d.querySelectorAll("#nomenclatureContent table caption").length === 8, "tabelle di riferimento presenti");
 const cardHeader=d.querySelector(".nomenclature-card-header");
 ok(win.getComputedStyle(cardHeader).position !== "sticky" &&
    win.getComputedStyle(cardHeader).display === "block",
@@ -127,10 +127,25 @@ const acidCard=cardData.find(card => card.id === "acidi");
 ok(acidCard && !/numero di atomi di ossigeno.*-oso.*-ico/.test(acidCard.rule) &&
    acidCard.examples.some(example => example.formula === "HClO₂"),
   "regola degli ossiacidi evita il conteggio come legge universale");
+const anhydrideCard=cardData.find(card => card.id === "anidridi");
+ok(anhydrideCard && anhydrideCard.area === "inorganic" &&
+   anhydrideCard.examples.length >= 5 &&
+   anhydrideCard.examples.some(example => example.formula === "P₄O₁₀" && example.name === "anidride fosforica"),
+  "scheda Anidridi presente con esempi di anidridi acide");
+const hydrideCard=cardData.find(card => card.id === "idruri");
+const basicOxideCard=cardData.find(card => card.id === "basi-ossidi");
+const saltCard=cardData.find(card => card.id === "compositi-ionici");
+ok(hydrideCard && hydrideCard.examples.some(example => example.formula === "NaH" && example.name === "idruro di sodio") &&
+   basicOxideCard && basicOxideCard.examples.some(example => example.formula === "Na₂O" && example.name === "ossido di sodio"),
+  "Idruri e ossidi basici presenti con esempi dedicati");
+ok(saltCard && saltCard.title === "Sali e composti ionici" &&
+   saltCard.examples.some(example => example.formula === "K₂SO₄" && example.name === "solfato di potassio") &&
+   basicOxideCard.examples.some(example => example.formula === "NaOH" && example.name === "idrossido di sodio"),
+  "Sali e idrossidi presenti nelle card inorganiche");
 ok(d.querySelectorAll('#nomenclatureContent article[data-traditional="true"]').length === 3 &&
    d.querySelectorAll(".nomenclature-traditional").length === 3,
 "tre schede e tre badge per i nomi tradizionali");
-ok(d.getElementById("nomenclatureStatus").textContent === "Tutte le 14 schede sono mostrate." &&
+ok(d.getElementById("nomenclatureStatus").textContent === "Tutte le 16 schede sono mostrate." &&
    d.getElementById("nomenclatureStatus").dataset.empty === "false",
   "conteggio iniziale dei risultati", d.getElementById("nomenclatureStatus").textContent);
 
@@ -147,7 +162,7 @@ ok(visibleCards().some(card => card.dataset.area === "inorganic") &&
    visibleCards().some(card => card.dataset.area === "organic") &&
    [...d.querySelectorAll(".nomenclature-index-group")].every(group => !group.hidden),
   "i nomi tradizionali restano collegati a entrambe le aree");
-ok(d.getElementById("nomenclatureStatus").textContent === "3 schede mostrate su 14.",
+ok(d.getElementById("nomenclatureStatus").textContent === "3 schede mostrate su 16.",
   "conteggio dei nomi tradizionali", d.getElementById("nomenclatureStatus").textContent);
 click(filterById.all);
 click(filterById.organic);
@@ -156,7 +171,7 @@ ok(visibleCards().length === 7 && visibleCards().every(card => card.dataset.area
 ok(d.querySelector("#nomenclatureIndex [aria-labelledby='nom-index-inorganic']").hidden &&
    !d.querySelector("#nomenclatureIndex [aria-labelledby='nom-index-organic']").hidden,
   "l'indice nasconde il gruppo vuoto dopo il filtro organica");
-ok(d.getElementById("nomenclatureStatus").textContent === "7 schede mostrate su 14.",
+ok(d.getElementById("nomenclatureStatus").textContent === "7 schede mostrate su 16.",
   "conteggio filtrato", d.getElementById("nomenclatureStatus").textContent);
 click(filterById.all);
 search("non serve un numero romano");
@@ -173,8 +188,12 @@ search("N2O4");
 ok(visibleCards().length === 1 && visibleCards()[0].id === "nom-composti-binari",
   "ricerca normalizzata trova formule con pedici Unicode", visibleCards().map(card => card.id).join(","));
 click(d.getElementById("clearNomenclature"));
+search("anidride");
+ok(visibleCards().length === 1 && visibleCards()[0].id === "nom-anidridi",
+  "ricerca della nuova scheda Anidridi", visibleCards().map(card => card.id).join(","));
+click(d.getElementById("clearNomenclature"));
 search("inorganica");
-ok(visibleCards().length === 7 && visibleCards().every(card => card.dataset.area === "inorganic"),
+ok(visibleCards().length === 9 && visibleCards().every(card => card.dataset.area === "inorganic"),
   "la ricerca include l'etichetta dell'area", visibleCards().map(card => card.id).join(","));
 click(d.getElementById("clearNomenclature"));
 search("organica");
@@ -189,13 +208,13 @@ search("ferro inorganica");
 ok(visibleCards().length > 0 && visibleCards().every(card => card.dataset.area === "inorganic"),
   "ricerca con un termine nell'area e uno nel contenuto", visibleCards().map(card => card.id).join(","));
 click(d.getElementById("clearNomenclature"));
-ok(d.getElementById("nomenclatureSearch").value === "" && visibleCards().length === 14,
+ok(d.getElementById("nomenclatureSearch").value === "" && visibleCards().length === 16,
   "Mostra tutte azzera ricerca e filtri");
 ok(d.getElementById("clearNomenclature").disabled, "pulsante reset disabilitato quando non serve");
 
 search("fenolo");
 ok(visibleCards().length === 1 && visibleCards()[0].id === "nom-alcoli" &&
-   d.getElementById("nomenclatureStatus").textContent === "1 scheda mostrata su 14.",
+   d.getElementById("nomenclatureStatus").textContent === "1 scheda mostrata su 16.",
   "ricerca di un esempio organico e conteggio singolare",
   `${visibleCards().map(card => card.id).join(",")} / ${d.getElementById("nomenclatureStatus").textContent}`);
 const indexVisible = [...d.querySelectorAll("#nomenclatureIndex li")].filter(item => !item.hidden);
@@ -268,6 +287,8 @@ ok(new Set(canonicalPool.map(entry => entry.canonicalId)).size === canonicalPool
    canonicalPool.every(entry => entry.acceptedNames.includes(entry.name)),
   "pool quiz deduplicato per formula canonica con alias espliciti",
   `${canonicalPool.length} voci / ${new Set(canonicalPool.map(entry => entry.canonicalId)).size} canoniche`);
+ok(canonicalPool.some(entry => entry.name === "anidride fosforica"),
+  "il quiz include un esempio della nuova scheda Anidridi");
 const traditionalPool=win.__nomenclatureBuildPool("traditional");
 ok(new Set(traditionalPool.map(entry => entry.canonicalId)).size === traditionalPool.length,
   "il pool dei nomi tradizionali non contiene formule duplicate",

@@ -35,10 +35,10 @@ const NOMENCLATURE_CARDS = [
   {
     id:"compositi-ionici",
     area:"inorganic",
-    topic:"Composti ionici",
-    title:"Composti ionici",
-    summary:"Il nome di un sale o di un ossido ionico segue sempre l'ordine catione + anione, senza prefissi molecolari.",
-    rule:"Si scrive prima il catione e poi l'anione. Se il catione ha più valori di ossidazione, il numero romano disambigua il suo stato; gli idrossidi si chiamano idrossido di catione, come idrossido di calcio.",
+    topic:"Sali e composti ionici",
+    title:"Sali e composti ionici",
+    summary:"I sali sono composti ionici formati da cationi e anioni; il nome segue l'ordine catione + anione, senza prefissi molecolari.",
+    rule:"Per un sale si scrive prima il catione e poi l'anione. Se il catione ha più valori di ossidazione, il numero romano disambigua il suo stato; gli idrossidi si chiamano idrossido di catione, come idrossido di calcio.",
     steps:[
       "Suddividi la formula in catione e anione, senza usare i coefficienti come prefissi del nome.",
       "Scrivi il nome del catione, aggiungendo la carica romana solo quando è necessaria.",
@@ -47,12 +47,54 @@ const NOMENCLATURE_CARDS = [
     examples:[
       {formula:"NaCl", name:"cloruro di sodio", note:"Na⁺ e Cl⁻"},
       {formula:"FeCl₃", name:"cloruro di ferro(III)", note:"tre Cl⁻ richiedono Fe³⁺"},
+      {formula:"K₂SO₄", name:"solfato di potassio", note:"anione solfato + due cationi K⁺"},
+      {formula:"Na₂CO₃", name:"carbonato di sodio", note:"anione carbonato + due cationi Na⁺"},
+      {formula:"NH₄Cl", name:"cloruro di ammonio", note:"catione NH₄⁺ e anione Cl⁻"},
       {formula:"Al₂O₃", name:"ossido di alluminio", note:"i coefficienti non diventano prefissi"},
       {formula:"Ca(OH)₂", name:"idrossido di calcio", note:"l'anione OH⁻ diventa idrossido"}
     ],
     notes:[
       "Non scrivere dichloruro di sodio per NaCl: NaCl contiene un solo ione di ciascun tipo.",
-      "La forma con numero romano è la notazione di Stock ed è utile per i metalli di transizione."
+      "La forma con numero romano è la notazione di Stock ed è utile per i metalli di transizione.",
+      "Nei sali, i coefficienti servono a bilanciare le cariche e non diventano prefissi nel nome."
+    ]
+  },
+  {
+    id:"anidridi",
+    area:"inorganic",
+    topic:"Anidridi",
+    title:"Anidridi",
+    summary:"Le anidridi acide si ottengono dalla rimozione formale di acqua da un acido e, reagendo con acqua, rigenerano l'acido corrispondente.",
+    rule:"Le anidridi acide usano il nome tradizionale dell'acido corrispondente preceduto da «anidride»: per esempio SO₃ è anidride solforica e N₂O₅ è anidride nitrica. Non ogni ossido è un'anidride: CaO resta ossido di calcio.",
+    steps:[
+      "Individua l'elemento centrale nella formula e ricava il nome tradizionale dell'acido corrispondente.",
+      "Controlla la formula dell'acido e scrivi la reazione di formazione per sottrazione di acqua.",
+      "Usa il nome dell'anidride solo quando il contesto è acido; per gli ossidi basici si preferisce ossido di…"
+    ],
+    examples:[
+      {formula:"SO₂", name:"anidride solforosa", note:"H₂SO₃ → SO₂ + H₂O"},
+      {formula:"SO₃", name:"anidride solforica", note:"H₂SO₄ → SO₃ + H₂O"},
+      {formula:"N₂O₅", name:"anidride nitrica", note:"2 HNO₃ → N₂O₅ + H₂O"},
+      {formula:"CO₂", name:"anidride carbonica", note:"H₂CO₃ → CO₂ + H₂O"},
+      {formula:"P₄O₁₀", name:"anidride fosforica", note:"4 H₃PO₄ → P₄O₁₀ + 6 H₂O"},
+      {formula:"Cl₂O₇", name:"anidride perclorica", note:"2 HClO₄ → Cl₂O₇ + H₂O"}
+    ],
+    table:{
+      caption:"Anidridi acide e acidi di partenza",
+      headers:["Anidride","Nome","Acido"],
+      rows:[
+        ["SO₂","anidride solforosa","H₂SO₃"],
+        ["SO₃","anidride solforica","H₂SO₄"],
+        ["N₂O₅","anidride nitrica","HNO₃"],
+        ["CO₂","anidride carbonica","H₂CO₃"],
+        ["P₄O₁₀","anidride fosforica","H₃PO₄"],
+        ["Cl₂O₇","anidride perclorica","HClO₄"]
+      ]
+    },
+    notes:[
+      "Un'anidride acida reagisce con acqua per formare l'acido; con una base forma il sale e acqua.",
+      "P₄O₁₀ è la formula molecolare; P₂O₅ è spesso riportata come formula empirica.",
+      "Il termine anidride è tradizionale: in alcuni contesti si preferisce il nome binario con prefissi, come biossido di carbonio."
     ]
   },
   {
@@ -123,8 +165,8 @@ const NOMENCLATURE_CARDS = [
     area:"inorganic",
     topic:"Basi e ossidi",
     title:"Basi, ossidi e idrossidi",
-    summary:"Gli idrossidi sono basi costituite dal catione e dallo ione OH⁻; gli ossidi possono essere ionici o molecolari.",
-    rule:"Una base si nomina idrossido di… seguito dal catione. Un ossido si nomina ossido di…; se il metallo ha più stati di ossidazione si aggiunge il numero romano. Gli ossidi molecolari dei non metalli usano invece i prefissi.",
+    summary:"Gli idrossidi sono basi con lo ione OH⁻; gli ossidi basici sono ossidi di metalli, mentre quelli dei non metalli possono essere acidi o neutri.",
+    rule:"Una base si nomina idrossido di… seguito dal catione. Gli ossidi basici si nominano ossido di…; se il metallo ha più stati di ossidazione si aggiunge il numero romano. Gli ossidi molecolari dei non metalli usano invece i prefissi.",
     steps:[
       "Riconosci lo ione caratteristico: OH⁻ per un idrossido, O²⁻ per un ossido ionico.",
       "Scrivi idrossido o ossido e aggiungi di seguito il nome del catione.",
@@ -133,13 +175,44 @@ const NOMENCLATURE_CARDS = [
     examples:[
       {formula:"NaOH", name:"idrossido di sodio", note:"Na⁺ + OH⁻"},
       {formula:"Ba(OH)₂", name:"idrossido di bario", note:"l'idrossuro ha carica −1"},
+      {formula:"Na₂O", name:"ossido di sodio", note:"ossido basico di un metallo"},
+      {formula:"CaO", name:"ossido di calcio", note:"ossido basico: reagisce con acqua"},
       {formula:"FeO", name:"ossido di ferro(II)", note:"Fe²⁺"},
       {formula:"Fe₂O₃", name:"ossido di ferro(III)", note:"Fe³⁺"},
-      {formula:"SO₂", name:"diossido di zolfo", note:"ossido molecolare: usa il prefisso"}
+      {formula:"SO₂", name:"biossido di zolfo", note:"ossido acido, non basico"}
     ],
     notes:[
       "La formula di un idrossido non si legge come un composto binario con prefissi.",
+      "Na₂O, CaO, FeO e Fe₂O₃ sono ossidi basici; SO₂ è un ossido acido e usa il nome prefissale.",
       "Per CO e CO₂ si preferisce la nomenclatura prefissale; per FeO e Fe₂O₃ la notazione di Stock chiarisce il catione."
+    ]
+  },
+  {
+    id:"idruri",
+    area:"inorganic",
+    topic:"Idruri",
+    title:"Idruri",
+    summary:"Gli idruri sono composti binari dell'idrogeno con un metallo; nei metalli alcalini e alcalino-terrosi l'idrogeno ha carica −1.",
+    rule:"Un idruro metallico si nomina idruro di… seguito dal nome del metallo. La formula NaH rappresenta Na⁺ e H⁻; non si usano i prefissi molecolari.",
+    steps:[
+      "Riconosci il metallo e l'idrogeno nella formula binaria.",
+      "Assegna allo ione idruro H⁻ la forma nominale idruro.",
+      "Scrivi idruro di seguito al nome del metallo e usa la notazione di Stock solo se serve disambiguare."
+    ],
+    examples:[
+      {formula:"LiH", name:"idruro di litio", note:"Li⁺ + H⁻"},
+      {formula:"NaH", name:"idruro di sodio", note:"idruro salino"},
+      {formula:"CaH₂", name:"idruro di calcio", note:"Ca²⁺ + 2 H⁻"},
+      {formula:"AlH₃", name:"idruro di alluminio", note:"l'idrogeno è covalente in molte condizioni"}
+    ],
+    table:{
+      caption:"Idruri metallici principali",
+      headers:["Formula","Nome","Carica degli ioni"],
+      rows:[["LiH","idruro di litio","Li⁺ / H⁻"],["NaH","idruro di sodio","Na⁺ / H⁻"],["CaH₂","idruro di calcio","Ca²⁺ / 2 H⁻"],["AlH₃","idruro di alluminio","Al³⁺ / 3 H⁻ (formale)"]]
+    },
+    notes:[
+      "Non tutti gli idruri metallici sono puramente ionici: AlH₃ ha un comportamento più covalente.",
+      "Gli idruri dei non metalli, come H₂O o NH₃, seguono invece la nomenclatura del composto specifico."
     ]
   },
   {

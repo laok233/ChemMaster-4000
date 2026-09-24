@@ -100,7 +100,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   gusci coerenti, eccezioni di configurazione reali, controlli incrociati noti (Ar>K, Co>Ni, Te>I…),
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
-- **`tests/check-nomenclature-data.js`** — schema delle 14 schede, tabelle allineate, filtri derivati,
+- **`tests/check-nomenclature-data.js`** — schema delle 16 schede, tabelle allineate, filtri derivati,
   quattro scope con pool canonici, alias e fasi degli esempi; il controllo blocca anche regressioni
   come `HCl`/`HCl(aq)` e acido etanoico/acetico.
 - **`bun run validate`** — validazione HTML delle tre pagine con `html-validate`.
@@ -147,7 +147,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   una sola scrittura.
 - **`tests/test-menu.js`** — 18 asserzioni: menu principale, titolo/h1, sottotitolo piattaforma, due tessere
   («Tavola periodica» → `pages/tavola.html` e «Nomenclatura» → `pages/nomenclatura.html`), e tutti i link `*.html` del menu puntano a file esistenti.
-- **`tests/test-nomenclature.js`** — 87 asserzioni: struttura della pagina, 14 schede, nomi tradizionali
+- **`tests/test-nomenclature.js`** — 92 asserzioni: struttura della pagina, 16 schede, nomi tradizionali
   inorganici e organici, ricerca normalizzata AND su regole/note/esempi/area (incluse formule come `N2O4` per `N₂O₄`),
   filtri tradizionali/inorganica/organica, indice sincronizzato, tabelle accessibili e focalizzabili, oltre alla navigazione
   Guida/Quiz e al quiz: ambiti, alias canonici, fasi, alternative, scorciatoie, risposta corretta/errata, “Non so”, riepilogo parziale

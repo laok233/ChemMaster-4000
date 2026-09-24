@@ -36,7 +36,7 @@ ok(Array.isArray(filters) && filters.length === 4, "quattro filtri nomenclatura"
 ok(new Set(filters.map(filter => filter.id)).size === filters.length, "ID filtri univoci");
 ok(filters.every(filter => isText(filter.id) && isText(filter.label) && isText(filter.quizLabel)),
   "filtri completi");
-ok(Array.isArray(cards) && cards.length === 14, "14 schede nomenclatura", String(cards.length));
+ok(Array.isArray(cards) && cards.length === 16, "16 schede nomenclatura", String(cards.length));
 ok(new Set(cards.map(card => card.id)).size === cards.length, "ID schede univoci");
 
 const areas = new Set(["inorganic", "organic"]);
@@ -81,6 +81,17 @@ for (const card of cards) {
   }
 }
 
+const corpus=cards.map(card=>JSON.stringify(card)).join(" ");
+[
+  ["idruri", /idru/i],
+  ["ossidi basici", /ossidi basici/i],
+  ["anidridi", /anidrid/i],
+  ["idrossidi", /idrossid/i],
+  ["ossiacidi", /ossiacid/i],
+  ["idracidi", /idracid/i],
+  ["sali", /sali|sale/i]
+].forEach(([topic,pattern])=>ok(pattern.test(corpus), `contenuto presente: ${topic}`));
+
 for (const [scope, groups] of canonicalByScope) {
   ok(groups.size >= 4, `scope ${scope}: almeno quattro composti canonici`, String(groups.size));
   ok([...groups.values()].every(group => group.names.length >= 1),
@@ -96,6 +107,34 @@ const hydrogenChlorideGas=cards.flatMap(card => card.examples || [])
 ok(hydrogenChlorideGas && hydrogenChlorideGas.name === "cloruro di idrogeno" &&
    formulaKey(hydrogenChlorideGas.formula)!==formulaKey("HCl(aq)"),
   "fasi gassosa e acquosa di HCl restano distinte");
+const anhydrideCard=cards.find(card => card.id === "anidridi");
+const expectedAnhydrides={
+  "SO₂":"anidride solforosa",
+  "SO₃":"anidride solforica",
+  "N₂O₅":"anidride nitrica",
+  "CO₂":"anidride carbonica",
+  "P₄O₁₀":"anidride fosforica",
+  "Cl₂O₇":"anidride perclorica"
+};
+ok(anhydrideCard && anhydrideCard.area === "inorganic" &&
+   Object.entries(expectedAnhydrides).every(([formula,name]) =>
+     anhydrideCard.examples.some(example => example.formula === formula && example.name === name)),
+  "scheda Anidridi con coppie formula/nome attese");
+ok(anhydrideCard?.table?.rows?.length === Object.keys(expectedAnhydrides).length,
+  "tabella delle anidridi allineata agli esempi");
+const hydrideCard=cards.find(card => card.id === "idruri");
+const basicOxideCard=cards.find(card => card.id === "basi-ossidi");
+const saltCard=cards.find(card => card.id === "compositi-ionici");
+ok(hydrideCard && ["LiH","NaH","CaH₂","AlH₃"].every(formula =>
+  hydrideCard.examples.some(example => example.formula === formula)),
+  "copertura idruri metallici");
+ok(basicOxideCard && ["Na₂O","CaO","FeO","Fe₂O₃"].every(formula =>
+  basicOxideCard.examples.some(example => example.formula === formula)),
+  "copertura ossidi basici");
+ok(saltCard && saltCard.title === "Sali e composti ionici" &&
+   ["NaCl","K₂SO₄","Na₂CO₃","NH₄Cl"].every(formula =>
+     saltCard.examples.some(example => example.formula === formula)),
+  "copertura sali con cationi e anioni");
 const acetic = canonicalByScope.get("all").get(formulaKey("CH₃–COOH"));
 ok(acetic && ["acido etanoico", "acido acetico"].every(name => acetic.names.includes(name)),
   "alias acido etanoico/acetico associati allo stesso composto");
