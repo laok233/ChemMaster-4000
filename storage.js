@@ -363,7 +363,7 @@ async function importProgress(file){
   if(!file) return;
   // Lo stato reale occupa pochi KB: un limite evita che un file accidentale
   // enorme blocchi il thread durante JSON.parse.
-  if(file.size>1024*1024){
+  if(file.size>MAX_RAW_STATE_LENGTH){
     alert("Il file è troppo grande: il backup deve pesare al massimo 1 MB.");
     return;
   }

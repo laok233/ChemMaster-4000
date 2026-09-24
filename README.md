@@ -97,7 +97,7 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   e che i mazzetti derivino davvero da `BOX_DAYS` (`MAX_BOX`, niente clamp hardcoded sul 5° mazzo)
   con soglia di padroneggio unica (`MASTERY_THRESHOLD`).
 - **`bun run validate`** — validazione HTML delle tre pagine con `html-validate`.
-- **`tests/test-app.js`** — 345 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
+- **`tests/test-app.js`** — 346 asserzioni su interazioni reali (clic, digitazione, scorciatoie tastiera
   — incluse quelle **con tasti modificatori**, che non devono rispondere al posto nostro —,
   ricerca/filtri, evidenziazione biorilevanti (chip on/off, 26 accese/92 oscurate, priorità
   su ricerca e filtri di categoria, spento da “Mostra tutti”) e badge 🧬 nel pannello dettagli,
@@ -123,9 +123,9 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   `go()` con vista ignota che non lascia la pagina vuota, `aria-current`/`aria-pressed`/`aria-live`,
   navigazione senza animazione con `prefers-reduced-motion`, pannello dettagli non sticky su mobile,
   focus su carta/domanda/riepiloghi e «Termina» già visibile nel quiz prima di rispondere).
-- **`tests/test-browser.js`** — 24 asserzioni: Chromium headless sul menu, sulla guida di nomenclatura e su tutte le viste della
+- **`tests/test-browser.js`** — 28 asserzioni: Chromium headless sul menu, sulla guida di nomenclatura e su tutte le viste della
   tavola, nessun errore JavaScript, zero violazioni axe-core per i criteri WCAG 2.x A/AA applicabili,
-  viewport a 320 px senza overflow della pagina e hover neutrale con motion ridotto.
+  viewport a 320 px senza overflow della pagina, hover neutro con motion ridotto e avvio `file://` senza server.
 - **`tests/test-storage-indexeddb.js`** — 14 asserzioni: migrazione automatica da localStorage,
   caricamento condiviso del database, rifiuto di una seconda scrittura con baseline obsoleto e
   serializzazione dei salvataggi rapidi nella stessa scheda e rifiuto dei record falsi corrotti.
@@ -138,8 +138,9 @@ In CI (GitHub Actions, `.github/workflows/test.yml`) gli script girano a ogni **
   una sola scrittura.
 - **`tests/test-menu.js`** — menu principale: titolo/h1, sottotitolo piattaforma, due tessere
   («Tavola periodica» → `tavola.html` e «Nomenclatura» → `nomenclatura.html`), e tutti i link `*.html` del menu puntano a file esistenti.
-- **`tests/test-nomenclature.js`** — 27 asserzioni: struttura della nuova pagina, 11 schede,
-  ricerca su regole/note/esempi, filtri inorganica/organica, indice sincronizzato, tabelle
+- **`tests/test-nomenclature.js`** — 34 asserzioni: struttura della nuova pagina, 11 schede,
+  ricerca normalizzata su regole/note/esempi (incluse formule come `N2O4` per `N₂O₄`),
+  filtri inorganica/organica, indice sincronizzato e senza gruppi vuoti, tabelle
   accessibili e apertura dei pannelli con esempi.
 
 ## Personalizzazione rapida

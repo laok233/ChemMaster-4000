@@ -8,7 +8,7 @@ module.exports = context => {
   const scriptSources=[...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map(m=>m[1]);
   ok(JSON.stringify(scriptSources)===JSON.stringify(["data.js", "storage-backend.js", "storage.js", "app.js"]) &&
      !html.includes("<script>"),
-    "tavola carica i tre script esterni nell'ordine corretto senza codice inline");
+    "tavola carica i quattro script esterni nell'ordine corretto senza codice inline");
   ok(win.getComputedStyle(d.body).display !== "flex",
     "stili del menu non invadono il layout della tavola", win.getComputedStyle(d.body).display);
   ok(d.querySelectorAll("#ptable .cell").length === 118, "118 celle nella tavola");
@@ -129,9 +129,14 @@ module.exports = context => {
      non cancellare la sottolineatura di una query in corso */
   search("fer");
   const realSetTimeout = win.setTimeout;
-  win.setTimeout = fn => { fn(); return 0; };   // esegue il ripristino in sincrono
+  win.setTimeout = () => 0;   // sospende il ripristino per osservare l'evidenziazione
   click(win, d.querySelectorAll("#ptable .ph")[0]);
+  ok([...d.querySelectorAll("#ptable .cell.match")].every(cell => !cell.classList.contains("dim")) &&
+     [...d.querySelectorAll("#ptable .cell.match")].map(c => c.querySelector(".s").textContent).join(",") === "Fe,Fm",
+    "il placeholder non evidenzia celle escluse dalla ricerca attiva",
+    [...d.querySelectorAll("#ptable .cell.match")].map(c => c.className).join("|"));
   win.setTimeout = realSetTimeout;
+  ev(win, "applyFilter()");
   ok([...d.querySelectorAll("#ptable .cell.match")].map(c => c.querySelector(".s").textContent).join(",") === "Fe,Fm",
     "dopo il placeholder la sottolineatura della ricerca è preservata",
     [...d.querySelectorAll("#ptable .cell.match")].map(c => c.querySelector(".s").textContent).join(","));

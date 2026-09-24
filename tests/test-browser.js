@@ -2,6 +2,7 @@
 const fs = require("fs");
 const http = require("http");
 const path = require("path");
+const { pathToFileURL } = require("url");
 const { chromium } = require("@playwright/test");
 const { AxeBuilder } = require("@axe-core/playwright");
 
@@ -86,6 +87,17 @@ async function main() {
     ok(await page.locator("#nomenclatureContent article:not([hidden])").count() === 6,
       "nomenclatura: filtro organica funziona nel browser reale");
     await page.locator("#clearNomenclature").click();
+    await page.locator("#nomenclatureSearch").fill("N2O4");
+    ok(await page.locator("#nomenclatureContent article:not([hidden])").count() === 1 &&
+      await page.locator("#nomenclatureContent article:not([hidden])").getAttribute("id") === "nom-composti-binari",
+    "nomenclatura: ricerca normalizzata nel browser reale");
+    await page.locator("#nomenclatureSearch").fill("nessun risultato");
+    ok(await page.locator("#nomenclatureContent article:not([hidden])").count() === 0 &&
+      await page.locator("#nomenclatureStatus").isVisible() &&
+      await page.locator(".nomenclature-index-group:visible").count() === 0,
+    "nomenclatura: stato vuoto visibile e indice senza gruppi vuoti");
+    await assertA11y(page, "Nomenclatura senza risultati");
+    await page.locator("#clearNomenclature").click();
     await assertA11y(page, "Nomenclatura");
 
     await page.goto(`${base}/tavola.html`, { waitUntil: "networkidle" });
@@ -132,6 +144,16 @@ async function main() {
         `navigazione: vista ${label} attiva`);
       await assertA11y(page, `Vista ${label}`);
     }
+
+    const offlinePage = await context.newPage();
+    watchRuntimeErrors(offlinePage);
+    await offlinePage.goto(pathToFileURL(path.join(ROOT, "tavola.html")).href);
+    await offlinePage.waitForFunction(() => globalThis.__appReadyPromise);
+    await offlinePage.evaluate(() => globalThis.__appReadyPromise);
+    ok(await offlinePage.locator("#ptable .cell").count() === 118,
+      "tavola: apertura file:// senza server e bootstrap completato");
+    await offlinePage.close();
+
     ok(runtimeErrors.length === 0, "nessun errore JavaScript nel browser", runtimeErrors.join(" | "));
   } finally {
     await context.close();

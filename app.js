@@ -119,7 +119,7 @@ function buildGrid(host, opts={}){
         clearTimeout(placeholderTimer);
         for(let z=firstZ;z<=firstZ+14;z++){
           const c=host.querySelector(`[data-z="${z}"]`);
-          if(c) c.classList.add("match");
+          if(c && !c.classList.contains("dim")) c.classList.add("match");
         }
         // dopo l'evidenziazione si torna allo stato deciso dalla ricerca attiva,
         // così la sottolineatura di una query in corso non viene persa

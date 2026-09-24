@@ -60,11 +60,11 @@ const NOMENCLATURE_CARDS = [
     topic:"Composti binari",
     title:"Composti covalenti binari",
     summary:"Quando due non metalli formano un composto, il numero di atomi si dichiara con prefissi italiani, non con i coefficienti della formula.",
-    rule:"Si legge il primo elemento, poi il secondo con il prefisso del suo numero di atomi. Il prefisso mono- si omette sul primo elemento quando c'è un solo atomo; per gli altri elementi si usa sempre.",
+    rule:"Il primo elemento si nomina senza prefisso quando compare una sola volta; altrimenti si aggiunge il suo prefisso. Il secondo elemento riceve sempre il prefisso corrispondente al numero di atomi.",
     steps:[
       "Conta gli atomi di ciascun elemento nella formula semplice.",
-      "Scrivi il primo elemento senza prefisso mono- se è presente una sola volta.",
-      "Applica al secondo elemento il prefisso adatto e leggi la formula in italiano."
+      "Scrivi il primo elemento con il prefisso adatto, omettendo mono- quando non serve.",
+      "Applica al secondo elemento il prefisso del suo numero di atomi e leggi la formula in italiano."
     ],
     examples:[
       {formula:"CO", name:"monossido di carbonio", note:"mono- si omette sul primo elemento"},

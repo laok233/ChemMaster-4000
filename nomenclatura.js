@@ -3,6 +3,7 @@
 const nomenclatureState={filter:"all",query:""};
 const nomenclatureCardRecords=[];
 const nomenclatureIndexNodes=new Map();
+const nomenclatureIndexGroups=new Map();
 
 function makeNomenclatureElement(tag,attrs={},...children){
   const node=document.createElement(tag);
@@ -22,16 +23,40 @@ function nomenclatureText(value){
   return value===undefined||value===null ? "" : String(value);
 }
 
+// La ricerca deve tollerare la modalità di scrittura più comune: "CO2" per
+// CO₂, formule senza pedici Unicode e testo con punteggiatura/accenti leggermente
+// diversi. I testi dei dati vengono normalizzati una sola volta durante init.
+function normalizeNomenclatureText(value){
+  return nomenclatureText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .replace(/[₀-₉]/g,char=>String(char.charCodeAt(0)-0x2080))
+    .replace(/[⁰-⁹]/g,char=>String(char.charCodeAt(0)-0x2070))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g," ")
+    .trim()
+    .replace(/\s+/g," ");
+}
+
 function nomenclatureSearchText(card){
-  const exampleText=card.examples.flatMap(example=>[example.formula,example.name,example.note]);
+  const examples=Array.isArray(card.examples)?card.examples:[];
+  const exampleText=examples.flatMap(example=>[example.formula,example.name,example.note]);
   const tableText=card.table ? [
     card.table.caption,...card.table.headers,
     ...card.table.rows.flat()
   ] : [];
-  return [
+  return normalizeNomenclatureText([
     card.title,card.topic,card.summary,card.rule,
     ...(card.steps||[]),...exampleText,...(card.notes||[]),...tableText
-  ].map(nomenclatureText).join(" ").toLowerCase();
+  ]);
+}
+
+function nomenclatureMatches(record,query){
+  if(!query || record.searchText.includes(query)) return true;
+  // Il nome dell'area ("organica") è confrontato per parole: un semplice
+  // includes lo renderebbe parte di "inorganica" e falserebbe i risultati.
+  return query.split(" ").every(term=>
+    record.areaWords.some(word=>word.startsWith(term)));
 }
 
 function nomenclatureAreaLabel(area){
@@ -147,6 +172,8 @@ function buildNomenclatureFilters(){
 function buildNomenclatureIndex(){
   const host=document.getElementById("nomenclatureIndex");
   host.replaceChildren();
+  nomenclatureIndexNodes.clear();
+  nomenclatureIndexGroups.clear();
   const groups=[
     {id:"inorganic",label:"Inorganica"},
     {id:"organic",label:"Organica"}
@@ -163,11 +190,12 @@ function buildNomenclatureIndex(){
       nomenclatureIndexNodes.set(card.id,item);
     });
     groupNode.append(heading,list);
-    host.append(groupNode);
+    host.appendChild(groupNode);
+    nomenclatureIndexGroups.set(group.id,groupNode);
   });
 }
 
-function updateNomenclatureIndex(visibleIds){
+function updateNomenclatureIndex(visibleIds,visibleAreas){
   let firstVisible=true;
   nomenclatureIndexNodes.forEach((item,id)=>{
     item.hidden=!visibleIds.has(id);
@@ -178,17 +206,24 @@ function updateNomenclatureIndex(visibleIds){
       firstVisible=false;
     }
   });
+  nomenclatureIndexGroups.forEach((group,area)=>{
+    group.hidden=!visibleAreas.has(area);
+  });
 }
 
 function updateNomenclatureFilter(){
-  const query=nomenclatureState.query.trim().toLowerCase();
+  const query=normalizeNomenclatureText(nomenclatureState.query);
   const visibleIds=new Set();
+  const visibleAreas=new Set();
   nomenclatureCardRecords.forEach(record=>{
     const matchArea=nomenclatureState.filter==="all" || record.card.area===nomenclatureState.filter;
-    const matchQuery=!query || record.searchText.includes(query);
+    const matchQuery=nomenclatureMatches(record,query);
     const visible=matchArea && matchQuery;
     record.node.hidden=!visible;
-    if(visible) visibleIds.add(record.card.id);
+    if(visible){
+      visibleIds.add(record.card.id);
+      visibleAreas.add(record.card.area);
+    }
   });
 
   const count=visibleIds.size;
@@ -198,8 +233,9 @@ function updateNomenclatureFilter(){
     "Nessuna scheda corrisponde alla ricerca o al filtro selezionato.":
     count===total?`Tutte le ${total} schede sono mostrate.`:
       `${count} schede mostrate su ${total}.`;
+  status.dataset.empty=String(count===0);
   document.getElementById("clearNomenclature").disabled=
-    nomenclatureState.filter==="all" && !query;
+    nomenclatureState.filter==="all" && !nomenclatureState.query.trim();
 
   document.querySelectorAll("#nomenclatureFilters [data-filter]").forEach(button=>{
     const on=button.dataset.filter===nomenclatureState.filter;
@@ -207,7 +243,7 @@ function updateNomenclatureFilter(){
     button.classList.toggle("off",!on);
     button.setAttribute("aria-pressed",String(on));
   });
-  updateNomenclatureIndex(visibleIds);
+  updateNomenclatureIndex(visibleIds,visibleAreas);
 }
 
 function clearNomenclature(){
@@ -221,9 +257,15 @@ function clearNomenclature(){
 function initNomenclature(){
   const content=document.getElementById("nomenclatureContent");
   content.replaceChildren();
+  nomenclatureCardRecords.length=0;
   NOMENCLATURE_CARDS.forEach(card=>{
     const node=buildNomenclatureCard(card);
-    const record={card,node,searchText:nomenclatureSearchText(card)};
+    const record={
+      card,
+      node,
+      searchText:nomenclatureSearchText(card),
+      areaWords:normalizeNomenclatureText(nomenclatureAreaLabel(card.area)).split(" ")
+    };
     nomenclatureCardRecords.push(record);
     content.append(node);
   });

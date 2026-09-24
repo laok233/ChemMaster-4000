@@ -60,8 +60,9 @@ ok(!!d.querySelector('a[href="index.html"]') && /Menu/.test(d.querySelector('a[h
 ok(!d.getElementById("nomenclatureSearch").hasAttribute("aria-label"),
   "il campo di ricerca ha un'etichetta visibile associata");
 ok(d.querySelector("label.nomenclature-search-label #nomenclatureSearch"), "etichetta del campo di ricerca");
-ok(d.getElementById("nomenclatureStatus").getAttribute("aria-live") === "polite",
-  "stato dei risultati annunciato");
+ok(d.getElementById("nomenclatureStatus").getAttribute("aria-live") === "polite" &&
+   !d.getElementById("nomenclatureStatus").classList.contains("sr-only"),
+  "conteggio dei risultati annunciato e visibile");
 ok(d.querySelectorAll("#nomenclatureContent article").length === 11, "11 schede iniziali",
   String(d.querySelectorAll("#nomenclatureContent article").length));
 ok(d.querySelectorAll("#nomenclatureContent details").length === 11, "ogni scheda ha un pannello espandibile");
@@ -70,6 +71,9 @@ ok([...d.querySelectorAll("#nomenclatureFilters button")].every(button =>
   button.type === "button" && button.hasAttribute("aria-pressed")),
 "filtri navigabili da tastiera con stato esposto");
 ok(d.querySelectorAll("#nomenclatureContent table caption").length === 4, "tabelle di riferimento presenti");
+ok(d.getElementById("nomenclatureStatus").textContent === "Tutte le 11 schede sono mostrate." &&
+   d.getElementById("nomenclatureStatus").dataset.empty === "false",
+  "conteggio iniziale dei risultati", d.getElementById("nomenclatureStatus").textContent);
 
 section("Nomenclatura: filtri e ricerca");
 const filters = [...d.querySelectorAll("#nomenclatureFilters button")];
@@ -79,6 +83,9 @@ ok(filters[0].getAttribute("aria-pressed") === "true" && filters[1].getAttribute
 click(filters[2]);
 ok(visibleCards().length === 6 && visibleCards().every(card => card.dataset.area === "organic"),
   "filtro organica mostra solo le schede organiche", visibleCards().length + " schede");
+ok(d.querySelector("#nomenclatureIndex [aria-labelledby='nom-index-inorganic']").hidden &&
+   !d.querySelector("#nomenclatureIndex [aria-labelledby='nom-index-organic']").hidden,
+  "l'indice nasconde il gruppo vuoto dopo il filtro organica");
 ok(d.getElementById("nomenclatureStatus").textContent === "6 schede mostrate su 11.",
   "conteggio filtrato", d.getElementById("nomenclatureStatus").textContent);
 click(filters[0]);
@@ -88,6 +95,21 @@ ok(visibleCards().length === 1 && visibleCards()[0].id === "nom-cationi-anioni",
 search("nessun gruppo");
 ok(visibleCards().length === 0 && /Nessuna scheda/.test(d.getElementById("nomenclatureStatus").textContent),
   "ricerca senza risultati e stato accessibile", d.getElementById("nomenclatureStatus").textContent);
+ok(d.getElementById("nomenclatureStatus").dataset.empty === "true" &&
+   [...d.querySelectorAll(".nomenclature-index-group")].every(group => group.hidden),
+  "stato vuoto visibile e gruppi dell'indice nascosti");
+click(d.getElementById("clearNomenclature"));
+search("N2O4");
+ok(visibleCards().length === 1 && visibleCards()[0].id === "nom-composti-binari",
+  "ricerca normalizzata trova formule con pedici Unicode", visibleCards().map(card => card.id).join(","));
+click(d.getElementById("clearNomenclature"));
+search("inorganica");
+ok(visibleCards().length === 5 && visibleCards().every(card => card.dataset.area === "inorganic"),
+  "la ricerca include l'etichetta dell'area", visibleCards().map(card => card.id).join(","));
+click(d.getElementById("clearNomenclature"));
+search("organica");
+ok(visibleCards().length === 6 && visibleCards().every(card => card.dataset.area === "organic"),
+  "la ricerca non confonde organica e inorganica", visibleCards().map(card => card.id).join(","));
 click(d.getElementById("clearNomenclature"));
 ok(d.getElementById("nomenclatureSearch").value === "" && visibleCards().length === 11,
   "Mostra tutte azzera ricerca e filtri");
@@ -99,6 +121,9 @@ ok(visibleCards().length === 1 && visibleCards()[0].id === "nom-alcoli",
 const indexVisible = [...d.querySelectorAll("#nomenclatureIndex li")].filter(item => !item.hidden);
 ok(indexVisible.length === 1 && indexVisible[0].querySelector("a").getAttribute("aria-current") === "location",
   "indice sincronizzato con la ricerca");
+ok(d.querySelector("#nomenclatureIndex [aria-labelledby='nom-index-inorganic']").hidden &&
+   !d.querySelector("#nomenclatureIndex [aria-labelledby='nom-index-organic']").hidden,
+  "indice mostra solo il gruppo con risultati");
 click(d.getElementById("clearNomenclature"));
 
 section("Nomenclatura: schede espandibili");
