@@ -36,7 +36,7 @@ ok(Array.isArray(filters) && filters.length === 4, "quattro filtri nomenclatura"
 ok(new Set(filters.map(filter => filter.id)).size === filters.length, "ID filtri univoci");
 ok(filters.every(filter => isText(filter.id) && isText(filter.label) && isText(filter.quizLabel)),
   "filtri completi");
-ok(Array.isArray(cards) && cards.length === 16, "16 schede nomenclatura", String(cards.length));
+ok(Array.isArray(cards) && cards.length === 17, "17 schede nomenclatura", String(cards.length));
 ok(new Set(cards.map(card => card.id)).size === cards.length, "ID schede univoci");
 
 const areas = new Set(["inorganic", "organic"]);
@@ -89,7 +89,8 @@ const corpus=cards.map(card=>JSON.stringify(card)).join(" ");
   ["idrossidi", /idrossid/i],
   ["ossiacidi", /ossiacid/i],
   ["idracidi", /idracid/i],
-  ["sali", /sali|sale/i]
+  ["sali", /sali|sale/i],
+  ["sali ternari", /ternari|ternario/i]
 ].forEach(([topic,pattern])=>ok(pattern.test(corpus), `contenuto presente: ${topic}`));
 
 for (const [scope, groups] of canonicalByScope) {
@@ -135,6 +136,10 @@ ok(saltCard && saltCard.title === "Sali e composti ionici" &&
    ["NaCl","K₂SO₄","Na₂CO₃","NH₄Cl"].every(formula =>
      saltCard.examples.some(example => example.formula === formula)),
   "copertura sali con cationi e anioni");
+const ternarySaltCard=cards.find(card => card.id === "sali-ternari");
+ok(ternarySaltCard && ["Na₂CO₃","K₂SO₄","CaCO₃","NaNO₃","Ca(NO₃)₂","K₃PO₄"].every(formula =>
+  ternarySaltCard.examples.some(example => example.formula === formula)),
+  "copertura sali ternari con anioni poliatomici");
 const acetic = canonicalByScope.get("all").get(formulaKey("CH₃–COOH"));
 ok(acetic && ["acido etanoico", "acido acetico"].every(name => acetic.names.includes(name)),
   "alias acido etanoico/acetico associati allo stesso composto");

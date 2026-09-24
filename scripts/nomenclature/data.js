@@ -60,6 +60,44 @@ const NOMENCLATURE_CARDS = [
     ]
   },
   {
+    id:"sali-ternari",
+    area:"inorganic",
+    topic:"Sali ternari",
+    title:"Sali ternari",
+    summary:"I sali ternari derivano da ossiacidi e sono formati da un catione e uno ione poliatomico; la formula contiene tre elementi chimici.",
+    rule:"Nel nome tradizionale si scrive il nome dell'anione derivato dall'ossiacido, con suffisso -ato, seguito da «di» e dal catione. Per esempio, Na₂CO₃ è carbonato di sodio e K₂SO₄ è solfato di potassio.",
+    steps:[
+      "Riconosci l'ossiacido di origine e il suo anione poliatomico.",
+      "Sostituisci il suffisso -ico dell'acido con -ato per ottenere il nome tradizionale del sale.",
+      "Scrivi il catione dopo «di» e controlla il bilancio delle cariche; nei sali acidi compare anche idrogeno."
+    ],
+    examples:[
+      {formula:"Na₂CO₃", name:"carbonato di sodio", note:"anione CO₃²⁻ + 2 Na⁺"},
+      {formula:"K₂SO₄", name:"solfato di potassio", note:"anione SO₄²⁻ + 2 K⁺"},
+      {formula:"CaCO₃", name:"carbonato di calcio", note:"anione CO₃²⁻ + Ca²⁺"},
+      {formula:"NaNO₃", name:"nitrato di sodio", note:"anione NO₃⁻ + Na⁺"},
+      {formula:"Ca(NO₃)₂", name:"nitrato di calcio", note:"anione NO₃⁻ + Ca²⁺"},
+      {formula:"K₃PO₄", name:"fosfato di potassio", note:"anione PO₄³⁻ + 3 K⁺"}
+    ],
+    table:{
+      caption:"Sali ternari e anioni derivati dagli ossiacidi",
+      headers:["Formula","Nome tradizionale","Anione"],
+      rows:[
+        ["Na₂CO₃","carbonato di sodio","CO₃²⁻"],
+        ["K₂SO₄","solfato di potassio","SO₄²⁻"],
+        ["CaCO₃","carbonato di calcio","CO₃²⁻"],
+        ["NaNO₃","nitrato di sodio","NO₃⁻"],
+        ["Ca(NO₃)₂","nitrato di calcio","NO₃⁻"],
+        ["K₃PO₄","fosfato di potassio","PO₄³⁻"]
+      ]
+    },
+    notes:[
+      "Un sale ternario contiene tre elementi chimici; non significa necessariamente tre tipi di ione.",
+      "KNaCO₃ è un sale misto con due cationi: si distingue dal ternario semplice Na₂CO₃.",
+      "I sali acidi come NaHCO₃ sono un caso particolare: contengono anche idrogeno e si nominano idrogenocarbonato di sodio."
+    ]
+  },
+  {
     id:"anidridi",
     area:"inorganic",
     topic:"Anidridi",

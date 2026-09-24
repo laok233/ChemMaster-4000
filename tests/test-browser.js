@@ -104,8 +104,8 @@ async function main() {
     ok(new URL(page.url()).pathname === "/pages/nomenclatura.html",
       "menu: collegamento alla nomenclatura dal nuovo percorso");
     await page.waitForLoadState("networkidle");
-    ok(await page.locator("#nomenclatureContent article").count() === 16,
-      "nomenclatura: 16 schede renderizzate");
+    ok(await page.locator("#nomenclatureContent article").count() === 17,
+      "nomenclatura: 17 schede renderizzate");
     const nomenclatureIndexLink=page.locator('#nomenclatureIndex a[href="#nom-composti-binari"]');
     await nomenclatureIndexLink.focus();
     await page.keyboard.press("Enter");
@@ -243,7 +243,7 @@ async function main() {
     await offlineNomenclaturePage.goto(pathToFileURL(path.join(ROOT, "pages", "nomenclatura.html")).href);
     await offlineNomenclaturePage.waitForFunction(() => globalThis.__nomenclatureReady === true, null,
       { timeout:10000 });
-    ok(await offlineNomenclaturePage.locator("#nomenclatureContent article").count() === 16,
+    ok(await offlineNomenclaturePage.locator("#nomenclatureContent article").count() === 17,
       "nomenclatura: apertura file:// senza server e asset riorganizzati");
     await offlineNomenclaturePage.close();
 
